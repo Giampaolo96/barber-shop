@@ -1,5 +1,8 @@
 -- Dati demo per lo sviluppo locale e la CI. Viene eseguito da `npx supabase db reset`,
 -- mai sul database cloud. Tutti gli utenti demo hanno password "demo1234".
+--
+-- ATTENZIONE: non usare `supabase db push --include-seed` verso il progetto cloud:
+-- creerebbe in produzione un admin con password nota.
 
 -- Impostazioni negozio (SPEC §3.1): valori di default --------------------------
 insert into public.shop_settings (name, address, phone)

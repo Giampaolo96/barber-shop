@@ -38,6 +38,10 @@ jobs:
       - name: Database tests (pgTAP, RLS)
         run: npm run test:db
 
+      # I tipi committati devono corrispondere allo schema delle migrazioni.
+      - name: Generated types are up to date
+        run: npm run db:types && git diff --exit-code -- src/lib/db/types.ts
+
       - name: Unit and acceptance tests
         run: npm test
 

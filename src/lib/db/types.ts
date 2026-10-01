@@ -88,6 +88,42 @@ export type Database = {
           },
         ];
       };
+      booking_staff_notes: {
+        Row: {
+          booking_id: string;
+          note: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          booking_id: string;
+          note: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          booking_id?: string;
+          note?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "booking_staff_notes_booking_id_fkey";
+            columns: ["booking_id"];
+            isOneToOne: true;
+            referencedRelation: "bookings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "booking_staff_notes_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       bookings: {
         Row: {
           barber_id: string;

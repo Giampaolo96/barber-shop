@@ -20,7 +20,7 @@ Un solo negozio (single-tenant). Il multi-negozio è fuori scope ma il modello d
 | Ruolo | Chi è | Cosa può fare |
 |---|---|---|
 | `customer` | Cliente registrato | Vede servizi e disponibilità, prenota, vede/cancella le proprie prenotazioni, gestisce il proprio profilo |
-| `barber` | Dipendente | Vede il proprio calendario, crea prenotazioni manuali per sé, segna completata / no-show, gestisce le proprie assenze (soggette ad approvazione? → domanda aperta) |
+| `barber` | Dipendente | Vede il proprio calendario, crea prenotazioni manuali per sé, segna completata / no-show, gestisce le proprie assenze (senza approvazione dell'admin) |
 | `admin` | Titolare | Tutto: servizi, barbieri, orari, chiusure, tutte le prenotazioni, clienti, impostazioni, statistiche |
 
 Un utente ha un solo ruolo. Un admin può essere anche barbiere: lo è quando esiste una riga `barbers` collegata al suo profilo (`barbers.profile_id`), senza flag dedicato.
@@ -180,7 +180,7 @@ Pagamenti e caparre online, più servizi in una prenotazione, lista d'attesa, pr
 1. Quanti barbieri, e il cliente deve poter scegliere il barbiere?
 2. Orari reali, giorni di chiusura e listino servizi con durate.
 3. Login cliente: basta email/Google o serve il numero di telefono verificato via SMS (costo per SMS)?
-4. Le assenze inserite dai barbieri richiedono approvazione dell'admin?
+4. ~~Le assenze inserite dai barbieri richiedono approvazione dell'admin?~~ Deciso: no, nessuna approvazione (fetta 1).
 5. Le prenotazioni online vanno confermate a mano o sono automatiche?
 6. Serve una caparra o il pagamento anticipato per ridurre i no-show?
 7. Chi riceve le notifiche lato negozio e su quale canale?

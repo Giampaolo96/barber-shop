@@ -60,9 +60,9 @@
 - `src/lib/db/types.ts` generato; script `test:db` e `db:types` (genera e formatta con `oxfmt`, nuova devDependency).
 - CI: `supabase start -x ...` e `npm run test:db` prima dei test.
 - `docs/adr/001-rls-e-scritture-prenotazioni.md`; SPEC §2 aggiornata (admin barbiere senza flag `is_barber`).
-- Test: pgTAP in `supabase/tests/` (01–07 di accettazione, 465 asserzioni; 08 regressioni della review, 10), `tests/acceptance/schema.test.ts` (40).
+- Test: pgTAP in `supabase/tests/` (01–07 di accettazione, 465 asserzioni; 08 regressioni della review, 10; 09 rafforzamento sicurezza, 64), `tests/acceptance/schema.test.ts` (40).
 
-**Esiti**: lint ok, typecheck ok, Vitest 90/90, pgTAP 475/475, Playwright 4/4.
+**Esiti**: lint ok, typecheck ok, Vitest 90/90, pgTAP 539/539, Playwright 4/4.
 
 **Review**: 2 bloccanti corretti, con test di regressione in `08_review_fixes.test.sql`.
 - Il trigger annullava l'`on delete set null` di `status_changed_by`: un account che aveva creato o cambiato di stato una prenotazione non era eliminabile.
@@ -71,28 +71,31 @@
 **Decisioni** (dettaglio nell'ADR 001)
 - Il cliente ha solo `select` sulle proprie prenotazioni; creazione e cancellazione online arrivano nella fetta 5 con funzioni `security definer`.
 - Buffer copiato sulla prenotazione; esclusione su `tstzrange(starts_at, blocked_until, '[)')`; `ends_at` e `blocked_until` sempre calcolati dal trigger.
-- Durata, prezzo e buffer non modificabili a mano, nemmeno dall'admin; durata e prezzo si ricopiano al cambio di servizio.
+- Durata e prezzo si ricopiano al cambio di servizio; l'admin può modificarli a mano, il barbiere no. Il buffer resta quello della creazione.
 - Barbiere: da `confirmed` solo a `completed`, `no_show`, `cancelled_by_shop`; vede solo i profili dei propri clienti; ricerca con `search_customers`. Admin: qualsiasi transizione.
-- `no_show_count` cambia solo con le transizioni di stato; `is_blocked` è solo il blocco manuale dell'admin. Il blocco automatico per no-show si calcola dal contatore al momento della prenotazione (fetta 5).
+- `no_show_count` cambia solo tramite i trigger delle prenotazioni; `is_blocked` è solo il blocco manuale dell'admin. Il blocco automatico per no-show si calcola dal contatore al momento della prenotazione (fetta 5).
 - `phone` nullable nel DB; il trigger di registrazione crea il profilo con il solo id.
 - `barbers.profile_id` `on delete set null`.
 - Supabase cloud rimandato alla fetta 2.
 
+**Rafforzamento sicurezza dopo la review** (6 migrazioni `2026100213*`, test in `09_security_hardening.test.sql`, 64 asserzioni)
+- `bookings`: `id` e `created_at` immutabili; il barbiere può correggere nominativo e telefono dell'ospite; l'admin può modificare prezzo e durata, con ricalcolo di `ends_at` e `blocked_until`.
+- `customer_id` deve puntare a un profilo `customer`.
+- Contatore no-show: cambiando `customer_id` di una `no_show` il conteggio si sposta; eliminando una `no_show` scende. Solo l'admin elimina prenotazioni.
+- Note staff nella tabella separata `booking_staff_notes` (RLS solo staff); `bookings.notes` resta la nota visibile al cliente.
+- `barbers.profile_id` non leggibile da `anon`; `barber_services` visibili ad `anon` e `customer` solo con servizio e barbiere attivi.
+- Privilegi di default chiusi nello schema `public` per le tabelle; per le funzioni revoke esplicito in ogni migrazione, verificato da un test pgTAP con elenco di eccezioni (vedi ADR 001).
+- Guardia dei profili senza `pg_trigger_depth()`; protezione dell'ultimo admin; `timezone` validato.
+- All'eliminazione di un profilo le prenotazioni future `confirmed` passano a `cancelled_by_customer`.
+- Via il grant di `search_customers` a `service_role`; CI con controllo dei tipi allineati; avviso nel seed; SPEC §2 e §13.4: assenze senza approvazione.
+
 **Da fare nelle prossime fette**
 - Fetta 2: nome del profilo dai metadati di registrazione, campi dei consensi, progetto Supabase cloud, riallineare `config.toml` (vedi fetta 0).
 - Fetta 5: funzioni di prenotazione e cancellazione con SPEC §3.7.2, blocco no-show, rate limiting. I trigger di `bookings` non limitano le funzioni `security definer`: devono ricontrollare ruolo e regole.
-- Fetta 9: le prenotazioni future di un account eliminato restano `confirmed` senza cliente; vanno cancellate prima dell'eliminazione.
+- Ogni migrazione che crea una funzione deve fare il `revoke` esplicito da `public`, `anon` e `authenticated`: se manca, fallisce il test in `09_security_hardening.test.sql`.
 
-**Migliorie rimandate (dalla review, non applicate)**
-- Il barbiere può modificare `guest_name`, `guest_phone`, `id` e `created_at` delle proprie prenotazioni; `created_at` è accettato dal client in insert.
-- Il barbiere può leggere un profilo qualunque (anche staff) inserendo una prenotazione manuale con quel `customer_id`.
-- `barbers.profile_id` è leggibile da `anon`; `barber_services` espone anche le coppie di elementi disattivati.
-- `pg_trigger_depth() > 1` nella guardia dei profili è ridondante (il trigger del contatore è `security definer`).
-- `grant execute` di `search_customers` a `service_role` è inutile (la funzione rifiuta sempre senza utente).
-- I default privilege di `public` restano aperti: le prossime migrazioni devono ripetere il `revoke` su tabelle e funzioni nuove.
-- `notes` è unico: il cliente legge anche eventuali note dello staff e `status_changed_by`.
-- Eliminare una prenotazione `no_show` o cambiarne il cliente non aggiorna il contatore.
-- Nessuna protezione contro il declassamento dell'ultimo admin; `shop_settings.timezone` non validato; `working_hours` non rappresenta una fascia che termina a mezzanotte.
-- CI: controllo che `src/lib/db/types.ts` sia allineato allo schema.
-- Seed: `supabase db push --include-seed` lo applicherebbe al cloud creando un admin con password nota.
+**Migliorie rimandate**
+- `working_hours` non rappresenta una fascia che termina a mezzanotte.
 - Tipi TypeScript: i campi calcolati dal trigger risultano obbligatori in insert.
+- Il cliente legge `status_changed_by` (UUID dello staff) sulle proprie prenotazioni.
+- La protezione dell'ultimo admin non gestisce due declassamenti concorrenti.
