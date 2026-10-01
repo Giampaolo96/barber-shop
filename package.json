@@ -12,7 +12,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:db": "supabase test db",
+    "db:types": "supabase gen types typescript --local > src/lib/db/types.ts && oxfmt src/lib/db/types.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -36,6 +38,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
+    "oxfmt": "^0.71.0",
     "shadcn": "^4.21.1",
     "supabase": "^2.119.0",
     "tailwindcss": "^4",

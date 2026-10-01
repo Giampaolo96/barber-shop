@@ -31,6 +31,13 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # Servono solo Postgres e Auth: i test pgTAP girano dentro il database.
+      - name: Start Supabase
+        run: npx supabase start -x studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector
+
+      - name: Database tests (pgTAP, RLS)
+        run: npm run test:db
+
       - name: Unit and acceptance tests
         run: npm test
 
