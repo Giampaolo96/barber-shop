@@ -17,7 +17,9 @@
     "deny": [
       "Bash(git push *)",
       "Bash(npx supabase db push *)",
-      "Read(./.env*)"
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./.env.*.local)"
     ]
   },
   "hooks": {

@@ -8,3 +8,8 @@ playwright-report/
 test-results/
 coverage/
 .claude/settings.local.json
+out/
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+supabase/.branches/
