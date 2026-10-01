@@ -1,0 +1,36 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(npx vitest *)",
+      "Bash(npx playwright *)",
+      "Bash(npx supabase *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)"
+    ],
+    "deny": [
+      "Bash(git push *)",
+      "Bash(npx supabase db push *)",
+      "Read(./.env*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/quality-gate.ps1",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}
