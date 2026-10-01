@@ -2,7 +2,7 @@
 
 | Fetta | Stato | Data | Note |
 |---|---|---|---|
-| 0 | completata in locale, CI e deploy in attesa | 2026-10-02 | Vedi "Fetta 0" sotto |
+| 0 | completata | 2026-10-02 | Vedi "Fetta 0" sotto |
 | 1 | da fare | | |
 | 2 | da fare | | |
 | 3 | da fare | | |
@@ -18,7 +18,7 @@
 
 ## Fetta 0 – Setup progetto, CI, Supabase locale, deploy di prova
 
-**Stato**: completata in locale. Restano due verifiche manuali dell'utente: primo run verde della CI su GitHub e deploy Vercel (passi in `docs/DEPLOY.md`).
+**Stato**: completata. CI verde su GitHub e deploy Vercel attivo su https://barber-shop-jade-alpha.vercel.app/ (entrambi confermati dall'utente il 2026-10-02).
 
 **Fatto**
 - Next.js 16 (App Router), TypeScript strict, Tailwind 4, ESLint flat config, shadcn/ui inizializzato (stile radix-nova, nessun componente).
