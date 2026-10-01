@@ -23,7 +23,7 @@ Un solo negozio (single-tenant). Il multi-negozio è fuori scope ma il modello d
 | `barber` | Dipendente | Vede il proprio calendario, crea prenotazioni manuali per sé, segna completata / no-show, gestisce le proprie assenze (soggette ad approvazione? → domanda aperta) |
 | `admin` | Titolare | Tutto: servizi, barbieri, orari, chiusure, tutte le prenotazioni, clienti, impostazioni, statistiche |
 
-Un utente ha un solo ruolo. Un admin può essere anche barbiere (flag `is_barber` sul profilo staff).
+Un utente ha un solo ruolo. Un admin può essere anche barbiere: lo è quando esiste una riga `barbers` collegata al suo profilo (`barbers.profile_id`), senza flag dedicato.
 
 ---
 
