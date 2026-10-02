@@ -42,7 +42,7 @@ npx supabase start             # DB locale (Docker Desktop)
 npx supabase db reset          # riapplica migrazioni + seed
 npx supabase gen types typescript --local > src/lib/db/types.ts
 ```
-Prima di dichiarare finito un task: `lint`, `typecheck` e `test` devono passare. L'hook `Stop` lo verifica in automatico quando ci sono modifiche non committate.
+Prima di dichiarare finito un task: `lint`, `typecheck` e `test` devono passare. L'hook `Stop` lo verifica in automatico solo quando ci sono modifiche non committate in `src/`, `supabase/migrations/` o `supabase/seed.sql` (le cartelle dei test non contano: i test di accettazione nascono rossi).
 
 ## Regole di dominio non negoziabili
 1. Nessuna sovrapposizione di prenotazioni `confirmed` dello stesso barbiere: garantita da un **vincolo di esclusione** (`btree_gist` + `tstzrange`), non solo dal codice.
@@ -56,6 +56,7 @@ Prima di dichiarare finito un task: `lint`, `typecheck` e `test` devono passare.
 - RLS attiva su ogni tabella, con test per ogni ruolo (`customer`, `barber`, `admin`).
 - La `service_role` key si usa solo lato server ed Edge Functions; mai in codice client o variabili `NEXT_PUBLIC_*`.
 - Ogni server action valida l'input con Zod e ricontrolla il ruolo dell'utente.
+- Ogni route handler e ogni pagina di `/admin` chiama `requireRole`: il matcher del proxy esclude alcune estensioni (es. `.json`, `.js`, `.txt`) e il layout non viene rieseguito durante la navigazione, quindi nessuno dei due basta da solo.
 - Nessun segreto nel repo: usare `.env.local` (ignorato) e documentare le variabili in `.env.example`.
 - Niente `select *` (né `.select('*')` o `.select()` senza colonne) sulle tabelle con grant di colonna, oggi `barbers`: le colonne si elencano sempre in modo esplicito, altrimenti la query fallisce con "permission denied". Ogni nuova colonna su queste tabelle richiede un grant esplicito nella stessa migrazione.
 - Ogni migrazione che crea una funzione fa `revoke all ... from public, anon, authenticated` e poi concede solo i grant voluti (lo verifica un test pgTAP).
