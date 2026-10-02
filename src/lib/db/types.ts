@@ -222,8 +222,12 @@ export type Database = {
           full_name: string | null;
           id: string;
           is_blocked: boolean;
+          marketing_consent: boolean;
+          marketing_consent_at: string | null;
           no_show_count: number;
           phone: string | null;
+          privacy_consent_at: string | null;
+          privacy_policy_version: string | null;
           role: Database["public"]["Enums"]["user_role"];
         };
         Insert: {
@@ -231,8 +235,12 @@ export type Database = {
           full_name?: string | null;
           id: string;
           is_blocked?: boolean;
+          marketing_consent?: boolean;
+          marketing_consent_at?: string | null;
           no_show_count?: number;
           phone?: string | null;
+          privacy_consent_at?: string | null;
+          privacy_policy_version?: string | null;
           role?: Database["public"]["Enums"]["user_role"];
         };
         Update: {
@@ -240,8 +248,12 @@ export type Database = {
           full_name?: string | null;
           id?: string;
           is_blocked?: boolean;
+          marketing_consent?: boolean;
+          marketing_consent_at?: string | null;
           no_show_count?: number;
           phone?: string | null;
+          privacy_consent_at?: string | null;
+          privacy_policy_version?: string | null;
           role?: Database["public"]["Enums"]["user_role"];
         };
         Relationships: [];
@@ -309,6 +321,7 @@ export type Database = {
           name: string;
           no_show_block_threshold: number;
           phone: string | null;
+          privacy_policy_version: string;
           slot_granularity_min: number;
           timezone: string;
         };
@@ -323,6 +336,7 @@ export type Database = {
           name: string;
           no_show_block_threshold?: number;
           phone?: string | null;
+          privacy_policy_version?: string;
           slot_granularity_min?: number;
           timezone?: string;
         };
@@ -337,6 +351,7 @@ export type Database = {
           name?: string;
           no_show_block_threshold?: number;
           phone?: string | null;
+          privacy_policy_version?: string;
           slot_granularity_min?: number;
           timezone?: string;
         };

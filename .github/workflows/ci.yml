@@ -31,9 +31,17 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # Servono solo Postgres e Auth: i test pgTAP girano dentro il database.
+      # Servono Postgres, Auth, API REST e Mailpit (gli e2e leggono da lì il magic link).
       - name: Start Supabase
         run: npx supabase start -x studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector
+
+      # URL e chiave pubblica dello stack locale, per build ed e2e: si ricavano dallo stack
+      # appena avviato, senza scriverli nel workflow.
+      - name: Export Supabase env
+        run: |
+          eval "$(npx supabase status -o env)"
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
 
       - name: Database tests (pgTAP, RLS)
         run: npm run test:db

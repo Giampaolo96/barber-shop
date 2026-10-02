@@ -37,6 +37,7 @@ Un utente ha un solo ruolo. Un admin può essere anche barbiere: lo è quando es
 - `cancel_limit_min` – il cliente può cancellare fino a X minuti prima (default **120**).
 - `buffer_min` – pausa automatica dopo ogni appuntamento (default **0**).
 - `no_show_block_threshold` – dopo N no-show il cliente viene bloccato dalla prenotazione online (default **3**, 0 = disattivato).
+- `privacy_policy_version` – versione corrente dell'informativa privacy: il consenso di un cliente vale solo per questa versione.
 
 ### 3.2 Servizi (`services`)
 - Nome, descrizione, durata in minuti, prezzo in **centesimi** (intero), attivo/disattivo, ordine di visualizzazione.
@@ -109,7 +110,7 @@ Il calcolo avviene lato server (funzione Postgres `security definer` o server ac
    4. riepilogo + note opzionali + conferma.
 3. **Le mie prenotazioni**: future e passate; cancellazione consentita fino a `cancel_limit_min` prima, poi pulsante "Chiama il negozio".
 4. **Profilo**: nome, telefono, email, consensi, eliminazione account.
-5. **Registrazione/login**: email con magic link + login Google (vedi domande aperte). Il telefono è obbligatorio in profilo per essere contattabili.
+5. **Registrazione/login**: email con magic link; il login Google è rimandato (vedi domande aperte). Il telefono è obbligatorio in profilo per essere contattabili: al primo accesso il cliente completa il profilo (nome, telefono salvato in formato E.164, consensi), necessario per le pagine private e per prenotare ma non per le pagine pubbliche. Lo staff entra con email e password da `/admin/login`, senza auto-registrazione.
 6. **Installazione PWA**: banner che spiega come aggiungere l'app alla schermata Home (istruzioni specifiche per iOS).
 
 ## 6. Funzionalità – lato admin (web)
@@ -135,6 +136,7 @@ Rimandati: push notification PWA, SMS, WhatsApp.
 ## 8. Privacy e sicurezza
 
 - Informativa privacy e consenso esplicito al trattamento in registrazione; consenso marketing separato e facoltativo.
+- I consensi li dà solo l'interessato (nemmeno l'admin modifica quelli altrui) e data e ora le registra il database. Il consenso privacy si riferisce alla versione corrente dell'informativa e non si revoca dal profilo; il marketing si può revocare in ogni momento.
 - Dati raccolti minimi: nome, email, telefono, storico prenotazioni.
 - Eliminazione account da parte del cliente → anonimizzazione delle prenotazioni passate (restano per le statistiche senza dati personali).
 - Row Level Security attiva su **tutte** le tabelle; nessuna chiave privilegiata nel codice client.

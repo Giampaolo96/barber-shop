@@ -36,12 +36,16 @@ from auth.users u
 where u.email like '%@demo.local';
 
 -- I profili sono creati dal trigger di registrazione come customer: qui si assegnano
--- nomi e ruoli.
-update public.profiles set role = 'admin', full_name = 'Mario Rossi', phone = '+39 333 1000001'
+-- nomi e ruoli. Telefoni in E.164, come li salva l'app.
+update public.profiles set role = 'admin', full_name = 'Mario Rossi', phone = '+393331000001'
  where id = 'a0000000-0000-4000-8000-000000000001';
-update public.profiles set role = 'barber', full_name = 'Luca Bianchi', phone = '+39 333 1000002'
+update public.profiles set role = 'barber', full_name = 'Luca Bianchi', phone = '+393331000002'
  where id = 'a0000000-0000-4000-8000-000000000002';
-update public.profiles set full_name = 'Giulia Verdi', phone = '+39 333 1000003'
+-- Il cliente demo ha il profilo completo: telefono e consenso privacy alla versione corrente.
+update public.profiles
+   set full_name = 'Giulia Verdi', phone = '+393331000003',
+       privacy_policy_version = (select ss.privacy_policy_version from public.shop_settings ss),
+       privacy_consent_at = now()
  where id = 'a0000000-0000-4000-8000-000000000003';
 
 -- Servizi (SPEC §3.2), prezzi in centesimi --------------------------------------
