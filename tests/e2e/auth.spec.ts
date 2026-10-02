@@ -23,6 +23,9 @@ const CUSTOMER_EMAIL = 'cliente@demo.local';
 
 const DESKTOP = { width: 1280, height: 800 };
 
+/** Solo l'host esterno: la regex è confrontata con l'URL completo, query compresa. */
+const EVIL_HOST = /^https?:\/\/evil\.example/;
+
 // ---------------------------------------------------------------------------
 // Testi dell'interfaccia: sempre da src/i18n/it.ts (SPEC §9)
 // ---------------------------------------------------------------------------
@@ -171,6 +174,22 @@ const fillCompleteProfile = async (
   await page.getByRole('button', { name: s('auth.completeProfile.submit') }).click();
 };
 
+const confirmButton = (page: Page) =>
+  page.locator('main form').getByRole('button', { name: s('auth.confirmLink.submit') });
+
+/**
+ * Apre il link del magic link e conferma con il pulsante: la GET su /auth/confirm mostra solo
+ * la pagina intermedia, il token viene verificato dalla POST del form (server action).
+ */
+const openAndConfirm = async (page: Page, target: URL | string): Promise<void> => {
+  const response = await page.goto(typeof target === 'string' ? target : relative(target));
+  expect(response?.status()).toBe(200);
+  await expectPath(page, '/auth/confirm');
+  await expect(page.locator('main').getByRole('heading', { name: s('auth.confirmLink.title') })).toBeVisible();
+  await expect(confirmButton(page)).toBeVisible();
+  await confirmButton(page).click();
+};
+
 const staffLogin = async (page: Page, email: string, password: string): Promise<void> => {
   await page.goto('/admin/login');
   await page.getByLabel(s('auth.staffLogin.emailLabel')).fill(email);
@@ -250,25 +269,39 @@ test.describe('Anonimo (SPEC §2, §5.5)', () => {
     '/\\evil.example/rubato',
     'https:evil.example',
   ]) {
-    test(`/auth/confirm con token non valido e next=${next} resta sul sito`, async ({ request, baseURL }) => {
-      const response = await request.get('/auth/confirm', {
-        params: { token_hash: 'token-non-valido', type: 'email', next },
-        maxRedirects: 0,
-      });
-      expect([302, 303, 307, 308]).toContain(response.status());
-      const location = response.headers()['location'] ?? '';
-      expect(location).not.toBe('');
-      expect(location).not.toContain('evil.example');
-      expect(new URL(location, baseURL).origin).toBe(new URL(baseURL ?? '').origin);
+    test(`/auth/confirm con token non valido e next=${next} resta sul sito`, async ({ page, baseURL }) => {
+      await page.route(EVIL_HOST, (route) => route.fulfill({ status: 200, body: 'sito esterno' }));
+      const query = new URLSearchParams({ token_hash: 'token-non-valido', type: 'email', next }).toString();
+
+      // La GET mostra la pagina intermedia: 200, nessun redirect
+      const get = await page.request.get(`/auth/confirm?${query}`, { maxRedirects: 0 });
+      expect(get.status()).toBe(200);
+
+      // La conferma (POST) con token non valido porta a /accedi, sul nostro sito, senza sessione
+      await openAndConfirm(page, `/auth/confirm?${query}`);
+      await expectPath(page, '/accedi');
+      expect(new URL(page.url()).origin).toBe(new URL(baseURL ?? '').origin);
+      await expect(logoutButton(page)).toHaveCount(0);
+      await page.goto('/profilo/completa');
+      await expectPath(page, '/accedi');
     });
   }
 
-  test('/auth/confirm con token non valido non crea una sessione', async ({ page }) => {
-    await page.goto('/auth/confirm?token_hash=token-non-valido&type=email&next=/profilo/completa');
-    expect(new URL(page.url()).pathname).not.toBe('/profilo/completa');
+  test('/auth/confirm con token non valido e next interno non crea una sessione', async ({ page }) => {
+    await openAndConfirm(page, '/auth/confirm?token_hash=token-non-valido&type=email&next=/profilo/completa');
+    await expectPath(page, '/accedi');
     await page.goto('/profilo/completa');
     await expectPath(page, '/accedi');
   });
+
+  // Decisione fetta 2: senza token_hash o con type non ammesso non c'è nulla da confermare
+  for (const query of ['', '?type=email', '?token_hash=token-qualsiasi', '?token_hash=token-qualsiasi&type=non-ammesso']) {
+    test(`/auth/confirm${query} (parametri mancanti o non ammessi) rimanda a /accedi`, async ({ page }) => {
+      await page.goto(`/auth/confirm${query}`);
+      await expectPath(page, '/accedi');
+      await expect(confirmButton(page)).toHaveCount(0);
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -280,7 +313,7 @@ test.describe('Cliente con magic link (SPEC §5.5, §8, §2)', () => {
 
     // SPEC §5.5: email con magic link → GET /auth/confirm?token_hash=...&type=...
     const link = await requestMagicLink(page, email);
-    await page.goto(relative(link));
+    await openAndConfirm(page, link);
 
     // Decisione fetta 2: al primo accesso il cliente completa il profilo
     await expectPath(page, '/profilo/completa');
@@ -360,19 +393,82 @@ test.describe('Cliente con magic link (SPEC §5.5, §8, §2)', () => {
     await page.goto('/profilo/completa');
     await expectPath(page, '/accedi');
 
-    // SPEC §8: il magic link vale una volta sola
-    await page.goto(relative(link));
+    // SPEC §8: il magic link vale una volta sola: riaprirlo e confermare non crea una sessione
+    await openAndConfirm(page, link);
+    await expectPath(page, '/accedi');
+    await expect(logoutButton(page)).toHaveCount(0);
     await page.goto('/profilo/completa');
     await expectPath(page, '/accedi');
+  });
+
+  // Decisione fetta 2: la GET non verifica il token (scanner delle email, anteprime dei link)
+  test('una GET da sola non consuma il magic link: serve il click sul pulsante', async ({ page }) => {
+    const email = uniqueEmail('scanner');
+    const link = await requestMagicLink(page, email);
+
+    // Uno scanner apre il link più volte senza inviare il form
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const scanned = await page.request.get(relative(link), { maxRedirects: 0 });
+      expect(scanned.status()).toBe(200);
+    }
+
+    // Anche aprirlo nel browser senza cliccare non crea una sessione
+    const opened = await page.goto(relative(link));
+    expect(opened?.status()).toBe(200);
+    await expectPath(page, '/auth/confirm');
+    await expect(confirmButton(page)).toBeVisible();
+    await page.goto('/profilo/completa');
+    await expectPath(page, '/accedi');
+    await page.goto('/');
+    await expect(logoutButton(page)).toHaveCount(0);
+
+    // Il token è ancora valido: con il click l'accesso riesce
+    await openAndConfirm(page, link);
+    await expectPath(page, '/profilo/completa');
+    await page.goto('/');
+    await expect(logoutButton(page)).toBeVisible();
+  });
+
+  // Decisione fetta 2: lo staff entra solo con email + password da /admin/login
+  test('magic link chiesto con l\'email di uno staff: stessa risposta, nessuna sessione staff', async ({ page }) => {
+    const answerFor = async (email: string): Promise<string> => {
+      await page.goto('/accedi');
+      await page.getByLabel(s('auth.customerLogin.emailLabel')).fill(email);
+      await page.getByRole('button', { name: s('auth.customerLogin.submit') }).click();
+      await expect(page.getByText(s('auth.customerLogin.linkSent'))).toBeVisible();
+      await expectPath(page, '/accedi');
+      return (await page.locator('main').innerText()).split(email).join('<email>');
+    };
+
+    // Aggiunta di sicurezza 4: la risposta su /accedi è la stessa di sempre
+    const before = await countEmails(page.request, ADMIN_EMAIL);
+    const forStaff = await answerFor(ADMIN_EMAIL);
+    const forUnknown = await answerFor(uniqueEmail('non-staff'));
+    expect(forStaff).toBe(forUnknown);
+
+    // Aprendo il link e confermando non si ottiene una sessione staff
+    const link = confirmLink(await latestEmail(page.request, ADMIN_EMAIL, before));
+    await openAndConfirm(page, link);
+    await expectPath(page, '/admin/login');
+    await expect(adminNavLink(page, 'admin.nav.calendar')).toHaveCount(0);
+
+    for (const path of ['/admin', '/admin/impostazioni']) {
+      await page.goto(path);
+      await expectPath(page, '/admin/login');
+      await expect(adminNavLink(page, 'admin.nav.calendar')).toHaveCount(0);
+    }
+    await page.goto('/');
+    await expectPath(page, '/');
+    await expect(logoutButton(page)).toHaveCount(0);
   });
 
   // Aggiunta di sicurezza 3: `next` accetta solo percorsi interni
   test('accesso successivo: next esterno ignorato, si arriva alla home', async ({ page }) => {
     const email = uniqueEmail('ritorno');
-    await page.route(/evil\.example/, (route) => route.fulfill({ status: 200, body: 'sito esterno' }));
+    await page.route(EVIL_HOST, (route) => route.fulfill({ status: 200, body: 'sito esterno' }));
 
     const first = await requestMagicLink(page, email);
-    await page.goto(relative(first));
+    await openAndConfirm(page, first);
     await expectPath(page, '/profilo/completa');
     await fillCompleteProfile(page, { fullName: 'Rita Ritorno', phone: '333 765 4321', privacy: true });
     await expectPath(page, '/');
@@ -383,7 +479,7 @@ test.describe('Cliente con magic link (SPEC §5.5, §8, §2)', () => {
     // Utente già registrato e con profilo completo: nuovo magic link con `next` esterno
     const second = await requestMagicLink(page, email);
     second.searchParams.set('next', '//evil.example/rubato');
-    await page.goto(relative(second));
+    await openAndConfirm(page, second);
     await expectPath(page, '/');
     expect(new URL(page.url()).hostname).not.toBe('evil.example');
     await expect(logoutButton(page)).toBeVisible();
@@ -391,11 +487,11 @@ test.describe('Cliente con magic link (SPEC §5.5, §8, §2)', () => {
 
   test('accesso successivo: next=https://evil.example ignorato', async ({ page, baseURL }) => {
     const email = uniqueEmail('esterno');
-    await page.route(/evil\.example/, (route) => route.fulfill({ status: 200, body: 'sito esterno' }));
+    await page.route(EVIL_HOST, (route) => route.fulfill({ status: 200, body: 'sito esterno' }));
 
     const link = await requestMagicLink(page, email);
     link.searchParams.set('next', 'https://evil.example/rubato');
-    await page.goto(relative(link));
+    await openAndConfirm(page, link);
     // Utente nuovo: il profilo è incompleto, quindi si arriva al completamento (mai fuori dal sito)
     await expectPath(page, '/profilo/completa');
     expect(new URL(page.url()).origin).toBe(new URL(baseURL ?? '').origin);
@@ -443,7 +539,7 @@ test.describe('Cliente con magic link (SPEC §5.5, §8, §2)', () => {
     expect(response.ok(), `registrazione via API fallita: ${response.status()}`).toBe(true);
 
     const link = confirmLink(await latestEmail(page.request, email));
-    await page.goto(relative(link));
+    await openAndConfirm(page, link);
     await expectPath(page, '/profilo/completa');
 
     for (const path of ['/admin', '/admin/servizi', '/admin/impostazioni']) {
@@ -467,6 +563,73 @@ async function fillCompleteProfileAfterRedirect(page: Page): Promise<void> {
   await fillCompleteProfile(page, { fullName: 'Finto Admin', phone: '+39 333 0000000', privacy: true });
   await expectPath(page, '/');
 }
+
+// ---------------------------------------------------------------------------
+// Account staff di prova, creati via API (nessuna auto-registrazione nell'interfaccia)
+// ---------------------------------------------------------------------------
+type StaffAccount = { email: string; password: string; userId: string; adminToken: string };
+
+/** L'admin demo aggiorna un profilo via API REST (RLS: solo l'admin può cambiare ruolo e blocco). */
+const patchProfile = async (
+  request: APIRequestContext,
+  adminToken: string,
+  userId: string,
+  data: { role?: 'barber' | 'admin' | 'customer'; is_blocked?: boolean },
+): Promise<void> => {
+  const patch = await request.patch(`${supabaseUrl()}/rest/v1/profiles?id=eq.${userId}`, {
+    headers: { ...apiHeaders(adminToken), Prefer: 'return=representation' },
+    data,
+  });
+  expect(patch.ok(), `aggiornamento del profilo via API fallito: ${patch.status()}`).toBe(true);
+  const rows = (await patch.json()) as Array<{ role: string; is_blocked: boolean }>;
+  expect(rows).toHaveLength(1);
+  if (data.role !== undefined) expect(rows[0]?.role).toBe(data.role);
+  if (data.is_blocked !== undefined) expect(rows[0]?.is_blocked).toBe(data.is_blocked);
+};
+
+/** Nuovo utente con password, email confermata, promosso a barbiere dall'admin demo. */
+const createBarberAccount = async (
+  request: APIRequestContext,
+  label: string,
+  options: { blocked: boolean },
+): Promise<StaffAccount> => {
+  const email = uniqueEmail(label);
+  const password = 'E2e-password-2026';
+
+  // 1. Registrazione via API, con conferma dell'email se richiesta
+  const signup = await request.post(`${supabaseUrl()}/auth/v1/signup`, {
+    headers: apiHeaders(),
+    data: { email, password },
+  });
+  expect(signup.ok(), `registrazione via API fallita: ${signup.status()}`).toBe(true);
+  const signupBody = (await signup.json()) as { id?: string; access_token?: string; user?: { id: string } };
+  const userId = signupBody.user?.id ?? signupBody.id ?? '';
+  expect(userId, 'id del nuovo utente').not.toBe('');
+
+  if (signupBody.access_token === undefined) {
+    const message = await latestEmail(request, email);
+    const body = `${message.HTML.replace(/&amp;/g, '&')}\n${message.Text}`;
+    const tokenHash = /[?&](?:token_hash|token)=([A-Za-z0-9_-]+)/.exec(body)?.[1];
+    const type = /[?&]type=([a-z_]+)/.exec(body)?.[1];
+    expect(tokenHash, "token di conferma nell'email").toBeTruthy();
+    const verify = await request.post(`${supabaseUrl()}/auth/v1/verify`, {
+      headers: apiHeaders(),
+      data: { type: type ?? 'signup', token_hash: tokenHash },
+    });
+    expect(verify.ok(), `conferma email via API fallita: ${verify.status()}`).toBe(true);
+  }
+
+  // 2. L'admin demo lo promuove a barbiere (ed eventualmente lo blocca)
+  const adminSession = await request.post(`${supabaseUrl()}/auth/v1/token?grant_type=password`, {
+    headers: apiHeaders(),
+    data: { email: ADMIN_EMAIL, password: DEMO_PASSWORD },
+  });
+  expect(adminSession.ok(), `login admin via API fallito: ${adminSession.status()}`).toBe(true);
+  const { access_token: adminToken } = (await adminSession.json()) as { access_token: string };
+
+  await patchProfile(request, adminToken, userId, { role: 'barber', is_blocked: options.blocked });
+  return { email, password, userId, adminToken };
+};
 
 // ---------------------------------------------------------------------------
 // Staff: admin e barbiere (area /admin, desktop first)
@@ -584,59 +747,18 @@ test.describe('Staff su /admin (SPEC §2)', () => {
   test('staff bloccato: credenziali corrette, messaggio di account disabilitato, nessuna sessione', async ({
     page,
   }) => {
-    const request = page.request;
-    const email = uniqueEmail('staff-bloccato');
-    const password = 'E2e-password-2026';
+    // Le chiamate alle API di Supabase restituiscono i token nel corpo, senza cookie: il browser
+    // resta senza sessione finché non si passa da /admin/login
+    const account = await createBarberAccount(page.request, 'staff-bloccato', { blocked: true });
 
-    // 1. Nuovo utente con password (registrazione via API, conferma dell'email se richiesta)
-    const signup = await request.post(`${supabaseUrl()}/auth/v1/signup`, {
-      headers: apiHeaders(),
-      data: { email, password },
-    });
-    expect(signup.ok(), `registrazione via API fallita: ${signup.status()}`).toBe(true);
-    const signupBody = (await signup.json()) as { id?: string; access_token?: string; user?: { id: string } };
-    const userId = signupBody.user?.id ?? signupBody.id;
-    expect(userId, 'id del nuovo utente').toBeTruthy();
-
-    if (signupBody.access_token === undefined) {
-      const message = await latestEmail(request, email);
-      const body = `${message.HTML.replace(/&amp;/g, '&')}\n${message.Text}`;
-      const tokenHash = /[?&](?:token_hash|token)=([A-Za-z0-9_-]+)/.exec(body)?.[1];
-      const type = /[?&]type=([a-z_]+)/.exec(body)?.[1];
-      expect(tokenHash, 'token di conferma nell\'email').toBeTruthy();
-      const verify = await request.post(`${supabaseUrl()}/auth/v1/verify`, {
-        headers: apiHeaders(),
-        data: { type: type ?? 'signup', token_hash: tokenHash },
-      });
-      expect(verify.ok(), `conferma email via API fallita: ${verify.status()}`).toBe(true);
-    }
-
-    // 2. L'admin demo lo promuove a barbiere e lo blocca (RLS: solo l'admin può farlo)
-    const adminSession = await request.post(`${supabaseUrl()}/auth/v1/token?grant_type=password`, {
-      headers: apiHeaders(),
-      data: { email: ADMIN_EMAIL, password: DEMO_PASSWORD },
-    });
-    expect(adminSession.ok(), `login admin via API fallito: ${adminSession.status()}`).toBe(true);
-    const { access_token: adminToken } = (await adminSession.json()) as { access_token: string };
-
-    const patch = await request.patch(`${supabaseUrl()}/rest/v1/profiles?id=eq.${userId}`, {
-      headers: { ...apiHeaders(adminToken), Prefer: 'return=representation' },
-      data: { role: 'barber', is_blocked: true },
-    });
-    expect(patch.ok(), `aggiornamento del profilo via API fallito: ${patch.status()}`).toBe(true);
-    const rows = (await patch.json()) as Array<{ role: string; is_blocked: boolean }>;
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.role).toBe('barber');
-    expect(rows[0]?.is_blocked).toBe(true);
-
-    // 3. Con credenziali corrette lo staff bloccato non entra e vede il messaggio dedicato
-    await staffLogin(page, email, password);
+    // Con credenziali corrette lo staff bloccato non entra e vede il messaggio dedicato
+    await staffLogin(page, account.email, account.password);
     await expect(page.getByText(s('auth.staffLogin.accountDisabled'))).toBeVisible();
     await expectPath(page, '/admin/login');
     await expect(page.getByText(s('auth.staffLogin.invalidCredentials'))).toHaveCount(0);
     await expect(adminNavLink(page, 'admin.nav.calendar')).toHaveCount(0);
 
-    // 4. Nessuna sessione: /admin resta chiuso e sulla home non c'è il logout
+    // Nessuna sessione: /admin resta chiuso e sulla home non c'è il logout
     for (const path of ['/admin', '/admin/calendario', '/admin/servizi']) {
       await page.goto(path);
       await expectPath(page, '/admin/login');
@@ -646,5 +768,34 @@ test.describe('Staff su /admin (SPEC §2)', () => {
     await expectPath(page, '/');
     await expect(logoutButton(page)).toHaveCount(0);
     await expect(page.getByRole('link', { name: s('nav.login'), exact: true })).toBeVisible();
+  });
+
+  // Decisione fetta 2: il blocco vale anche per una sessione staff già aperta
+  test('staff bloccato a sessione già aperta: alla visita successiva è fuori da /admin', async ({ page }) => {
+    const account = await createBarberAccount(page.request, 'staff-poi-bloccato', { blocked: false });
+
+    // Finché non è bloccato entra normalmente
+    await staffLogin(page, account.email, account.password);
+    await expectPath(page, '/admin');
+    await expect(adminNavLink(page, 'admin.nav.calendar')).toBeVisible();
+    await expect(logoutButton(page)).toBeVisible();
+
+    // L'admin demo lo blocca mentre la sessione è aperta
+    await patchProfile(page.request, account.adminToken, account.userId, { is_blocked: true });
+
+    // Alla visita successiva: fuori da /admin, con il messaggio dedicato e senza menu
+    await page.goto('/admin');
+    await expectPath(page, '/admin/login');
+    await expect(page.getByText(s('auth.staffLogin.accountDisabled'))).toBeVisible();
+    await expect(adminNavLink(page, 'admin.nav.calendar')).toHaveCount(0);
+
+    await page.goto('/admin/calendario');
+    await expectPath(page, '/admin/login');
+    await expect(adminNavLink(page, 'admin.nav.calendar')).toHaveCount(0);
+
+    // Sessione chiusa nel browser: sulla home non c'è più il logout
+    await page.goto('/');
+    await expectPath(page, '/');
+    await expect(logoutButton(page)).toHaveCount(0);
   });
 });

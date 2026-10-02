@@ -971,13 +971,14 @@ describe('getCurrentUser / requireRole – il ruolo viene solo da profiles (SPEC
     expect(fake.redirects).toEqual(['/admin']);
   });
 
-  // Decisione fetta 2: "lo staff bloccato NON entra in /admin"
+  // Decisione fetta 2: "lo staff bloccato NON entra in /admin". Il redirect porta lo stesso
+  // parametro usato dal proxy, così la pagina di login mostra "Account disabilitato".
   test.each(['barber', 'admin'] as const)('staff bloccato (%s): requireRole lo respinge', async (role) => {
     signIn(profile({ role, is_blocked: true }));
     const { getCurrentUser, requireRole } = await currentUserModule();
     expect((await getCurrentUser())?.isBlocked).toBe(true);
     await expect(requireRole(['barber', 'admin'])).rejects.toBeDefined();
-    expect(fake.redirects).toEqual(['/admin/login']);
+    expect(fake.redirects).toEqual(['/admin/login?motivo=disabilitato']);
   });
 
   // Decisione fetta 2: il cliente bloccato resta un utente autenticato
@@ -1037,7 +1038,7 @@ describe('File previsti dalla fetta 2 (CLAUDE.md – Struttura)', () => {
     'src/lib/auth/current-user.ts',
     'src/lib/db/client.ts',
     'src/lib/db/server.ts',
-    'src/app/auth/confirm/route.ts',
+    'src/app/auth/confirm/page.tsx',
     'src/app/(customer)/accedi/page.tsx',
     'src/app/(customer)/profilo/page.tsx',
     'src/app/(customer)/profilo/completa/page.tsx',
@@ -1135,26 +1136,59 @@ describe('Chiave service_role – SPEC §8: "nessuna chiave privilegiata nel cod
   });
 });
 
-describe('auth/confirm – magic link con token_hash (SPEC §5.5, §8)', () => {
-  const route = (): string => stripComments(readText('src', 'app', 'auth', 'confirm', 'route.ts'));
+describe('auth/confirm – pagina intermedia del magic link (SPEC §5.5, §8)', () => {
+  // Decisione fetta 2: la GET su /auth/confirm mostra una pagina con un pulsante; il token si
+  // verifica solo con la POST del form (server action), così scanner e anteprime non lo consumano.
+  const page = (): string => stripComments(readText('src', 'app', 'auth', 'confirm', 'page.tsx'));
 
-  // Decisione fetta 2: GET /auth/confirm?token_hash=...&type=...&next=...
-  test('la route esporta GET', () => {
-    expect(route()).toMatch(/export\s+(?:async\s+)?function\s+GET\b|export\s+const\s+GET\b/);
+  const callsVerifyOtp = (code: string): boolean => /\bverifyOtp\s*\(/.test(code);
+
+  test('non esiste un route handler in src/app/auth/confirm/', () => {
+    for (const name of ['route.ts', 'route.tsx', 'route.js']) {
+      expect(existsSync(fromRoot('src', 'app', 'auth', 'confirm', name)), `non deve esistere: ${name}`).toBe(false);
+    }
   });
 
-  test('la route verifica il token con verifyOtp e legge token_hash e type', () => {
-    const source = route();
-    expect(source).toMatch(/\bverifyOtp\s*\(/);
+  test('la pagina è un server component e legge token_hash', () => {
+    const source = page();
+    expect(hasDirective(source, 'use client')).toBe(false);
     expect(source).toContain('token_hash');
-    expect(source).toMatch(/['"]type['"]/);
   });
 
-  // Aggiunta di sicurezza 3
-  test('la route passa `next` da safeNextPath', () => {
-    const source = route();
-    expect(source).toMatch(/\bsafeNextPath\s*\(/);
-    expect(source).toMatch(/['"]next['"]/);
+  test('nessun route handler chiama verifyOtp', () => {
+    const offending = sourceFiles()
+      .filter((file) => /^src\/app\/.*\/route\.(?:ts|tsx|js)$/.test(file))
+      .filter((file) => callsVerifyOtp(readSource(file)));
+    expect(offending).toEqual([]);
+  });
+
+  test('pagine e layout non chiamano verifyOtp durante il rendering (richiesta GET)', () => {
+    expect(existsSync(fromRoot('src', 'app', 'auth', 'confirm', 'page.tsx')), 'file mancante: page.tsx').toBe(true);
+    const offending = sourceFiles()
+      .filter((file) => /^src\/app\/.*(?:page|layout|template|default)\.(?:tsx|ts|jsx|js)$/.test(file))
+      .filter((file) => callsVerifyOtp(readSource(file)));
+    expect(offending).toEqual([]);
+  });
+
+  test('il proxy non chiama verifyOtp', () => {
+    expect(callsVerifyOtp(stripComments(readText('src', 'proxy.ts')))).toBe(false);
+  });
+
+  // Aggiunta di sicurezza 3: `next` passa sempre da safeNextPath
+  test('esiste una server action ("use server") che chiama verifyOtp e safeNextPath', () => {
+    const actions = sourceFiles().filter((file) => {
+      const code = readSource(file);
+      return hasDirective(code, 'use server') && callsVerifyOtp(code) && /\bsafeNextPath\s*\(/.test(code);
+    });
+    expect(actions.length).toBeGreaterThan(0);
+  });
+
+  test('verifyOtp è chiamato solo da file "use server"', () => {
+    const offending = sourceFiles().filter((file) => {
+      const code = readSource(file);
+      return callsVerifyOtp(code) && !hasDirective(code, 'use server');
+    });
+    expect(offending).toEqual([]);
   });
 });
 
@@ -1353,6 +1387,8 @@ describe('Testi in italiano – SPEC §9 (src/i18n/it.ts)', () => {
     'auth.staffLogin.submit',
     'auth.staffLogin.invalidCredentials',
     'auth.staffLogin.accountDisabled',
+    'auth.confirmLink.title',
+    'auth.confirmLink.submit',
     'auth.completeProfile.title',
     'auth.completeProfile.fullNameLabel',
     'auth.completeProfile.phoneLabel',
