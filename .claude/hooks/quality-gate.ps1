@@ -1,6 +1,6 @@
 # Quality gate (hook Stop) - Windows PowerShell 5.1+
 # Quando Claude sta per chiudere il turno e ci sono modifiche non committate
-# a codice o test, esegue lint, typecheck e test. Se falliscono, esce con
+# di implementazione (src, migrazioni, seed), esegue lint, typecheck e test. Se falliscono, esce con
 # codice 2: Claude non si ferma e riceve l'errore come feedback.
 
 $ErrorActionPreference = 'Continue'
@@ -27,8 +27,9 @@ try {
 # Progetto non ancora inizializzato: niente da verificare
 if (-not (Test-Path 'package.json')) { exit 0 }
 
-# Nessuna modifica a codice o test: turno di sola conversazione
-$changes = git status --porcelain -- src supabase tests 2>$null
+# Nessuna modifica di implementazione: turno di sola conversazione, oppure
+# solo test (quelli di accettazione nascono rossi, prima del codice)
+$changes = git status --porcelain -- src supabase/migrations supabase/seed.sql 2>$null
 if (-not $changes) { exit 0 }
 
 if ($stopHookActive) { exit 0 }

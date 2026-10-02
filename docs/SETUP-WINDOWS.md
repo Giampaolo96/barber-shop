@@ -49,6 +49,6 @@ La fetta 0 crea il progetto Next.js, aggiunge Supabase e gli script `lint`, `typ
 
 ## Problemi comuni
 - **L'hook non parte o dà errore di policy**: il comando usa già `-ExecutionPolicy Bypass`. Verifica che Claude Code sia stato avviato dalla root del repo.
-- **Il gate gira dopo ogni risposta**: succede solo se ci sono modifiche non committate in `src/`, `supabase/` o `tests/`. Committa a fine passo.
+- **Il gate gira dopo ogni risposta**: succede solo se ci sono modifiche non committate in `src/`, `supabase/migrations/` o `supabase/seed.sql` (le cartelle dei test non contano). Committa a fine passo.
 - **`npx supabase start` fallisce**: Docker Desktop non è avviato.
 - **Fine riga**: `.gitattributes` forza LF per tutto tranne gli script `.ps1`; non disattivarlo.
