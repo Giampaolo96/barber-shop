@@ -3,7 +3,7 @@
 | Fetta | Stato | Data | Note |
 |---|---|---|---|
 | 0 | completata | 2026-10-02 | Vedi "Fetta 0" sotto |
-| 1 | completata in locale | 2026-10-02 | Vedi "Fetta 1" sotto; in attesa del primo run della CI con Supabase |
+| 1 | completata | 2026-10-02 | Vedi "Fetta 1" sotto |
 | 2 | da fare | | |
 | 3 | da fare | | |
 | 4 | da fare | | |
@@ -48,11 +48,11 @@
 
 **Problemi aperti / migliorie rimandate**
 - In CI la build gira due volte (step Build + webServer di Playwright).
-- Versioni delle action GitHub (`@v4`): controllare eventuali avvisi di deprecazione al primo run.
+- ~~Versioni delle action GitHub (`@v4`)~~: risolto dopo la fetta 1, action a `@v7` (runtime `node24`) e Dependabot settimanale per `github-actions`.
 
 ## Fetta 1 – Schema DB + RLS + seed dati demo
 
-**Stato**: completata in locale, review chiusa. In attesa del primo run della CI con Supabase (avvio stack, test pgTAP, controllo dei tipi): nessun push ancora fatto.
+**Stato**: completata, review chiusa. CI verde su GitHub con Supabase (avvio stack, test pgTAP, controllo dei tipi), confermata dall'utente il 2026-10-02.
 
 **Fatto**
 - 8 migrazioni in `supabase/migrations/`: enum ed estensione `btree_gist`, `profiles` con helper e trigger di registrazione, `shop_settings`, catalogo, orari/assenze/chiusure, `bookings` con vincolo di esclusione e trigger, `search_customers`, policy RLS e grant.
