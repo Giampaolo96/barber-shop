@@ -56,7 +56,10 @@ Un utente ha un solo ruolo. Un admin può essere anche barbiere: lo è quando es
 - `shop_closures`: chiusura dell'intero negozio (festivi, ferie collettive).
 
 ### 3.6 Prenotazioni (`bookings`)
-- Cliente (o nominativo + telefono per prenotazioni manuali di clienti non registrati), barbiere, servizio, `starts_at`, `ends_at` (timestamptz), prezzo e durata **copiati** dal servizio al momento della prenotazione, note.
+- Cliente (o nominativo + telefono per prenotazioni manuali di clienti non registrati), barbiere, servizio, `starts_at`, `ends_at` (timestamptz), prezzo e durata **copiati** dal servizio al momento della prenotazione, nota del cliente (`notes`, visibile al cliente).
+- Prezzo e durata copiati non seguono le modifiche successive al servizio. Solo l'admin può modificarli sulla prenotazione (sconto, appuntamento più lungo); cambiando servizio vengono ricopiati. L'orario di fine è sempre ricalcolato dal database.
+- Note interne dello staff: separate dalla nota del cliente (`booking_staff_notes`), mai visibili al cliente; il barbiere le gestisce sulle proprie prenotazioni, l'admin su tutte. Seguono la prenotazione se viene riassegnata a un altro barbiere.
+- Solo l'admin può eliminare una prenotazione; barbiere e cliente la cancellano con un cambio di stato.
 - `source`: `online` | `manual` (creata dallo staff).
 - Stati:
 

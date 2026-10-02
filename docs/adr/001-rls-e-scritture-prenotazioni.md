@@ -17,10 +17,10 @@ La SPEC §3.7 chiede che gli invarianti delle prenotazioni siano garantiti dal d
 - `authenticated` ha `update` solo sulle colonne `full_name`, `phone`, `role`, `is_blocked`. Due trigger `before update of` rifiutano con `42501`: `role` e `is_blocked` per chi non è admin, `no_show_count` per chiunque. Scattano quando la colonna compare nel `SET`, anche a valore invariato.
 - I trigger di guardia lasciano passare solo i ruoli di servizio (seed, migrazioni, `service_role`) e le funzioni `security definer`, riconosciuti da `current_user`. Non c'è un bypass per profondità dei trigger: il contatore no-show passa perché la sua funzione è `security definer`.
 - `no_show_count` segue le prenotazioni: una prenotazione conta per un cliente quando esiste, è `no_show` ed è intestata a lui. +1 entrando in `no_show`, -1 uscendo, mai sotto zero; cambiando `customer_id` di una `no_show` il conteggio si sposta dal vecchio al nuovo cliente; eliminando una `no_show` il conteggio scende.
-- Deve restare sempre almeno un admin: l'ultimo non può essere declassato né eliminato.
-- All'eliminazione di un profilo, le sue prenotazioni future ancora `confirmed` passano a `cancelled_by_customer` (trigger `before delete`) prima che la chiave esterna azzeri `customer_id`: lo slot torna libero. Le prenotazioni passate non cambiano stato.
+- Deve restare sempre almeno un admin attivo (ruolo admin e non bloccato): l'ultimo non può essere declassato, bloccato né eliminato. Gli admin bloccati non contano.
+- All'eliminazione di un profilo, le sue prenotazioni future ancora `confirmed` vengono cancellate (trigger `before delete`) prima che la chiave esterna azzeri `customer_id`: lo slot torna libero. Lo stato dice chi ha eliminato l'account: `cancelled_by_customer` se è l'utente stesso, `cancelled_by_shop` se è un altro utente (l'admin). Senza utente identificato (`service_role` senza JWT) vale `cancelled_by_customer`. Le prenotazioni passate non cambiano stato.
 - **Blocco per no-show**: il blocco automatico (fetta 5) si calcola confrontando `no_show_count` con `no_show_block_threshold` al momento della prenotazione. `is_blocked` resta solo il blocco manuale dell'admin e non viene mai impostato in automatico.
-- Il barbiere legge solo il proprio profilo e quelli dei clienti con una prenotazione con lui. Per cercare un cliente usa `search_customers(q)`: riservata allo staff, restituisce solo id, nome e telefono, almeno 3 caratteri, al massimo 10 risultati, confronto sul telefono sulle sole cifre.
+- Il barbiere legge solo il proprio profilo e quelli, con ruolo `customer`, dei clienti con una prenotazione con lui: un cliente promosso a staff non gli è più leggibile. Per cercare un cliente usa `search_customers(q)`: riservata allo staff, restituisce solo id, nome e telefono, almeno 3 caratteri, al massimo 10 risultati, confronto sul telefono sulle sole cifre.
 
 **Prenotazioni**
 - Il cliente ha solo `select` sulle proprie prenotazioni. Creazione e cancellazione online arriveranno nella fetta 5 con funzioni `security definer` che applicano SPEC §3.7.2, blocco no-show e limite di cancellazione; una policy di insert diretta permetterebbe di aggirarle.
@@ -35,6 +35,7 @@ La SPEC §3.7 chiede che gli invarianti delle prenotazioni siano garantiti dal d
 - In creazione il barbiere può inserire solo prenotazioni `confirmed`; admin e ruoli di servizio possono inserire anche altri stati (es. storico), e una prenotazione inserita già `no_show` incrementa il contatore.
 - Solo l'admin può eliminare una prenotazione; barbiere e cliente no.
 - `bookings.notes` è la nota visibile al cliente. Le note interne dello staff stanno nella tabella separata `booking_staff_notes` (una riga per prenotazione, `updated_at` e `updated_by` valorizzati dal database), con RLS solo staff: il barbiere sulle proprie prenotazioni, l'admin su tutte. Una colonna di `bookings` sarebbe leggibile anche dal cliente, perché cliente e staff condividono lo stesso ruolo Postgres.
+- La nota staff segue la prenotazione: se l'admin la riassegna a un altro barbiere, il nuovo barbiere legge e modifica la nota scritta dal precedente. È il comportamento voluto.
 - `status_changed_at` e `status_changed_by` sono valorizzati dal trigger: alla creazione (`created_at` e utente corrente) e a ogni cambio di stato. Il client non può modificarli; l'unica eccezione è l'azzeramento di `status_changed_by` fatto dalla chiave esterna quando l'account viene eliminato.
 
 **Chiavi esterne**
@@ -43,15 +44,15 @@ La SPEC §3.7 chiede che gli invarianti delle prenotazioni siano garantiti dal d
 - `barbers.profile_id`: `on delete set null`. Eliminando l'account staff il barbiere resta, con il suo storico, e diventa un barbiere senza account; con `restrict` l'account non sarebbe eliminabile, con `cascade` l'eliminazione fallirebbe comunque per via delle prenotazioni.
 
 **Visibilità**
-- `anon` e `customer`: impostazioni negozio, servizi e barbieri attivi, e le coppie di `barber_services` in cui servizio e barbiere sono entrambi attivi. `anon` legge dei barbieri solo le colonne pubbliche, non `profile_id`. Nessun accesso a `working_hours`, `time_off`, `shop_closures`: la disponibilità passerà dal motore lato server.
+- `anon` e `customer`: impostazioni negozio, servizi e barbieri attivi, e le coppie di `barber_services` in cui servizio e barbiere sono entrambi attivi. `barbers.profile_id` è leggibile solo dallo staff, tramite la funzione `barber_accounts()`: `anon` e `authenticated` hanno il grant di lettura solo sulle colonne pubbliche di `barbers`, perché clienti e staff condividono lo stesso ruolo Postgres. Su `barbers` quindi `select *` fallisce: le colonne vanno elencate, e ogni colonna nuova richiede un grant. Nessun accesso a `working_hours`, `time_off`, `shop_closures`: la disponibilità passerà dal motore lato server.
 - Staff: catalogo completo (anche disattivati), tutte le `working_hours` e le chiusure in sola lettura. Il barbiere gestisce solo le proprie `time_off`, senza approvazione.
 
 **Privilegi di default**
-- Nello schema `public` tabelle e funzioni nuove nascono senza privilegi per `anon`, `authenticated` e `PUBLIC`: ogni migrazione concede solo grant espliciti.
-- Per le tabelle basta `alter default privileges in schema public`. Per le funzioni no: `EXECUTE` a `PUBLIC` è un default globale di Postgres che un revoke per schema non tocca, e revocarlo globalmente toglierebbe l'esecuzione anche alle funzioni degli altri schemi e a quelle temporanee. Regola: ogni migrazione che crea una funzione fa un `revoke` esplicito da `public`, `anon` e `authenticated`, poi concede solo i grant voluti.
+- Nello schema `public` tabelle e sequenze nuove nascono senza privilegi per `anon`, `authenticated` e `PUBLIC` (`alter default privileges in schema public`): ogni migrazione concede solo grant espliciti. Vale per gli oggetti creati dalle migrazioni (ruolo `postgres`); i default del ruolo `supabase_admin` non sono toccati e riguardano solo oggetti creati fuori dalle migrazioni.
+- Per le funzioni i default tolgono solo i grant automatici ad `anon` e `authenticated`: `EXECUTE` a `PUBLIC` è un default globale di Postgres che un revoke per schema non tocca, e revocarlo globalmente toglierebbe l'esecuzione anche alle funzioni degli altri schemi e a quelle temporanee. Regola: ogni migrazione che crea una funzione fa un `revoke` esplicito da `public`, `anon` e `authenticated`, poi concede solo i grant voluti.
 - Un test pgTAP verifica che nessuna funzione di `public` sia eseguibile da `PUBLIC` o `anon`, salvo un elenco esplicito: gli helper delle policy (`current_user_role`, `is_admin`, `is_staff`, `current_barber_id`), che `anon` deve poter chiamare per leggere il catalogo, e i costruttori del tipo range `timerange` / `timemultirange`, che Postgres crea con il tipo come funzioni del superutente e che una migrazione non può revocare (non leggono dati).
 - Le funzioni dei trigger non hanno grant. `search_customers` è eseguibile solo da `authenticated` (non serve a `service_role`: senza utente rifiuta sempre).
-- `shop_settings.timezone` è validato contro `pg_timezone_names`.
+- `shop_settings.timezone` è validato contro `pg_timezone_names` senza distinguere maiuscole e minuscole, e salvato nella forma canonica (`europe/rome` diventa `Europe/Rome`).
 
 ## Conseguenze
 
@@ -62,3 +63,4 @@ La SPEC §3.7 chiede che gli invarianti delle prenotazioni siano garantiti dal d
 - La concorrenza reale fra due sessioni non è verificabile in pgTAP; è verificato il vincolo di esclusione, che la gestisce.
 - Il seed crea utenti demo con password nota e gira solo in locale e in CI; non va mai applicato al cloud (`supabase db push --include-seed`).
 - La protezione dell'ultimo admin vale per tutti i percorsi, anche per i ruoli di servizio: per sostituire l'unico admin va prima promosso il nuovo.
+- Eliminazione account (fetta 9): se la server action elimina l'utente con la `service_role` senza JWT dell'utente, il database non sa chi agisce e marca le prenotazioni future come `cancelled_by_customer`. Quando è l'admin a eliminare un cliente per questa via, la server action deve prima cancellare le prenotazioni con `cancelled_by_shop`.

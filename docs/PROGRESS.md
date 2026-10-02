@@ -3,7 +3,7 @@
 | Fetta | Stato | Data | Note |
 |---|---|---|---|
 | 0 | completata | 2026-10-02 | Vedi "Fetta 0" sotto |
-| 1 | completata | 2026-10-02 | Vedi "Fetta 1" sotto; CI da verificare al primo push |
+| 1 | completata in locale | 2026-10-02 | Vedi "Fetta 1" sotto; in attesa del primo run della CI con Supabase |
 | 2 | da fare | | |
 | 3 | da fare | | |
 | 4 | da fare | | |
@@ -52,7 +52,7 @@
 
 ## Fetta 1 – Schema DB + RLS + seed dati demo
 
-**Stato**: completata in locale. La CI con lo step Supabase non è ancora stata eseguita (nessun push).
+**Stato**: completata in locale, review chiusa. In attesa del primo run della CI con Supabase (avvio stack, test pgTAP, controllo dei tipi): nessun push ancora fatto.
 
 **Fatto**
 - 8 migrazioni in `supabase/migrations/`: enum ed estensione `btree_gist`, `profiles` con helper e trigger di registrazione, `shop_settings`, catalogo, orari/assenze/chiusure, `bookings` con vincolo di esclusione e trigger, `search_customers`, policy RLS e grant.
@@ -60,9 +60,9 @@
 - `src/lib/db/types.ts` generato; script `test:db` e `db:types` (genera e formatta con `oxfmt`, nuova devDependency).
 - CI: `supabase start -x ...` e `npm run test:db` prima dei test.
 - `docs/adr/001-rls-e-scritture-prenotazioni.md`; SPEC §2 aggiornata (admin barbiere senza flag `is_barber`).
-- Test: pgTAP in `supabase/tests/` (01–07 di accettazione, 465 asserzioni; 08 regressioni della review, 10; 09 rafforzamento sicurezza, 64), `tests/acceptance/schema.test.ts` (40).
+- Test: pgTAP in `supabase/tests/` (01–07 di accettazione, 465 asserzioni; 08 regressioni della review, 10; 09 rafforzamento sicurezza, 87), `tests/acceptance/schema.test.ts` (40).
 
-**Esiti**: lint ok, typecheck ok, Vitest 90/90, pgTAP 539/539, Playwright 4/4.
+**Esiti**: lint ok, typecheck ok, Vitest 90/90, pgTAP 562/562, Playwright 4/4.
 
 **Review**: 2 bloccanti corretti, con test di regressione in `08_review_fixes.test.sql`.
 - Il trigger annullava l'`on delete set null` di `status_changed_by`: un account che aveva creato o cambiato di stato una prenotazione non era eliminabile.
@@ -78,7 +78,7 @@
 - `barbers.profile_id` `on delete set null`.
 - Supabase cloud rimandato alla fetta 2.
 
-**Rafforzamento sicurezza dopo la review** (6 migrazioni `2026100213*`, test in `09_security_hardening.test.sql`, 64 asserzioni)
+**Rafforzamento sicurezza dopo la review** (6 migrazioni `2026100213*`, test in `09_security_hardening.test.sql`)
 - `bookings`: `id` e `created_at` immutabili; il barbiere può correggere nominativo e telefono dell'ospite; l'admin può modificare prezzo e durata, con ricalcolo di `ends_at` e `blocked_until`.
 - `customer_id` deve puntare a un profilo `customer`.
 - Contatore no-show: cambiando `customer_id` di una `no_show` il conteggio si sposta; eliminando una `no_show` scende. Solo l'admin elimina prenotazioni.
@@ -86,12 +86,25 @@
 - `barbers.profile_id` non leggibile da `anon`; `barber_services` visibili ad `anon` e `customer` solo con servizio e barbiere attivi.
 - Privilegi di default chiusi nello schema `public` per le tabelle; per le funzioni revoke esplicito in ogni migrazione, verificato da un test pgTAP con elenco di eccezioni (vedi ADR 001).
 - Guardia dei profili senza `pg_trigger_depth()`; protezione dell'ultimo admin; `timezone` validato.
-- All'eliminazione di un profilo le prenotazioni future `confirmed` passano a `cancelled_by_customer`.
+- All'eliminazione di un profilo le prenotazioni future `confirmed` vengono cancellate.
 - Via il grant di `search_customers` a `service_role`; CI con controllo dei tipi allineati; avviso nel seed; SPEC §2 e §13.4: assenze senza approvazione.
+
+**Completamento della review** (6 migrazioni `2026100214*`, test aggiunti in `09_security_hardening.test.sql`)
+- Il barbiere legge solo i profili `customer` dei propri clienti (un cliente promosso a staff non è più leggibile).
+- `barbers.profile_id` leggibile solo dallo staff con `barber_accounts()`; grant di colonna su `barbers` anche per `authenticated`.
+- Default privilege chiusi anche per le sequenze.
+- Eliminazione di un profilo: le future `confirmed` passano a `cancelled_by_customer` se elimina l'utente stesso, a `cancelled_by_shop` se elimina l'admin.
+- Timezone confrontato senza distinguere maiuscole e salvato in forma canonica; l'ultimo admin si conta escludendo i bloccati (non può essere nemmeno bloccato).
+- La nota staff segue la prenotazione riassegnata (voluto, scritto nell'ADR).
+- SPEC §3.6 e `CLAUDE.md` aggiornati: regola 4 su durata e prezzo, niente `select *` sulle tabelle con grant di colonna, revoke esplicito sulle funzioni.
+
+**Review chiusa.** Due giri del reviewer: 2 bloccanti corretti nel primo, nessuno nel secondo. Il terzo commit applica le 10 migliorie del secondo giro e non viene revisionato di nuovo. Eventuali nuove migliorie non bloccanti si annotano qui sotto, senza un altro giro.
 
 **Da fare nelle prossime fette**
 - Fetta 2: nome del profilo dai metadati di registrazione, campi dei consensi, progetto Supabase cloud, riallineare `config.toml` (vedi fetta 0).
+- Fetta 2 e successive: su `barbers` elencare sempre le colonne (niente `select *`); il collegamento barbiere → account si legge con `barber_accounts()`.
 - Fetta 5: funzioni di prenotazione e cancellazione con SPEC §3.7.2, blocco no-show, rate limiting. I trigger di `bookings` non limitano le funzioni `security definer`: devono ricontrollare ruolo e regole.
+- Fetta 9: se l'admin elimina un cliente con la `service_role` senza JWT, la server action deve prima cancellare le prenotazioni future con `cancelled_by_shop` (il database, senza utente identificato, userebbe `cancelled_by_customer`).
 - Ogni migrazione che crea una funzione deve fare il `revoke` esplicito da `public`, `anon` e `authenticated`: se manca, fallisce il test in `09_security_hardening.test.sql`.
 
 **Migliorie rimandate**
@@ -99,3 +112,6 @@
 - Tipi TypeScript: i campi calcolati dal trigger risultano obbligatori in insert.
 - Il cliente legge `status_changed_by` (UUID dello staff) sulle proprie prenotazioni.
 - La protezione dell'ultimo admin non gestisce due declassamenti concorrenti.
+- Un barbiere che conosce l'UUID di un cliente può intestargli una prenotazione manuale e leggerne il profilo (gli UUID arrivano solo da `search_customers`).
+- I default privilege del ruolo `supabase_admin` nello schema `public` restano aperti (solo per oggetti creati fuori dalle migrazioni).
+- I test su ultimo admin e timezone in `09` dipendono dal seed (`shop_settings`, admin demo): vanno eseguiti dopo `db reset`.

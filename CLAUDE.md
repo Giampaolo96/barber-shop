@@ -48,7 +48,7 @@ Prima di dichiarare finito un task: `lint`, `typecheck` e `test` devono passare.
 1. Nessuna sovrapposizione di prenotazioni `confirmed` dello stesso barbiere: garantita da un **vincolo di esclusione** (`btree_gist` + `tstzrange`), non solo dal codice.
 2. Date salvate come `timestamptz` (UTC); visualizzazione e calcoli orari nella timezone del negozio (`Europe/Rome`). Mai usare l'ora locale del server.
 3. Prezzi in **centesimi** (integer). Mai float per gli importi.
-4. Durata e prezzo vengono copiati sulla prenotazione al momento della creazione.
+4. Durata e prezzo vengono copiati sulla prenotazione al momento della creazione e non seguono le modifiche successive al servizio. Sulla prenotazione li può cambiare solo l'admin (o un cambio di servizio, che li ricopia); `ends_at` e `blocked_until` li ricalcola sempre il database.
 5. Il calcolo disponibilità vive in `src/lib/availability/` come funzioni pure (input: orari, assenze, prenotazioni, impostazioni, `now`). L'I/O sta fuori.
 6. Le API di disponibilità restituiscono solo orari liberi, mai dati di altre prenotazioni o clienti.
 
@@ -57,6 +57,8 @@ Prima di dichiarare finito un task: `lint`, `typecheck` e `test` devono passare.
 - La `service_role` key si usa solo lato server ed Edge Functions; mai in codice client o variabili `NEXT_PUBLIC_*`.
 - Ogni server action valida l'input con Zod e ricontrolla il ruolo dell'utente.
 - Nessun segreto nel repo: usare `.env.local` (ignorato) e documentare le variabili in `.env.example`.
+- Niente `select *` (né `.select('*')` o `.select()` senza colonne) sulle tabelle con grant di colonna, oggi `barbers`: le colonne si elencano sempre in modo esplicito, altrimenti la query fallisce con "permission denied". Ogni nuova colonna su queste tabelle richiede un grant esplicito nella stessa migrazione.
+- Ogni migrazione che crea una funzione fa `revoke all ... from public, anon, authenticated` e poi concede solo i grant voluti (lo verifica un test pgTAP).
 
 ## Modo di lavorare
 - Per ogni feature non banale: **prima un piano** (file coinvolti, migrazioni, test), attendi conferma, poi implementa.

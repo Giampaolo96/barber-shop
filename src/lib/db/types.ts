@@ -411,6 +411,13 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      barber_accounts: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          barber_id: string;
+          profile_id: string;
+        }[];
+      };
       current_barber_id: { Args: Record<PropertyKey, never>; Returns: string };
       current_user_role: {
         Args: Record<PropertyKey, never>;
