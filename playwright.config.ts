@@ -16,7 +16,18 @@ export default defineConfig({
   },
   projects: [
     // Area clienti mobile first: Chromium con viewport da telefono.
-    { name: "mobile-chromium", use: { ...devices["Pixel 7"] } },
+    {
+      name: "mobile-chromium",
+      use: { ...devices["Pixel 7"] },
+      // Le impostazioni del negozio sono condivise: il loro test gira a parte, dopo gli altri.
+      testIgnore: /admin-settings\.spec\.ts$/,
+    },
+    {
+      name: "admin-settings",
+      use: { ...devices["Pixel 7"] },
+      testMatch: /admin-settings\.spec\.ts$/,
+      dependencies: ["mobile-chromium"],
+    },
   ],
   webServer: {
     // In CI gli e2e girano sulla build di produzione; in locale basta il dev server.
