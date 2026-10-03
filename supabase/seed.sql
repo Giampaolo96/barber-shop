@@ -4,9 +4,10 @@
 -- ATTENZIONE: non usare `supabase db push --include-seed` verso il progetto cloud:
 -- creerebbe in produzione un admin con password nota.
 
--- Impostazioni negozio (SPEC §3.1): valori di default --------------------------
-insert into public.shop_settings (name, address, phone)
-values ('Barber Shop', 'Via Roma 1, 00100 Roma', '+39 06 1234567');
+-- Impostazioni negozio (SPEC §3.1): la riga con i default la crea la migrazione
+-- 20261003090000_shop_settings_default_row; qui solo i recapiti demo. -----------
+update public.shop_settings
+   set address = 'Via Roma 1, 00100 Roma', phone = '+39 06 1234567';
 
 -- Utenti demo, uno per ruolo (SPEC §2) -----------------------------------------
 insert into auth.users (
