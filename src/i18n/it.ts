@@ -166,6 +166,11 @@ export const it = {
     },
     timeOff: {
       noBarber: "Il tuo account non è collegato a una scheda barbiere.",
+      filterLabel: "Mostra le assenze di",
+      allBarbers: "Tutti i barbieri",
+      filter: "Filtra",
+      barberLabel: "Barbiere",
+      noBarbers: "Nessun barbiere: crea prima una scheda nella sezione Barbieri.",
     },
     closures: {
       intro: "Giorni o fasce orarie in cui il negozio è chiuso per tutti i barbieri.",

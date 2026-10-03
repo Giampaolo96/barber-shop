@@ -119,7 +119,7 @@ Il calcolo avviene lato server (funzione Postgres `security definer` o server ac
 2. **Prenotazione manuale**: ricerca cliente esistente o inserimento rapido nome + telefono.
 3. **Spostamento prenotazione** (cambio orario/barbiere) con verifica sovrapposizioni.
 4. **Servizi**: CRUD, ordinamento, attivazione.
-5. **Barbieri**: CRUD, servizi abilitati, orari settimanali, assenze.
+5. **Barbieri**: CRUD, servizi abilitati, orari settimanali, assenze. Vista delle assenze (`/admin/assenze`): l'admin vede quelle di tutti i barbieri, prima le future, con filtro per barbiere (parte dalla propria scheda se è anche barbiere) e ne inserisce scegliendo il barbiere; il barbiere vede e gestisce solo le proprie.
 6. **Chiusure negozio**.
 7. **Clienti**: elenco con ricerca, storico prenotazioni, contatore no-show, blocco/sblocco.
 8. **Impostazioni**: i parametri della sezione 3.1.

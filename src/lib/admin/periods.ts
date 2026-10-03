@@ -30,3 +30,34 @@ export function describePeriod(startsAt: Date, endsAt: Date, tz: string): Period
   }
   return { mode: "timed", fromDate: start.date, fromTime: start.time, toDate: end.date, toTime: end.time };
 }
+
+/** Valore del filtro per vedere le assenze di tutti i barbieri. */
+export const ALL_BARBERS = "tutti";
+
+/**
+ * Prima i periodi non ancora finiti, dal più vicino; poi quelli passati, dal più recente.
+ * Logica pura: `now` è un parametro.
+ */
+export function sortPeriodsForList<T extends { starts_at: string; ends_at: string }>(rows: T[], now: Date): T[] {
+  const time = (value: string) => new Date(value).getTime();
+  const current = now.getTime();
+  const upcoming = rows.filter((row) => time(row.ends_at) > current);
+  const past = rows.filter((row) => time(row.ends_at) <= current);
+  upcoming.sort((a, b) => time(a.starts_at) - time(b.starts_at));
+  past.sort((a, b) => time(b.starts_at) - time(a.starts_at));
+  return [...upcoming, ...past];
+}
+
+/**
+ * Barbiere scelto nel filtro delle assenze dell'admin: `null` = tutti. Senza una scelta valida
+ * parte dalla scheda dell'admin, se è anche barbiere, altrimenti da tutti.
+ */
+export function resolveBarberFilter(
+  requested: string | undefined,
+  ownBarberId: string | null,
+  barberIds: readonly string[],
+): string | null {
+  if (requested === ALL_BARBERS) return null;
+  if (requested && barberIds.includes(requested)) return requested;
+  return ownBarberId && barberIds.includes(ownBarberId) ? ownBarberId : null;
+}

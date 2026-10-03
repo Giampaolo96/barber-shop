@@ -45,11 +45,14 @@ export function PeriodTable({
   tz,
   editHref,
   deleteAction,
+  barberNames,
 }: {
-  rows: PeriodRow[];
+  rows: (PeriodRow & { barber_id?: string })[];
   tz: string;
   editHref: (id: string) => string;
   deleteAction: (previous: PeriodRowState, formData: FormData) => Promise<PeriodRowState>;
+  /** Se presente, l'elenco mostra la colonna del barbiere (vista dell'admin). */
+  barberNames?: Record<string, string>;
 }) {
   if (rows.length === 0) return <p className="text-sm opacity-70">{it.admin.common.empty}</p>;
 
@@ -57,6 +60,7 @@ export function PeriodTable({
     <table className="w-full text-left text-sm">
       <thead>
         <tr className="border-b">
+          {barberNames && <th className="py-2">{it.admin.timeOff.barberLabel}</th>}
           <th className="py-2">{it.admin.period.periodColumn}</th>
           <th className="py-2">{it.admin.period.reasonLabel}</th>
           <th className="py-2">{it.admin.common.actions}</th>
@@ -65,6 +69,7 @@ export function PeriodTable({
       <tbody>
         {rows.map((row) => (
           <tr key={row.id} className="border-b align-top">
+            {barberNames && <td className="py-2">{barberNames[row.barber_id ?? ""] ?? ""}</td>}
             <td className="py-2">{periodLabel(row, tz)}</td>
             <td className="py-2">{row.reason}</td>
             <td className="flex flex-wrap gap-2 py-2">

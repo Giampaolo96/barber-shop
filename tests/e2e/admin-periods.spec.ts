@@ -297,31 +297,77 @@ test.describe('Admin – chiusure del negozio (SPEC §3.5, §6.6)', () => {
     }
   });
 
-  // Decisione fetta 3 (utente): /admin/assenze per l'admin collegato a una scheda (seed: Mario)
-  // mostra le assenze della sua scheda; senza scheda rimanda a /admin/barbieri (non coperto qui:
-  // l'admin demo è sempre collegato)
-  test('l\'admin collegato a Mario vede su /admin/assenze solo le assenze di Mario', async ({ page }) => {
+  // Modifica richiesta dall'utente dopo la fetta 3: su /admin/assenze l'admin vede le assenze di
+  // tutti i barbieri, prima le future, con un filtro che parte dalla sua scheda se è anche
+  // barbiere (seed: Mario), e ne inserisce una scegliendo il barbiere. Niente più redirect a
+  // /admin/barbieri per l'admin senza scheda (coperto da tests/acceptance/admin-time-off-view.test.ts:
+  // l'admin demo è sempre collegato).
+  test('l\'admin vede le assenze di tutti filtrando per barbiere, prima le future, e ne inserisce una scegliendo il barbiere', async ({
+    page,
+  }) => {
     const api = await adminApi(page.request);
     const date = randomWinterDate();
     const mine = uniqueName('Assenza di Mario');
-    const others = uniqueName('Assenza di Sara');
-    for (const [barberId, reason] of [[SEED.mario, mine], [SEED.sara, others]] as const) {
+    const saraFuture = uniqueName('Assenza futura di Sara');
+    const saraPast = uniqueName('Assenza passata di Sara');
+    const created = uniqueName('Assenza inserita per Sara');
+    for (const [barberId, reason, day] of [
+      [SEED.mario, mine, date],
+      [SEED.sara, saraFuture, date],
+      [SEED.sara, saraPast, '2024-01-16'],
+    ] as const) {
       await api.post('/rest/v1/time_off?select=id', {
         barber_id: barberId,
-        starts_at: romeWinter(date, '09:00'),
-        ends_at: romeWinter(date, '10:00'),
+        starts_at: romeWinter(day, '09:00'),
+        ends_at: romeWinter(day, '10:00'),
         reason,
       });
     }
+    const filter = page.getByLabel(s('admin.timeOff.filterLabel'), { exact: true });
+    const rowIndex = async (text: string): Promise<number> =>
+      (await page.locator('main').getByRole('row').allInnerTexts()).findIndex((row) => row.includes(text));
 
     try {
       await loginAsAdmin(page);
       await page.goto('/admin/assenze');
       await expectPath(page, '/admin/assenze');
+
+      // Il filtro parte dalla scheda dell'admin (Mario)
+      await expect(filter).toHaveValue(SEED.mario);
       await expect(rowWith(page, mine)).toHaveCount(1);
-      await expect(page.getByText(others)).toHaveCount(0);
+      await expect(page.getByText(saraFuture)).toHaveCount(0);
+
+      // Tutti i barbieri: anche le assenze di Sara, con il nome del barbiere; prima le future
+      await filter.selectOption({ label: s('admin.timeOff.allBarbers') });
+      await page.getByRole('button', { name: s('admin.timeOff.filter'), exact: true }).click();
+      await expect(rowWith(page, saraFuture)).toHaveCount(1);
+      await expect(rowWith(page, saraFuture)).toContainText('Sara');
+      await expect(rowWith(page, saraPast)).toHaveCount(1);
+      await expect(rowWith(page, mine)).toHaveCount(1);
+      expect(await rowIndex(saraFuture)).toBeLessThan(await rowIndex(saraPast));
+
+      // Solo Sara
+      await filter.selectOption(SEED.sara);
+      await page.getByRole('button', { name: s('admin.timeOff.filter'), exact: true }).click();
+      await expect(rowWith(page, saraFuture)).toHaveCount(1);
+      await expect(page.getByText(mine)).toHaveCount(0);
+
+      // Inserimento scegliendo il barbiere (il modulo parte dal barbiere del filtro)
+      const barber = page.getByLabel(s('admin.timeOff.barberLabel'), { exact: true });
+      await expect(barber).toHaveValue(SEED.sara);
+      await page.getByRole('radio', { name: s('admin.period.timed'), exact: true }).check();
+      await field(page, 'admin.period.startLabel').fill(`${date}T15:00`);
+      await field(page, 'admin.period.endLabel').fill(`${date}T16:00`);
+      await field(page, 'admin.period.reasonLabel').fill(created);
+      await saveButton(page).click();
+      await expect(page.getByText(s('admin.common.saved'))).toBeVisible();
+      await expect(rowWith(page, created)).toHaveCount(1);
+      const saved = await api.get<Array<{ barber_id: string }>>(
+        `/rest/v1/time_off?select=barber_id&reason=eq.${encodeURIComponent(created)}`,
+      );
+      expect(saved).toEqual([{ barber_id: SEED.sara }]);
     } finally {
-      await cleanup(api, { timeOffReasons: [mine, others] });
+      await cleanup(api, { timeOffReasons: [mine, saraFuture, saraPast, created] });
     }
   });
 

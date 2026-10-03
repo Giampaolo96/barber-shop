@@ -186,7 +186,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 - Account staff: l'admin crea l'account (ruolo sempre `barber`) con password iniziale; email già registrata → messaggio, nessuna conversione. Collegamento di un profilo staff esistente (anche l'admin) e scollegamento. Blocco = `is_blocked` + revoca delle sessioni; gli access token già emessi restano validi fino alla scadenza ma senza privilegi nella RLS. L'admin non blocca se stesso.
 - Foto e logo solo URL `https://`, mostrati con `<img>` normale.
 - "Dal X al Y" a giornata intera include Y (fine alle 00:00 del giorno dopo, ora del negozio).
-- `/admin/assenze`: assenze della propria scheda; l'admin senza scheda va a `/admin/barbieri`.
+- `/admin/assenze`: il barbiere vede solo le proprie assenze; l'admin quelle di tutti (vedi "Modifiche dopo la chiusura").
 - Limiti di sanità (non in SPEC): nomi 100, descrizione e bio 500, motivo 200, URL 2048 caratteri; durata 1–480 min; orari `HH:MM` fino a 23:59.
 - Tetti delle impostazioni (utente, aggiunti a SPEC §3.1): anticipo e limite di cancellazione ≤ 7 giorni, orizzonte 1–365 giorni, buffer ≤ 60 minuti, soglia no-show 0–10.
 - Avvisi al singolare e al plurale ("1 prenotazione", "N prenotazioni"); se il conteggio fallisce, avviso che non è stato possibile verificare le prenotazioni coinvolte.
@@ -201,6 +201,11 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 - Con l'SMTP proprio, gli account staff passeranno a invito via email con cambio password obbligatorio al primo accesso (fetta 9).
 - Fetta 4: il motore legge `slot_granularity_min` (solo 5–60) e `max_horizon_days` (1–365) da `shop_settings`.
 - Fetta 6: sezione Clienti (§6.7), compreso il blocco dei clienti.
+
+**Modifiche dopo la chiusura** (richieste dall'utente, 2026-10-03)
+- `/admin/assenze` per l'admin: assenze di tutti i barbieri, prima le future, filtro per barbiere che parte dalla sua scheda se è anche barbiere, inserimento con scelta del barbiere, modifica di qualunque assenza. Niente più redirect a `/admin/barbieri`. Il barbiere continua a vedere e gestire solo le proprie. SPEC §6.5 e ADR 003 aggiornati.
+- Test: l'e2e "l'admin collegato a Mario…" in `admin-periods.spec.ts` è stato adeguato alla nuova vista (approvato dall'utente); logica pura (ordinamento e filtro iniziale, compreso l'admin senza scheda) in `tests/acceptance/admin-time-off-view.test.ts`.
+- Modulo dei periodi: la scelta giornata intera / con orario ora funziona anche prima dell'idratazione (campi sempre nel DOM, visibilità via CSS). Sotto carico un clic arrivato prima dell'idratazione andava perso e il modulo restava sui campi sbagliati.
 
 **Migliorie della review applicate** (su richiesta dell'utente): 1 rollback con log dell'utente orfano, 2 collegamento solo su scheda libera, 3 avviso con conteggio non verificato, 9 tetti massimi delle impostazioni, 13 avvisi al singolare e al plurale.
 

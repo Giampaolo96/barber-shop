@@ -8,24 +8,20 @@ import { isUuid } from "@/lib/admin/schemas";
 import { requireRole } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/db/server";
 
-export default async function EditOwnTimeOffPage({ params }: { params: Promise<{ timeOffId: string }> }) {
-  await requireRole(["barber", "admin"]);
+/** Modifica di un'assenza: il barbiere solo delle proprie, l'admin di qualunque barbiere. */
+export default async function EditTimeOffPage({ params }: { params: Promise<{ timeOffId: string }> }) {
+  const user = await requireRole(["barber", "admin"]);
   const { timeOffId } = await params;
   if (!isUuid(timeOffId)) notFound();
 
   const supabase = await createClient();
-  const barberId = await getOwnBarberId(supabase);
-  if (!barberId) notFound();
-
-  const [{ data: row }, tz] = await Promise.all([
-    supabase
-      .from("time_off")
-      .select("id, starts_at, ends_at, reason")
-      .eq("id", timeOffId)
-      .eq("barber_id", barberId)
-      .maybeSingle(),
-    getShopTimezone(supabase),
-  ]);
+  let query = supabase.from("time_off").select("id, starts_at, ends_at, reason").eq("id", timeOffId);
+  if (user.role !== "admin") {
+    const barberId = await getOwnBarberId(supabase);
+    if (!barberId) notFound();
+    query = query.eq("barber_id", barberId);
+  }
+  const [{ data: row }, tz] = await Promise.all([query.maybeSingle(), getShopTimezone(supabase)]);
   if (!row) notFound();
 
   return (
