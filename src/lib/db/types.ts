@@ -440,6 +440,8 @@ export type Database = {
       };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_staff: { Args: Record<PropertyKey, never>; Returns: boolean };
+      reorder_services: { Args: { p_ids: string[] }; Returns: undefined };
+      revoke_user_sessions: { Args: { p_user_id: string }; Returns: undefined };
       search_customers: {
         Args: { q: string };
         Returns: {
@@ -448,6 +450,7 @@ export type Database = {
           phone: string;
         }[];
       };
+      set_working_hours: { Args: { p_barber_id: string; p_hours: Json }; Returns: undefined };
       timemultirange: { Args: Record<PropertyKey, never>; Returns: unknown };
     };
     Enums: {

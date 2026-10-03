@@ -66,7 +66,8 @@ test.describe('Barbiere – le proprie assenze (SPEC §2, §3.5)', () => {
       await fillTimed(page, `${date}T14:00`, `${date}T16:00`, reason);
       await saveButton(page).click();
       // Decisione fetta 3 (utente): avviso anche quando l'assenza la inserisce il barbiere
-      await expect(page.getByText(sf('admin.period.overlapsBookings', { count: 1 }))).toBeVisible();
+      // Decisione fetta 3 (utente, dopo la review): con una sola prenotazione il testo è al singolare
+      await expect(page.getByText(sf('admin.period.overlapsBookingsOne', { count: 1 }))).toBeVisible();
       const row = rowWith(page, reason);
       await expect(row).toHaveCount(1);
       await expect(row).toContainText(itDate(date));

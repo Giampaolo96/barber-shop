@@ -5,7 +5,7 @@
 | 0 | completata | 2026-10-02 | Vedi "Fetta 0" sotto |
 | 1 | completata | 2026-10-02 | Vedi "Fetta 1" sotto |
 | 2 | completata | 2026-10-02 | Vedi "Fetta 2" sotto |
-| 3 | da fare | | |
+| 3 | completata | 2026-10-03 | Vedi "Fetta 3" sotto |
 | 4 | da fare | | |
 | 5 | da fare | | |
 | 6 | da fare | | |
@@ -163,3 +163,52 @@
 - Il token del magic link resta nell'URL di `/auth/confirm` (cronologia del browser) finché non si preme il pulsante; scade dopo un'ora e la pagina non carica risorse esterne.
 - L'errore di `signOut` quando si revoca la sessione creata dal link di uno staff è ignorato (`src/lib/auth/email-link.ts`): basta un log.
 - In sviluppo, durante gli e2e, il server Next scrive in console alcuni `ECONNRESET` per richieste interrotte dal browser: i test passano, ma va controllato che non compaiano in produzione.
+
+## Fetta 3 – Admin: servizi, barbieri, orari, assenze, chiusure, impostazioni
+
+**Stato**: completata, review chiusa (un giro, nessun bloccante; 5 migliorie applicate su richiesta dell'utente). CI su GitHub da verificare dopo il push.
+
+**Fatto**
+- 6 migrazioni (`2026100310*` e `2026100311*`): `set_working_hours` e `reorder_services` (invoker, solo admin), `revoke_user_sessions` (definer, solo `service_role`), vincoli di `shop_settings` (granularità 5/10/15/20/30/60, tetti massimi, niente `delete` per `authenticated`), guardia `barbers_guard_account_link`.
+- `src/lib/admin/`: utilità pure (`money`, `local-time`, `periods`, `text`), schemi Zod, server action di servizi, barbieri e orari, periodi, impostazioni e account staff; `queries.ts` per le letture comuni.
+- `src/lib/db/admin.ts`: client service role, importato solo da `staff-accounts.ts`.
+- Pagine `/admin/servizi`, `/admin/barbieri` (scheda con servizi abilitati e account staff, orari, assenze), `/admin/chiusure`, `/admin/impostazioni`, `/admin/assenze` (le proprie assenze, nuova rotta staff in `decideAccess` e voce di menu).
+- CI: `SUPABASE_SERVICE_ROLE_KEY` da `supabase status -o env`, mascherata.
+- `docs/adr/003-area-admin-e-account-staff.md`; SPEC §3.1 (granularità ammesse, orizzonte minimo) e §11 (impostazioni nella fetta 3); `DEPLOY.md`.
+- Test: `tests/acceptance/admin-{utils,schemas,access,staff-accounts}.test.ts`, `supabase/tests/13–15`, regressioni della review in `tests/acceptance/admin-review-fixes.test.ts` e `supabase/tests/16_review_fixes_fetta3.test.sql`, `tests/e2e/admin-*.spec.ts`, progetto Playwright `admin-settings` che parte dopo gli altri.
+
+**Esiti**: lint ok, typecheck ok, Vitest 919/919, pgTAP 809/809, Playwright 65/65. In locale gli e2e vanno lanciati con `SUPABASE_SERVICE_ROLE_KEY` nell'ambiente (o in `.env.local`).
+
+**Decisioni** (dettaglio nell'ADR 003)
+- Servizi e barbieri con prenotazioni non si eliminano: si disattivano. Disattivazioni, assenze e chiusure non cancellano prenotazioni: mostrano solo il numero di quelle `confirmed` coinvolte (future per le disattivazioni; sovrapposte `[starts_at, ends_at)` al periodo per assenze e chiusure).
+- Account staff: l'admin crea l'account (ruolo sempre `barber`) con password iniziale; email già registrata → messaggio, nessuna conversione. Collegamento di un profilo staff esistente (anche l'admin) e scollegamento. Blocco = `is_blocked` + revoca delle sessioni; gli access token già emessi restano validi fino alla scadenza ma senza privilegi nella RLS. L'admin non blocca se stesso.
+- Foto e logo solo URL `https://`, mostrati con `<img>` normale.
+- "Dal X al Y" a giornata intera include Y (fine alle 00:00 del giorno dopo, ora del negozio).
+- `/admin/assenze`: assenze della propria scheda; l'admin senza scheda va a `/admin/barbieri`.
+- Limiti di sanità (non in SPEC): nomi 100, descrizione e bio 500, motivo 200, URL 2048 caratteri; durata 1–480 min; orari `HH:MM` fino a 23:59.
+- Tetti delle impostazioni (utente, aggiunti a SPEC §3.1): anticipo e limite di cancellazione ≤ 7 giorni, orizzonte 1–365 giorni, buffer ≤ 60 minuti, soglia no-show 0–10.
+- Avvisi al singolare e al plurale ("1 prenotazione", "N prenotazioni"); se il conteggio fallisce, avviso che non è stato possibile verificare le prenotazioni coinvolte.
+- Collegamento scheda → account solo se la scheda è libera (guardia nel DB); altrimenti "La scheda è stata modificata, ricarica la pagina".
+- Rollback dell'account staff: se l'eliminazione compensativa fallisce, log di errore con l'id dell'utente Auth orfano.
+
+**Correzioni ai test di accettazione** (approvate dall'utente, commit `90471e9`)
+- Due e2e (modifica di una chiusura, modifica di un'assenza del barbiere) navigavano all'elenco subito dopo il click su Salva: sotto carico l'elenco veniva reso prima del salvataggio. Ora attendono il messaggio di salvataggio.
+- Avvisi al singolare e al plurale: `admin-access.test.ts` verifica entrambe le forme (chiavi `...One`) e l'e2e del barbiere con una sola prenotazione usa il testo al singolare (approvato dall'utente, nel commit della fetta).
+
+**Da fare nelle prossime fette**
+- Con l'SMTP proprio, gli account staff passeranno a invito via email con cambio password obbligatorio al primo accesso (fetta 9).
+- Fetta 4: il motore legge `slot_granularity_min` (solo 5–60) e `max_horizon_days` (1–365) da `shop_settings`.
+- Fetta 6: sezione Clienti (§6.7), compreso il blocco dei clienti.
+- Al primo deploy cloud verificare che `revoke_user_sessions` possa cancellare da `auth.sessions` e `auth.refresh_tokens` (privilegi di `postgres` sullo schema `auth`).
+
+**Migliorie della review applicate** (su richiesta dell'utente): 1 rollback con log dell'utente orfano, 2 collegamento solo su scheda libera, 3 avviso con conteggio non verificato, 9 tetti massimi delle impostazioni, 13 avvisi al singolare e al plurale.
+
+**Migliorie rimandate** (dalla review, non applicate: decide l'utente)
+4. Periodo con orario nel buco dell'ora legale (es. 02:30 del 28/03): dopo la conversione l'inizio può superare la fine e l'utente vede un errore generico invece di "dati non validi".
+5. `saveTimeOff`/`saveClosure` lanciano un'eccezione se le impostazioni non sono leggibili, invece di restituire `error`.
+6. Creazione del barbiere non atomica: se fallisce l'abilitazione dei servizi la scheda resta creata e un nuovo invio crea un duplicato.
+7. Se la revoca delle sessioni fallisce dopo un blocco riuscito, manca `revalidatePath` e lo stato mostrato è "errore".
+8. Verifica dei privilegi su `auth.*` nel cloud da aggiungere alla checklist di `DEPLOY.md`.
+10. Duplicazioni minori (`ServerClient`, codici d'errore Postgres).
+11. Le azioni di riga restituiscono `error` invece di `invalid` se Zod fallisce.
+12. Account staff: il messaggio d'errore di un'azione precedente resta visibile dopo un'altra riuscita.

@@ -31,12 +31,12 @@ Un utente ha un solo ruolo. Un admin può essere anche barbiere: lo è quando es
 
 ### 3.1 Impostazioni negozio (`shop_settings`, riga singola)
 - Nome, indirizzo, telefono, logo, timezone (default `Europe/Rome`).
-- `slot_granularity_min` – passo degli orari proposti (default **15**).
-- `min_advance_min` – anticipo minimo per prenotare (default **60**).
-- `max_horizon_days` – quanto avanti si può prenotare (default **30**).
-- `cancel_limit_min` – il cliente può cancellare fino a X minuti prima (default **120**).
-- `buffer_min` – pausa automatica dopo ogni appuntamento (default **0**).
-- `no_show_block_threshold` – dopo N no-show il cliente viene bloccato dalla prenotazione online (default **3**, 0 = disattivato).
+- `slot_granularity_min` – passo degli orari proposti (default **15**; ammessi solo 5, 10, 15, 20, 30, 60).
+- `min_advance_min` – anticipo minimo per prenotare (default **60**, massimo 7 giorni).
+- `max_horizon_days` – quanto avanti si può prenotare (default **30**, da 1 a 365).
+- `cancel_limit_min` – il cliente può cancellare fino a X minuti prima (default **120**, massimo 7 giorni).
+- `buffer_min` – pausa automatica dopo ogni appuntamento (default **0**, massimo 60).
+- `no_show_block_threshold` – dopo N no-show il cliente viene bloccato dalla prenotazione online (default **3**, 0 = disattivato, massimo 10).
 - `privacy_policy_version` – versione corrente dell'informativa privacy: il consenso di un cliente vale solo per questa versione.
 
 ### 3.2 Servizi (`services`)
@@ -160,7 +160,7 @@ Pagamenti e caparre online, più servizi in una prenotazione, lista d'attesa, pr
 | 0 | Setup progetto, CI, Supabase locale, deploy di prova | Pagina vuota online, test che girano in CI |
 | 1 | Schema DB + RLS + seed dati demo | Migrazioni applicate, test RLS verdi |
 | 2 | Auth e ruoli | Cliente e admin entrano e vedono aree diverse |
-| 3 | Admin: servizi, barbieri, orari, assenze, chiusure | CRUD completi |
+| 3 | Admin: servizi, barbieri, orari, assenze, chiusure, impostazioni | CRUD completi |
 | 4 | Motore disponibilità | Test unitari sui casi limite verdi (sez. 12) |
 | 5 | Flusso prenotazione cliente + "Le mie prenotazioni" | Prenotazione e cancellazione end-to-end con Playwright |
 | 6 | Calendario admin + prenotazioni manuali + cambi stato | Staff gestisce una giornata intera |

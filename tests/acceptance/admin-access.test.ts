@@ -391,6 +391,7 @@ const FETTA3_I18N_KEYS = [
   'admin.services.activeLabel',
   'admin.services.deleteHasBookings',
   'admin.services.deactivatedWithBookings',
+  'admin.services.deactivatedWithBookingsOne',
   'admin.barbers.new',
   'admin.barbers.displayNameLabel',
   'admin.barbers.photoUrlLabel',
@@ -400,6 +401,7 @@ const FETTA3_I18N_KEYS = [
   'admin.barbers.hours',
   'admin.barbers.timeOff',
   'admin.barbers.deactivatedWithBookings',
+  'admin.barbers.deactivatedWithBookingsOne',
   'admin.hours.weekdays.1',
   'admin.hours.weekdays.2',
   'admin.hours.weekdays.3',
@@ -420,6 +422,7 @@ const FETTA3_I18N_KEYS = [
   'admin.period.endLabel',
   'admin.period.reasonLabel',
   'admin.period.overlapsBookings',
+  'admin.period.overlapsBookingsOne',
   'admin.staff.title',
   'admin.staff.emailLabel',
   'admin.staff.passwordLabel',
@@ -453,10 +456,26 @@ describe('Testi della fetta 3 – SPEC §9 (src/i18n/it.ts)', () => {
   // Decisione fetta 3: avvisi con il numero di prenotazioni coinvolte (segnaposto {count})
   test.each([
     'admin.services.deactivatedWithBookings',
+    'admin.services.deactivatedWithBookingsOne',
     'admin.barbers.deactivatedWithBookings',
+    'admin.barbers.deactivatedWithBookingsOne',
     'admin.period.overlapsBookings',
+    'admin.period.overlapsBookingsOne',
   ])('it.%s contiene il segnaposto {count}', async (path) => {
     expect(String(await string(path))).toContain('{count}');
+  });
+
+  // Decisione fetta 3 (utente, dopo la review): "1 prenotazione", "N prenotazioni"
+  test.each([
+    'admin.services.deactivatedWithBookings',
+    'admin.barbers.deactivatedWithBookings',
+    'admin.period.overlapsBookings',
+  ])('it.%s ha la forma plurale, la variante One quella singolare', async (path) => {
+    const other = String(await string(path)).split('{count}').join('3');
+    const one = String(await string(`${path}One`)).split('{count}').join('1');
+    expect(other).toMatch(/\b3 prenotazioni\b/);
+    expect(one).toMatch(/\b1 prenotazione\b/);
+    expect(one).not.toMatch(/prenotazioni/);
   });
 
   // SPEC §3.2 / ADR 001: servizi con prenotazioni "si disattivano, non si eliminano"

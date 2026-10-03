@@ -26,7 +26,7 @@ Per la fetta 0 non ne serve nessuna. Dalla fetta 1–2, con il progetto Supabase
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | client e server | |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client e server | pubblica, protetta dalle policy RLS |
-| `SUPABASE_SERVICE_ROLE_KEY` | solo server | mai con prefisso `NEXT_PUBLIC_` |
+| `SUPABASE_SERVICE_ROLE_KEY` | solo server | mai con prefisso `NEXT_PUBLIC_`; serve dalla fetta 3 per creare gli account staff e revocarne le sessioni (ADR 003) |
 | `RESEND_API_KEY` | solo server | |
 
 ## 4. Migrazioni sul database cloud
@@ -51,4 +51,4 @@ Lo staff non si registra da solo. Per creare il primo admin:
    update public.profiles set role = 'admin', full_name = 'Nome Cognome'
     where id = (select id from auth.users where email = 'titolare@esempio.it');
    ```
-3. L'admin entra da `/admin/login`. Gli account dei barbieri si gestiranno dall'area admin (fetta 3).
+3. L'admin entra da `/admin/login`. Gli account dei barbieri si creano dalla scheda del barbiere in `/admin/barbieri` (ADR 003).

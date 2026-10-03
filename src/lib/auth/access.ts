@@ -21,8 +21,10 @@ export const STAFF_LOGIN_PATH = "/admin/login";
 /** Valore di `?motivo=` con cui il login dello staff mostra "Account disabilitato". */
 export const DISABLED_REASON = "disabilitato";
 
-/** Con /admin è l'unica rotta aperta a tutto lo staff; ogni altra rotta di /admin è solo per l'admin. */
+/** Rotte aperte a tutto lo staff oltre a /admin; ogni altra rotta di /admin è solo per l'admin. */
 const STAFF_CALENDAR_PATH = "/admin/calendario";
+/** Assenze del barbiere collegato all'utente (SPEC §2: "gestisce le proprie assenze"). */
+export const OWN_TIME_OFF_PATH = "/admin/assenze";
 
 /** Pagine private del cliente: richiedono login e profilo completo. */
 const CUSTOMER_PRIVATE_PREFIXES = ["/prenota", "/prenotazioni", "/profilo"];
@@ -64,7 +66,8 @@ export function decideAccess(input: AccessInput): AccessDecision {
     if (isStaffLogin || path === CUSTOMER_LOGIN_PATH || isCompleteProfile || isCustomerPrivate) {
       return redirectTo(ADMIN_PATH);
     }
-    const isStaffPath = path === ADMIN_PATH || isUnder(path, STAFF_CALENDAR_PATH);
+    const isStaffPath =
+      path === ADMIN_PATH || isUnder(path, STAFF_CALENDAR_PATH) || isUnder(path, OWN_TIME_OFF_PATH);
     if (isAdminArea && role === "barber" && !isStaffPath) return redirectTo(ADMIN_PATH);
     return ALLOW;
   }

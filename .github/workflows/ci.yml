@@ -42,6 +42,9 @@ jobs:
           eval "$(npx supabase status -o env)"
           echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
           echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          # Solo lato server (account staff): mai con prefisso NEXT_PUBLIC_.
+          echo "::add-mask::$SERVICE_ROLE_KEY"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
 
       - name: Database tests (pgTAP, RLS)
         run: npm run test:db
