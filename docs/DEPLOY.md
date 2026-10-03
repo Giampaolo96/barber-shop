@@ -2,6 +2,8 @@
 
 L'app gira su Vercel, il database su Supabase cloud. Questi passi richiedono i tuoi account: Claude non fa push né deploy.
 
+Prima dell'uso reale con i clienti va completata la checklist in `docs/GO-LIVE.md` (dominio, email, piani dei fornitori, privacy, proprietà degli account).
+
 ## 1. Repository GitHub
 1. Crea un repository vuoto su GitHub (privato).
 2. Dalla root del progetto:

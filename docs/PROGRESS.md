@@ -13,6 +13,8 @@
 | 8 | da fare | | |
 | 9 | da fare | | |
 
+Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli account): checklist in `docs/GO-LIVE.md`, da completare con il titolare del negozio.
+
 ## Decisioni
 (il lead aggiunge qui le decisioni prese durante le fette)
 
@@ -166,7 +168,7 @@
 
 ## Fetta 3 – Admin: servizi, barbieri, orari, assenze, chiusure, impostazioni
 
-**Stato**: completata, review chiusa (un giro, nessun bloccante; 5 migliorie applicate su richiesta dell'utente). CI su GitHub da verificare dopo il push.
+**Stato**: completata, review chiusa (un giro, nessun bloccante; 5 migliorie applicate su richiesta dell'utente). Migrazioni applicate a Supabase cloud il 2026-10-03 (`db push`); verificato dall'utente che `revoke_user_sessions` è security definer, eseguibile solo da `service_role` e con il permesso di cancellare da `auth.sessions` e `auth.refresh_tokens`. CI verde su GitHub, confermata dall'utente il 2026-10-03.
 
 **Fatto**
 - 6 migrazioni (`2026100310*` e `2026100311*`): `set_working_hours` e `reorder_services` (invoker, solo admin), `revoke_user_sessions` (definer, solo `service_role`), vincoli di `shop_settings` (granularità 5/10/15/20/30/60, tetti massimi, niente `delete` per `authenticated`), guardia `barbers_guard_account_link`.
@@ -199,7 +201,6 @@
 - Con l'SMTP proprio, gli account staff passeranno a invito via email con cambio password obbligatorio al primo accesso (fetta 9).
 - Fetta 4: il motore legge `slot_granularity_min` (solo 5–60) e `max_horizon_days` (1–365) da `shop_settings`.
 - Fetta 6: sezione Clienti (§6.7), compreso il blocco dei clienti.
-- Al primo deploy cloud verificare che `revoke_user_sessions` possa cancellare da `auth.sessions` e `auth.refresh_tokens` (privilegi di `postgres` sullo schema `auth`).
 
 **Migliorie della review applicate** (su richiesta dell'utente): 1 rollback con log dell'utente orfano, 2 collegamento solo su scheda libera, 3 avviso con conteggio non verificato, 9 tetti massimi delle impostazioni, 13 avvisi al singolare e al plurale.
 
