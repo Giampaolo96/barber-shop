@@ -86,6 +86,8 @@ test.describe('Barbiere – le proprie assenze (SPEC §2, §3.5)', () => {
       await field(page, 'admin.period.endLabel').fill(`${date}T17:30`);
       await field(page, 'admin.period.reasonLabel').fill(renamed);
       await saveButton(page).click();
+      // Si aspetta l'esito del salvataggio prima di lasciare la pagina (approvato dall'utente)
+      await expect(page.getByText(s('admin.common.saved'))).toBeVisible();
       await page.goto('/admin/assenze');
       await expect(rowWith(page, renamed)).toHaveCount(1);
       await expect(rowWith(page, renamed)).toContainText('17:30');

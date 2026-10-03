@@ -241,6 +241,8 @@ test.describe('Admin – chiusure del negozio (SPEC §3.5, §6.6)', () => {
       await expect(field(page, 'admin.period.reasonLabel')).toHaveValue(reason);
       await field(page, 'admin.period.reasonLabel').fill(renamed);
       await saveButton(page).click();
+      // Si aspetta l'esito del salvataggio prima di lasciare la pagina (approvato dall'utente)
+      await expect(page.getByText(s('admin.common.saved'))).toBeVisible();
       await page.goto('/admin/chiusure');
       await expect(rowWith(page, renamed)).toHaveCount(1);
       const afterEdit = await api.get<PeriodRow[]>(
