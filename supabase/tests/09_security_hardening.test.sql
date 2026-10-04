@@ -267,7 +267,10 @@ select is_empty(
          and p.oid::regprocedure::text not in (
            'current_user_role()', 'is_admin()', 'is_staff()', 'current_barber_id()',
            'public.current_user_role()', 'public.is_admin()', 'public.is_staff()',
-           'public.current_barber_id()')
+           'public.current_barber_id()',
+           -- fetta 4: input del motore di disponibilità, leggibile senza login (solo orari)
+           'availability_inputs(uuid,uuid,timestamp with time zone,timestamp with time zone)',
+           'public.availability_inputs(uuid,uuid,timestamp with time zone,timestamp with time zone)')
          -- costruttori del tipo range public.timerange: funzioni di sistema create con il
          -- tipo, di proprietà del superutente, non revocabili da una migrazione; non leggono dati
          and p.proname not in ('timerange', 'timemultirange') $q$,
