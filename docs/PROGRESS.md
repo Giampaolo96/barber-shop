@@ -335,4 +335,4 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 
 **Esiti dopo la review**: lint ok, typecheck ok, Vitest 1020/1020, pgTAP 955/955, Playwright 72/72.
 
-**Osservato, non legato alla fetta 5**: lanciando un solo spec con le dipendenze, `admin-barbers.spec.ts` ("crea un barbiere...") è fallito una volta: legge `barber_services` appena compare la scheda, prima che i servizi siano salvati. È la creazione non atomica già annotata (fetta 3, miglioria rimandata 6). Da solo e nella suite completa passa.
+**Stabilizzato dopo la review** (approvato dall'utente, commit "test: stabilizza e2e barbieri (fetta 3)"): `admin-barbers.spec.ts` ("crea un barbiere...") leggeva `barber_services` appena compariva la scheda, prima che i servizi fossero salvati (creazione non atomica, fetta 3 miglioria rimandata 6). Ora attende il redirect alla scheda, che arriva solo dopo il salvataggio dei servizi; asserzioni invariate. Verificato con `--repeat-each=10` (50/50).

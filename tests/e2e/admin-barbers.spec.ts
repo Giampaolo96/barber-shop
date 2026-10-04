@@ -81,6 +81,9 @@ test.describe('Admin – barbieri (SPEC §6.5)', () => {
       await servicesGroup(page).getByRole('checkbox', { name: 'Taglio', exact: true }).check();
       await servicesGroup(page).getByRole('checkbox', { name: 'Barba', exact: true }).check();
       await saveButton(page).click();
+      // Si aspetta l'esito del salvataggio prima di leggere il DB (approvato dall'utente): la
+      // creazione reindirizza alla scheda solo dopo aver salvato anche i servizi abilitati.
+      await expect(page).toHaveURL(/\/admin\/barbieri\/[0-9a-f-]{36}$/);
 
       await expect.poll(async () => (await findBarbers(api, name)).length, { message: 'barbiere non salvato' }).toBe(1);
       const [created] = await findBarbers(api, name);
