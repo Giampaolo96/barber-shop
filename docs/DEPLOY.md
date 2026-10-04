@@ -57,10 +57,10 @@ Lo staff non si registra da solo. Per creare il primo admin:
 3. L'admin entra da `/admin/login`. Gli account dei barbieri si creano dalla scheda del barbiere in `/admin/barbieri` (ADR 003).
 
 ## 7. Rate limiting (firewall Vercel)
-La creazione delle prenotazioni è limitata nel database, per cliente (al massimo 3 prenotazioni online future e 10 creazioni nelle ultime 24 ore, ADR 005). Gli orari liberi sono pubblici e non hanno un limite nell'app: un limitatore in memoria non funziona sulle funzioni serverless, e uno nel database eseguibile da anon sarebbe usabile per bloccare altri utenti.
+La creazione delle prenotazioni è limitata nel database, per cliente (al massimo 3 prenotazioni online future e 10 creazioni nelle ultime 24 ore, ADR 005). La consultazione degli orari no: le pagine del flusso (`/prenota/**`) richiedono il login, ma un cliente autenticato potrebbe aprirle in continuazione, e ogni apertura di `/prenota/orario` calcola i giorni liberi su tutto l'orizzonte. Un limitatore in memoria non funziona sulle funzioni serverless, e uno nel database eseguibile dai clienti sarebbe usabile per bloccare altri utenti.
 
 Per frenare le richieste automatiche configura una regola di rate limiting del firewall Vercel (disponibile anche sul piano Hobby, una regola per progetto; finestra fissa da 10 s a 10 min, chiave IP):
 1. Progetto → **Firewall** → **Configure** → **New Rule**.
-2. Condizioni: *Request Path* che inizia con `/prenota` e *Method* uguale a `POST` (le server action, comprese quelle degli orari, sono POST sulla pagina).
+2. Condizione: *Request Path* che inizia con `/prenota`, **qualsiasi metodo**. Copre le pagine del flusso (GET, compresa `/prenota/orario`) e le server action, che sono POST sulla pagina.
 3. Azione **Rate Limit**, *Fixed Window* 60 s, limite indicativo 60 richieste per IP, risposta 429. Conviene partire con l'azione **Log** per qualche giorno e controllare il traffico prima di passare al blocco.
 4. **Review Changes** → **Publish**.

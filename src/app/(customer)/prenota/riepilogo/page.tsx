@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { BlockedNotice } from "@/components/booking/blocked-notice";
+import { AccessNotice } from "@/components/booking/access-notice";
 import { ConfirmBookingForm } from "@/components/booking/confirm-booking-form";
 import { RestartNotice } from "@/components/booking/restart-notice";
 import { StepHeader } from "@/components/booking/step-header";
 import { it } from "@/i18n/it";
 import { formatDateTime } from "@/lib/booking/format";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
-import { ANY_BARBER, BOOK_PATH, timeStepUrl } from "@/lib/booking/paths";
+import { ANY_BARBER, BOOK_PATH, summaryStepUrl, timeStepUrl } from "@/lib/booking/paths";
 import { getBarbersForService, getBookableService } from "@/lib/booking/queries";
 import { barberChoiceSchema } from "@/lib/booking/schemas";
 import { formatCents } from "@/lib/domain/money";
@@ -24,7 +24,7 @@ export default async function BookingSummaryPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const { shop, blocked } = await loadBookingPageContext();
+  const { shop, access } = await loadBookingPageContext();
   const t = it.booking.summary;
   const params = paramsSchema.safeParse(await searchParams);
 
@@ -59,8 +59,12 @@ export default async function BookingSummaryPage({
               {it.booking.duration.replace("{count}", String(service.durationMin))}
             </dd>
           </dl>
-          {blocked ? (
-            <BlockedNotice phone={shop.phone} />
+          {access !== "ok" ? (
+            <AccessNotice
+              access={access}
+              phone={shop.phone}
+              retryHref={summaryStepUrl(service.id, barberId, params.data.inizio)}
+            />
           ) : (
             <ConfirmBookingForm
               serviceId={service.id}

@@ -13,3 +13,7 @@ export const formatDateTime = (instant: Date | string, tz: string): string =>
 /** Etichetta di un giorno locale `YYYY-MM-DD` nella striscia dei giorni: "lun 12 ott". */
 export const formatDayLabel = (date: string): string =>
   formatInTimeZone(new Date(`${date}T12:00:00Z`), "UTC", "EEE d MMM", { locale: itLocale });
+
+/** Link `tel:` dal telefono del negozio (solo cifre e +); null se manca. */
+export const telHref = (phone: string | null): string | null =>
+  phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : null;

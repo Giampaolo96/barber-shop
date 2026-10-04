@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { it } from "@/i18n/it";
 import { cancelBooking, type BookingActionState } from "@/lib/booking/actions";
-import { bookingErrorMessage } from "@/lib/booking/errors";
+import { bookingErrorText } from "@/lib/booking/errors";
 
 const initialState: BookingActionState = { status: "idle" };
 
@@ -27,7 +27,7 @@ export function CancelBookingButton({ bookingId }: { bookingId: string }) {
       </Button>
       {state.status === "error" && (
         <p role="alert" className="text-sm text-destructive">
-          {bookingErrorMessage(state.code)}
+          {bookingErrorText(state.code)}
         </p>
       )}
     </form>

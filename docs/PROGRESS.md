@@ -275,7 +275,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 
 ## Fetta 5 – Flusso prenotazione cliente + "Le mie prenotazioni"
 
-**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie elencate sotto, da decidere). Migrazioni da applicare a Supabase cloud (`db push`); regola del firewall Vercel e Redirect URLs da configurare (`docs/DEPLOY.md` §5 e §7). CI da verificare dopo il push.
+**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 2–11 applicate su richiesta dell'utente nel commit "fix: review fetta 5"). 5 migrazioni da applicare a Supabase cloud (`db push`); regola del firewall Vercel e Redirect URLs da configurare (`docs/DEPLOY.md` §5 e §7). CI da verificare dopo il push.
 
 **Fatto**
 - 4 migrazioni `2026100410*`:
@@ -308,16 +308,31 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 - Fetta 9: `profileComplete` non confronta la versione del consenso privacy, il database sì: un cliente con un consenso vecchio lo scopre alla conferma ("Completa il tuo profilo per prenotare").
 - Produzione: `db push` delle 4 migrazioni; template email con `next={{ .RedirectTo }}`; Redirect URLs `https://<dominio>/**`; regola del firewall.
 
-**Migliorie della review** (non applicate: decide l'utente)
-1. Committare insieme il rename `admin/money.ts → domain/money.ts` e il nuovo re-export `src/lib/admin/money.ts` (usato da `admin-utils.test.ts`).
-2. Con "Nessuna preferenza" un orario non valido per motivi indipendenti dal barbiere (troppo vicino, fuori orizzonte, fuori griglia, chiusura) restituisce `taken` ("Orario appena occupato").
-3. `online_slot_error` distingue `time_off`, `closed` e `taken`: un cliente può dedurre le assenze di un barbiere (nessun dato di altri clienti). Ridurre i codici per i non staff tocca i test pgTAP 19.
-4. La regola del firewall copre solo le POST; ogni GET di `/prenota/orario` calcola i giorni su tutto l'orizzonte. Inoltre `/prenota` richiede il login: la "disponibilità anonima" citata in ADR 005 e `DEPLOY.md` §7 oggi non è raggiungibile, il testo va allineato.
-5. Se la lettura del profilo fallisce, `page-context.ts` tratta il cliente come bloccato.
-6. Un errore di lettura delle prenotazioni mostra "Nessuna prenotazione." invece di un errore.
-7. Un `next` oltre 2048 caratteri fa fallire lo schema del login (risposta "invalid" con un'email corretta).
-8. Al primo accesso il redirect a `/profilo/completa` perde `next`.
-9. Codice morto e duplicazioni: `home.callShop` inutilizzato, select e mapping duplicati in `queries.ts`, link `tel:` costruito in tre punti.
-10. Mancano test unitari per `emailRedirectUrl` e `nextFromEmailLink`.
-11. I limiti 500 e 3 sono scritti nei testi di `it.ts` invece che con un segnaposto.
+**Review: migliorie applicate** (su richiesta dell'utente; la review è chiusa)
+1. Rename di `money.ts` e re-export committati insieme (commit della fetta).
+2. "Nessuna preferenza": prima le regole del negozio (`online_slot_shop_error`), l'errore rispecchia la causa reale (`too_soon`, `too_far`, `closed`...); nessun barbiere libero → `unavailable`.
+3. `online_slot_error` non distingue più assenza del barbiere e orario occupato (`unavailable`, "Questo orario non è disponibile"); la chiusura resta `closed`; "Orario appena occupato" resta per la gara sul vincolo di esclusione (`23P01`). Migrazione `20261004110000_online_slot_error_codes.sql`. **Limite noto (decisione dell'utente)**: `availability_inputs` (fetta 4, eseguibile anche da anon) espone ancora le assenze come `time_off` distinte da `busy`; unirle richiede di cambiare il motore.
+4. ADR 005 e `DEPLOY.md` §7 allineati: `/prenota/**` richiede il login; la regola del firewall copre tutti i metodi su `/prenota` (anche le GET di `/prenota/orario`).
+5. Profilo non leggibile: messaggio con invito a riprovare (`access: "error"`), non il blocco.
+6. Prenotazioni non leggibili: messaggio d'errore in `/prenotazioni` e in home, non "Nessuna prenotazione".
+7. `next` oltre 2048 caratteri scartato da `safeNextPath` (ritorno alla home); lo schema del login non fallisce; il link email accetta l'URL di redirect con la destinazione codificata (fino a 4096).
+8. La destinazione passa da `/profilo/completa`: sia al primo accesso dal magic link sia quando il proxy ci manda un cliente con il profilo incompleto. Senza destinazione valida si arriva alla home (`destinationAfterLogin`).
+9. `home.callShop` rimosso; colonne e mapping di "Le mie prenotazioni" in un solo punto (`MY_BOOKING_COLUMNS`, `toMyBooking`); link `tel:` da `telHref`.
+10. Test unitari su `emailRedirectUrl`, `nextFromEmailLink`, lunghezza massima e destinazione.
+11. Limiti nei testi con `{max}` (`bookingErrorText`, `ONLINE_BOOKING_LIMITS`).
 
+**Versione dell'informativa in sola lettura** (richiesta dell'utente, legata alla fetta 9)
+- In **Impostazioni** il campo è in sola lettura, senza `name`, con una nota: il cambio di versione arriverà con il flusso di nuovo consenso. `saveSettings` usa `editableSettingsSchema` e non scrive `privacy_policy_version`.
+- Motivo: `create_online_booking` richiede il consenso alla versione corrente; cambiarla oggi impedirebbe a tutti i clienti di prenotare (`profile_incomplete`) senza modo di rinnovare il consenso.
+- **Fetta 9**: introdurre il flusso di nuovo consenso (anche `profileComplete` deve confrontare la versione), poi rendere di nuovo modificabile la versione.
+
+**Correzioni ai test durante la review** (approvate dall'utente)
+- `19_online_booking.test.sql`: codici `time_off`/`taken` → `unavailable`; due casi nuovi per "Nessuna preferenza" (`too_soon`, `closed`); `plan(100)`.
+- `booking-db.test.ts`: due attese `taken` → `unavailable`.
+- `auth.spec.ts` (fetta 2): dopo il completamento del profilo arrivato da `/profilo` si torna a `/profilo`, non alla home.
+- `admin-settings.spec.ts` (fetta 3): la versione dell'informativa non si compila più (sola lettura); il campo è verificato come non modificabile.
+- Nuovi: `tests/acceptance/booking-review-fixes.test.ts`, `supabase/tests/20_review_fixes_fetta5.test.sql`, `tests/e2e/review-fixes-fetta5.spec.ts` (ritorno a `/prenota` dopo il completamento; `next` esterno o troppo lungo → home).
+
+**Esiti dopo la review**: lint ok, typecheck ok, Vitest 1020/1020, pgTAP 955/955, Playwright 72/72.
+
+**Osservato, non legato alla fetta 5**: lanciando un solo spec con le dipendenze, `admin-barbers.spec.ts` ("crea un barbiere...") è fallito una volta: legge `barber_services` appena compare la scheda, prima che i servizi siano salvati. È la creazione non atomica già annotata (fetta 3, miglioria rimandata 6). Da solo e nella suite completa passa.

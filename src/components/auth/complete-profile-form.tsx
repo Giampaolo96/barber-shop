@@ -10,12 +10,22 @@ import type { CompleteProfileState } from "@/lib/auth/actions";
 
 const initialState: CompleteProfileState = { status: "idle" };
 
-export function CompleteProfileForm({ fullName, phone }: { fullName: string; phone: string }) {
+/** `next`: pagina a cui tornare dopo il salvataggio (già validata con safeNextPath). */
+export function CompleteProfileForm({
+  fullName,
+  phone,
+  next = "/",
+}: {
+  fullName: string;
+  phone: string;
+  next?: string;
+}) {
   const [state, formAction, pending] = useActionState(completeProfile, initialState);
   const t = it.auth.completeProfile;
 
   return (
     <form action={formAction} noValidate className="flex w-full flex-col gap-4">
+      {next !== "/" && <input type="hidden" name="next" value={next} />}
       <div className="flex flex-col gap-2">
         <Label htmlFor="fullName">{t.fullNameLabel}</Label>
         <Input

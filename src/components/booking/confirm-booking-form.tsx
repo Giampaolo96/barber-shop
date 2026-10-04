@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { it } from "@/i18n/it";
 import { createBooking, type BookingActionState } from "@/lib/booking/actions";
-import { bookingErrorMessage } from "@/lib/booking/errors";
+import { bookingErrorText } from "@/lib/booking/errors";
 import { NOTES_MAX_LENGTH } from "@/lib/booking/schemas";
 
 /** Errori per cui ha senso tornare alla scelta dell'orario. */
 const SLOT_ERRORS = new Set([
   "taken",
+  "unavailable",
   "23P01",
   "too_soon",
   "too_far",
@@ -56,7 +57,7 @@ export function ConfirmBookingForm({
       </div>
       {state.status === "error" && (
         <div role="alert" className="flex flex-col gap-2 text-destructive">
-          <p>{bookingErrorMessage(state.code)}</p>
+          <p>{bookingErrorText(state.code)}</p>
           {SLOT_ERRORS.has(state.code) && (
             <Link href={changeTimeHref} className="inline-flex h-11 items-center font-medium underline">
               {t.changeTime}

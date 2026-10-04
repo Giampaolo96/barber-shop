@@ -74,7 +74,20 @@ export function SettingsForm({
       {number("cancelLimitMin", t.cancelLimitLabel, 0)}
       {number("bufferMin", t.bufferLabel, 0)}
       {number("noShowBlockThreshold", t.noShowThresholdLabel, 0)}
-      {text("privacyPolicyVersion", t.privacyPolicyVersionLabel, { required: true, maxLength: 50 })}
+      {/* Sola lettura, senza name: non viene inviata (fetta 9, flusso di nuovo consenso). */}
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="privacyPolicyVersion">{t.privacyPolicyVersionLabel}</Label>
+        <Input
+          id="privacyPolicyVersion"
+          defaultValue={values.privacyPolicyVersion}
+          readOnly
+          aria-describedby="privacyPolicyVersionNote"
+          className="bg-muted"
+        />
+        <p id="privacyPolicyVersionNote" className="text-sm opacity-70">
+          {t.privacyPolicyVersionNote}
+        </p>
+      </div>
       <Button type="submit" disabled={pending} className="self-start">
         {it.admin.common.save}
       </Button>

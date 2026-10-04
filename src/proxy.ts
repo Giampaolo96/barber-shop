@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
+  COMPLETE_PROFILE_PATH,
   CUSTOMER_LOGIN_PATH,
   DISABLED_REASON,
   STAFF_LOGIN_PATH,
@@ -57,8 +58,12 @@ export async function proxy(request: NextRequest) {
   const target = request.nextUrl.clone();
   target.pathname = decision.to;
   target.search = "";
-  // Anonimo su una pagina privata del cliente: dopo il login torna lì, parametri compresi.
-  if (!user && decision.to === CUSTOMER_LOGIN_PATH) {
+  // Anonimo su una pagina privata del cliente (dopo il login) o cliente con il profilo da
+  // completare (dopo il salvataggio): poi torna lì, parametri compresi.
+  if (
+    (!user && decision.to === CUSTOMER_LOGIN_PATH) ||
+    (user?.role === "customer" && decision.to === COMPLETE_PROFILE_PATH)
+  ) {
     target.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
   }
 

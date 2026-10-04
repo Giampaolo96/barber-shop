@@ -1,22 +1,22 @@
 import Link from "next/link";
-import { BlockedNotice } from "@/components/booking/blocked-notice";
+import { AccessNotice } from "@/components/booking/access-notice";
 import { StepHeader, choiceClass } from "@/components/booking/step-header";
 import { it } from "@/i18n/it";
 import { formatCents } from "@/lib/domain/money";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
-import { barberStepUrl, timeStepUrl } from "@/lib/booking/paths";
+import { BOOK_PATH, barberStepUrl, timeStepUrl } from "@/lib/booking/paths";
 import { getBookableServices } from "@/lib/booking/queries";
 
 // Passo 1 di 4 (SPEC §5.2): scelta del servizio.
 export default async function ChooseServicePage() {
-  const { shop, blocked } = await loadBookingPageContext();
+  const { shop, access } = await loadBookingPageContext();
   const t = it.booking;
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-4">
       <StepHeader step={1} title={t.service.title} backHref="/" />
-      {blocked ? (
-        <BlockedNotice phone={shop.phone} />
+      {access !== "ok" ? (
+        <AccessNotice access={access} phone={shop.phone} retryHref={BOOK_PATH} />
       ) : (
         <ServiceList />
       )}

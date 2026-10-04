@@ -12,7 +12,6 @@ export const it = {
     nextBooking: "Prossima prenotazione",
     noBooking: "Non hai prenotazioni in programma.",
     myBookings: "Le mie prenotazioni",
-    callShop: "Chiama il negozio",
   },
   nav: {
     login: "Accedi",
@@ -83,13 +82,16 @@ export const it = {
       taken: "Orario appena occupato, scegline un altro",
       profileIncomplete: "Completa il tuo profilo per prenotare.",
       blocked: "Al momento non puoi prenotare online: chiama il negozio.",
-      notesTooLong: "La nota può avere al massimo 500 caratteri.",
+      notesTooLong: "La nota può avere al massimo {max} caratteri.",
       tooManyFuture:
-        "Hai già 3 prenotazioni online in programma: per prenotarne altre chiama il negozio.",
+        "Hai già {max} prenotazioni online in programma: per prenotarne altre chiama il negozio.",
       tooManyRecent:
         "Hai fatto troppe prenotazioni nelle ultime 24 ore: riprova più tardi o chiama il negozio.",
       customerOverlap: "Hai già un appuntamento in questo orario.",
       notFound: "Prenotazione non trovata.",
+      profileLoad: "Non è stato possibile verificare il tuo profilo. Riprova tra poco.",
+      listLoad: "Non è stato possibile caricare le tue prenotazioni. Riprova tra poco.",
+      retry: "Riprova",
       notCancellable: "Questa prenotazione non si può cancellare.",
       tooLate: "È troppo tardi per cancellare online: chiama il negozio.",
     },
@@ -292,6 +294,8 @@ export const it = {
       bufferLabel: "Pausa dopo ogni appuntamento (minuti)",
       noShowThresholdLabel: "Blocco dopo N mancate presentazioni (0 = disattivato)",
       privacyPolicyVersionLabel: "Versione dell'informativa privacy",
+      privacyPolicyVersionNote:
+        "Non modificabile per ora: il cambio di versione arriverà con il flusso di nuovo consenso dei clienti. Oggi cambiarla impedirebbe a tutti i clienti di prenotare, senza modo di rinnovare il consenso.",
     },
   },
 } as const;

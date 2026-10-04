@@ -4,6 +4,9 @@
 
 const MINUTE = 60_000;
 
+/** Limiti della prenotazione online, applicati da create_online_booking (ADR 005): qui per i testi. */
+export const ONLINE_BOOKING_LIMITS = { maxFutureBookings: 3, maxNotesLength: 500 } as const;
+
 /** Cancellazione consentita fino a `cancelLimitMin` minuti prima dell'inizio, bordo incluso. */
 export function canCancel(startsAt: Date, now: Date, cancelLimitMin: number): boolean {
   return now.getTime() <= startsAt.getTime() - cancelLimitMin * MINUTE;

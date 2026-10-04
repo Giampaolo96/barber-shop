@@ -141,7 +141,7 @@ Rimandati: push notification PWA, SMS, WhatsApp.
 - Dati raccolti minimi: nome, email, telefono, storico prenotazioni.
 - Eliminazione account da parte del cliente → anonimizzazione delle prenotazioni passate (restano per le statistiche senza dati personali).
 - Row Level Security attiva su **tutte** le tabelle; nessuna chiave privilegiata nel codice client.
-- Rate limiting sulla creazione prenotazioni per evitare abusi: nel database, per cliente, al massimo 3 prenotazioni online future e 10 creazioni nelle ultime 24 ore; per le richieste anonime una regola del firewall Vercel (ADR 005).
+- Rate limiting sulla creazione prenotazioni per evitare abusi: nel database, per cliente, al massimo 3 prenotazioni online future e 10 creazioni nelle ultime 24 ore; per le pagine del flusso (che richiedono il login) una regola del firewall Vercel (ADR 005).
 
 ## 9. Requisiti non funzionali
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { it } from "@/i18n/it";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { formatDateTime } from "@/lib/booking/format";
+import { formatDateTime, telHref } from "@/lib/booking/format";
 import { BOOK_PATH, MY_BOOKINGS_PATH } from "@/lib/booking/paths";
 import { getNextBooking, getShopInfo } from "@/lib/booking/queries";
 
@@ -9,6 +9,7 @@ import { getNextBooking, getShopInfo } from "@/lib/booking/queries";
 export default async function HomePage() {
   const [user, shop] = await Promise.all([getCurrentUser(), getShopInfo()]);
   const next = user?.role === "customer" ? await getNextBooking(user.id) : null;
+  const tel = telHref(shop?.phone ?? null);
   const t = it.home;
 
   return (
@@ -16,8 +17,8 @@ export default async function HomePage() {
       <section className="flex flex-col gap-1 pt-4 text-center">
         <h1 className="text-3xl font-semibold">{shop?.name ?? it.shop.name}</h1>
         {shop?.address && <p className="opacity-70">{shop.address}</p>}
-        {shop?.phone && (
-          <a href={`tel:${shop.phone.replace(/[^\d+]/g, "")}`} className="inline-flex h-11 items-center justify-center">
+        {shop?.phone && tel && (
+          <a href={tel} className="inline-flex h-11 items-center justify-center">
             {shop.phone}
           </a>
         )}
@@ -33,11 +34,15 @@ export default async function HomePage() {
       {user?.role === "customer" && (
         <section className="flex flex-col gap-2 rounded-xl border p-4">
           <h2 className="font-semibold">{t.nextBooking}</h2>
-          {next && shop ? (
+          {next && !next.ok ? (
+            <p role="alert">{it.booking.errors.listLoad}</p>
+          ) : next?.booking && shop ? (
             <p>
-              <span className="font-medium">{next.serviceName}</span> · {next.barberName}
+              <span className="font-medium">{next.booking.serviceName}</span> · {next.booking.barberName}
               <br />
-              <span className="first-letter:uppercase">{formatDateTime(next.startsAt, shop.timezone)}</span>
+              <span className="first-letter:uppercase">
+                {formatDateTime(next.booking.startsAt, shop.timezone)}
+              </span>
             </p>
           ) : (
             <p className="opacity-70">{t.noBooking}</p>

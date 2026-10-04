@@ -4,7 +4,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/db/server";
-import { settingsSchema } from "./schemas";
+import { editableSettingsSchema } from "./schemas";
 
 export type SettingsState = { status: "idle" | "saved" | "invalid" | "error" };
 
@@ -16,7 +16,8 @@ export async function saveSettings(
 ): Promise<SettingsState> {
   await requireRole(["admin"]);
 
-  const parsed = settingsSchema.safeParse({
+  // privacy_policy_version non si salva da qui (sola lettura fino alla fetta 9).
+  const parsed = editableSettingsSchema.safeParse({
     name: formData.get("name"),
     address: formData.get("address"),
     phone: formData.get("phone"),
@@ -28,7 +29,6 @@ export async function saveSettings(
     cancelLimitMin: formData.get("cancelLimitMin"),
     bufferMin: formData.get("bufferMin"),
     noShowBlockThreshold: formData.get("noShowBlockThreshold"),
-    privacyPolicyVersion: formData.get("privacyPolicyVersion"),
   });
   if (!parsed.success) return { status: "invalid" };
   const settings = parsed.data;
@@ -48,7 +48,6 @@ export async function saveSettings(
       cancel_limit_min: settings.cancelLimitMin,
       buffer_min: settings.bufferMin,
       no_show_block_threshold: settings.noShowBlockThreshold,
-      privacy_policy_version: settings.privacyPolicyVersion,
     })
     .eq("id", true)
     .select("id");

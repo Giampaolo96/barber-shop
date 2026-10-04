@@ -1,8 +1,9 @@
 // Input delle server action della prenotazione online (CLAUDE.md – Sicurezza: Zod lato server).
 import { z } from "zod";
+import { ONLINE_BOOKING_LIMITS } from "./rules";
 
 /** Lunghezza massima della nota del cliente (decisione fetta 5), controllata anche nel DB. */
-export const NOTES_MAX_LENGTH = 500;
+export const NOTES_MAX_LENGTH = ONLINE_BOOKING_LIMITS.maxNotesLength;
 
 export const barberChoiceSchema = z.union([z.uuid(), z.literal("any")]);
 

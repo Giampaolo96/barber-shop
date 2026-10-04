@@ -344,8 +344,8 @@ describe('ADR 004 – coerenza fra getAvailableSlots e online_slot_error', () =>
     await expectRejected(ctx.barberA, proposed, rome(day, '12:45'), 'outside_hours'); // SPEC §12 pausa pranzo
     await expectRejected(ctx.barberA, proposed, rome(day, '14:00'), 'outside_hours');
     await expectRejected(ctx.barberA, proposed, rome(day, '18:45'), 'outside_hours'); // SPEC §12 oltre la chiusura
-    await expectRejected(ctx.barberA, proposed, rome(day, '10:00'), 'taken');
-    await expectRejected(ctx.barberA, proposed, rome(day, '09:45'), 'taken');
+    await expectRejected(ctx.barberA, proposed, rome(day, '10:00'), 'unavailable');
+    await expectRejected(ctx.barberA, proposed, rome(day, '09:45'), 'unavailable');
   }, 60_000);
 
   test('SPEC §12 – giorno del cambio d\'ora (barbiere A, anche la fascia 00:00–05:00): slot accettati, altri rifiutati', async (t) => {

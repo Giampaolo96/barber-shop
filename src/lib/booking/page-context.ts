@@ -9,7 +9,15 @@ import type { CurrentUser } from "@/lib/auth/profile";
 import { getBookingProfile, getShopInfo, type ShopInfo } from "./queries";
 import { isBlockedForBooking } from "./rules";
 
-export type BookingPageContext = { user: CurrentUser; shop: ShopInfo; blocked: boolean };
+/**
+ * `access`: "ok" può prenotare; "blocked" bloccato (manualmente o per no-show); "error" non è
+ * stato possibile leggere il profilo (si invita a riprovare, non si mostra il blocco).
+ */
+export type BookingPageContext = {
+  user: CurrentUser;
+  shop: ShopInfo;
+  access: "ok" | "blocked" | "error";
+};
 
 export async function loadBookingPageContext(): Promise<BookingPageContext> {
   const user = await requireRole(["customer"]);
@@ -17,7 +25,12 @@ export async function loadBookingPageContext(): Promise<BookingPageContext> {
 
   const [shop, profile] = await Promise.all([getShopInfo(), getBookingProfile(user.id)]);
   if (!shop) notFound();
-  const blocked =
-    profile === null || isBlockedForBooking(profile, shop.noShowBlockThreshold);
-  return { user, shop, blocked };
+
+  let access: BookingPageContext["access"] = "ok";
+  if (!profile.ok) access = "error";
+  // Profilo assente: non dovrebbe accadere dopo requireRole; per prudenza niente prenotazione.
+  else if (!profile.profile || isBlockedForBooking(profile.profile, shop.noShowBlockThreshold)) {
+    access = "blocked";
+  }
+  return { user, shop, access };
 }

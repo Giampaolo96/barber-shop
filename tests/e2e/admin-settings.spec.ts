@@ -58,10 +58,10 @@ test.describe.configure({ mode: 'default' });
 test.describe('Admin – impostazioni (SPEC §3.1, §6.8)', () => {
   test.use({ viewport: DESKTOP });
 
-  test('modifica parametri e versione dell\'informativa e li ritrova ricaricando', async ({ page }) => {
+  // Review fetta 5: la versione dell'informativa è in sola lettura fino al flusso di nuovo consenso (fetta 9).
+  test('modifica i parametri e li ritrova ricaricando; la versione dell\'informativa è in sola lettura', async ({ page }) => {
     const api = await adminApi(page.request);
     const original = await readSettings(api);
-    const version = `e2e-${Date.now()}`;
 
     try {
       await loginAsAdmin(page);
@@ -73,6 +73,7 @@ test.describe('Admin – impostazioni (SPEC §3.1, §6.8)', () => {
       await expect(field(page, 'admin.settings.timezoneLabel')).toHaveValue(original.timezone);
       await expect(field(page, 'admin.settings.slotGranularityLabel')).toHaveValue(String(original.slot_granularity_min));
       await expect(field(page, 'admin.settings.privacyPolicyVersionLabel')).toHaveValue(original.privacy_policy_version);
+      await expect(field(page, 'admin.settings.privacyPolicyVersionLabel')).not.toBeEditable();
 
       await field(page, 'admin.settings.addressLabel').fill('Via del Test 3, Roma');
       await field(page, 'admin.settings.phoneLabel').fill('+39 06 7654321');
@@ -91,7 +92,6 @@ test.describe('Admin – impostazioni (SPEC §3.1, §6.8)', () => {
       await field(page, 'admin.settings.bufferLabel').fill('5');
       // SPEC §3.1: 0 = blocco per no-show disattivato
       await field(page, 'admin.settings.noShowThresholdLabel').fill('0');
-      await field(page, 'admin.settings.privacyPolicyVersionLabel').fill(version);
       await saveButton(page).click();
       await expect(page.getByText(s('admin.common.saved'))).toBeVisible();
 
@@ -107,7 +107,7 @@ test.describe('Admin – impostazioni (SPEC §3.1, §6.8)', () => {
         cancel_limit_min: 240,
         buffer_min: 5,
         no_show_block_threshold: 0,
-        privacy_policy_version: version,
+        privacy_policy_version: original.privacy_policy_version,
       });
 
       await page.reload();
@@ -119,7 +119,7 @@ test.describe('Admin – impostazioni (SPEC §3.1, §6.8)', () => {
       await expect(field(page, 'admin.settings.cancelLimitLabel')).toHaveValue('240');
       await expect(field(page, 'admin.settings.bufferLabel')).toHaveValue('5');
       await expect(field(page, 'admin.settings.noShowThresholdLabel')).toHaveValue('0');
-      await expect(field(page, 'admin.settings.privacyPolicyVersionLabel')).toHaveValue(version);
+      await expect(field(page, 'admin.settings.privacyPolicyVersionLabel')).toHaveValue(original.privacy_policy_version);
     } finally {
       await restore(api, original);
     }
@@ -151,7 +151,7 @@ test.describe('Admin – impostazioni (SPEC §3.1, §6.8)', () => {
         ['admin.settings.maxHorizonLabel', '0'],
         ['admin.settings.logoUrlLabel', 'http://example.com/logo.png'],
         ['admin.settings.bufferLabel', '-5'],
-        ['admin.settings.privacyPolicyVersionLabel', '   '],
+        // Versione dell'informativa: in sola lettura dalla review della fetta 5, non si invia più.
         ['admin.settings.nameLabel', ''],
       ];
       for (const [key, value] of attempts) {

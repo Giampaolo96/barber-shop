@@ -7,8 +7,9 @@
 -- Interfaccia attesa (decisioni approvate per la fetta 5):
 --   public.online_slot_error(p_service_id uuid, p_barber_id uuid, p_starts_at timestamptz) returns text
 --     security definer; execute solo ad authenticated. null = slot valido e libero, altrimenti uno fra
---     service_unavailable, barber_unavailable, not_aligned, too_soon, too_far, outside_hours,
---     time_off, closed, taken.
+--     service_unavailable, not_aligned, too_soon, too_far, closed, barber_unavailable,
+--     outside_hours, unavailable (assenza del barbiere o orario occupato, senza distinguerli:
+--     review fetta 5, il cliente non deve dedurre le assenze).
 --   public.create_online_booking(p_service_id uuid, p_barber_id uuid, p_starts_at timestamptz,
 --     p_notes text) returns uuid
 --     security definer; execute solo ad authenticated. Errori: raise exception '<codice>' using
@@ -31,7 +32,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(98);
+select plan(100);
 
 -- ---------------------------------------------------------------------------
 -- Helper
@@ -317,11 +318,11 @@ select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-400
 
 -- Assenza parziale (SPEC §12)
 select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-4000-8000-000000001901',
-  pg_temp.loc(pg_temp.d(), '10:00')), 'time_off',
-  'SPEC §12: assenza parziale a metà mattina – inizio dentro l''assenza → time_off');
+  pg_temp.loc(pg_temp.d(), '10:00')), 'unavailable',
+  'SPEC §12: assenza parziale a metà mattina – inizio dentro l''assenza → unavailable');
 select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-4000-8000-000000001901',
-  pg_temp.loc(pg_temp.d(), '09:45')), 'time_off',
-  'SPEC §12: assenza parziale – servizio che finirebbe dentro l''assenza → time_off');
+  pg_temp.loc(pg_temp.d(), '09:45')), 'unavailable',
+  'SPEC §12: assenza parziale – servizio che finirebbe dentro l''assenza → unavailable');
 select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-4000-8000-000000001901',
   pg_temp.loc(pg_temp.d(), '09:30')), null,
   'SPEC §12: assenza parziale – servizio che finisce all''inizio dell''assenza → valido');
@@ -342,16 +343,16 @@ select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-400
 
 -- Prenotazioni esistenti (SPEC §3.7.1, §12 buffer > 0)
 select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-4000-8000-000000001901',
-  pg_temp.loc(pg_temp.d(), '11:30')), 'taken',
-  'SPEC §3.7.1: stesso inizio di una confirmed → taken');
+  pg_temp.loc(pg_temp.d(), '11:30')), 'unavailable',
+  'SPEC §3.7.1: stesso inizio di una confirmed → unavailable');
 select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-4000-8000-000000001901',
-  pg_temp.loc(pg_temp.d(), '11:15')), 'taken',
-  'SPEC §3.7.1: servizio che finirebbe dentro una confirmed → taken');
+  pg_temp.loc(pg_temp.d(), '11:15')), 'unavailable',
+  'SPEC §3.7.1: servizio che finirebbe dentro una confirmed → unavailable');
 select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-4000-8000-000000001901',
   pg_temp.loc(pg_temp.d(), '11:00')), null,
   'SPEC §4: con buffer corrente 0 lo slot che finisce all''inizio della confirmed è valido');
 select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-4000-8000-000000001901',
-  pg_temp.loc(pg_temp.d(), '18:00')), 'taken',
+  pg_temp.loc(pg_temp.d(), '18:00')), 'unavailable',
   'SPEC §12: buffer > 0 – la confirmed delle 17:30 con buffer copiato di 10'' occupa fino alle 18:10');
 select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-4000-8000-000000001901',
   pg_temp.loc(pg_temp.d(), '18:15')), null,
@@ -361,11 +362,11 @@ select pg_temp.act_as_postgres();
 update public.shop_settings set buffer_min = 10;
 select pg_temp.act_as('a5000000-0000-4000-8000-000000001902');
 select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-4000-8000-000000001901',
-  pg_temp.loc(pg_temp.d(), '11:00')), 'taken',
-  'SPEC §12: buffer corrente 10'' – 11:00 + 30'' + 10'' tocca la confirmed delle 11:30 → taken');
+  pg_temp.loc(pg_temp.d(), '11:00')), 'unavailable',
+  'SPEC §12: buffer corrente 10'' – 11:00 + 30'' + 10'' tocca la confirmed delle 11:30 → unavailable');
 select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-4000-8000-000000001901',
-  pg_temp.loc(pg_temp.d(), '17:00')), 'taken',
-  'SPEC §12: buffer corrente 10'' – 17:00 + 30'' + 10'' tocca la confirmed delle 17:30 → taken');
+  pg_temp.loc(pg_temp.d(), '17:00')), 'unavailable',
+  'SPEC §12: buffer corrente 10'' – 17:00 + 30'' + 10'' tocca la confirmed delle 17:30 → unavailable');
 select pg_temp.act_as_postgres();
 update public.shop_settings set buffer_min = 0;
 select pg_temp.act_as('a5000000-0000-4000-8000-000000001902');
@@ -479,18 +480,24 @@ select throws_ok($q$ select public.create_online_booking('e5000000-0000-4000-800
   'P0001', 'outside_hours', 'SPEC §12: finirebbe nella pausa pranzo → outside_hours');
 select throws_ok($q$ select public.create_online_booking('e5000000-0000-4000-8000-000000001901',
   'eb000000-0000-4000-8000-000000001901', pg_temp.loc(pg_temp.d(), '10:00'), null) $q$,
-  'P0001', 'time_off', 'SPEC §12: assenza parziale → time_off');
+  'P0001', 'unavailable', 'SPEC §12: assenza parziale → unavailable (non distinta da occupato)');
 select throws_ok($q$ select public.create_online_booking('e5000000-0000-4000-8000-000000001901',
   'eb000000-0000-4000-8000-000000001901', pg_temp.loc(pg_temp.d(), '16:00'), null) $q$,
   'P0001', 'closed', 'SPEC §3.7.2: chiusura del negozio → closed');
 select throws_ok($q$ select public.create_online_booking('e5000000-0000-4000-8000-000000001901',
   'eb000000-0000-4000-8000-000000001901', pg_temp.loc(pg_temp.d(), '11:30'), null) $q$,
-  'P0001', 'taken', 'SPEC §3.7.1: slot occupato → taken');
+  'P0001', 'unavailable', 'SPEC §3.7.1: slot occupato → unavailable');
 
 -- "Nessuna preferenza"
 select throws_ok($q$ select public.create_online_booking('e5000000-0000-4000-8000-000000001901',
   null, pg_temp.loc(pg_temp.d(), '11:30'), null) $q$,
-  'P0001', 'taken', 'SPEC §4: nessun barbiere libero nello slot → taken');
+  'P0001', 'unavailable', 'SPEC §4: nessun barbiere libero nello slot → unavailable');
+select throws_ok($q$ select public.create_online_booking('e5000000-0000-4000-8000-000000001901',
+  null, pg_temp.grid(now() + interval '30 minutes', 15), null) $q$,
+  'P0001', 'too_soon', 'review fetta 5: "Nessuna preferenza" prima dell''anticipo → too_soon, non unavailable');
+select throws_ok($q$ select public.create_online_booking('e5000000-0000-4000-8000-000000001901',
+  null, pg_temp.loc(pg_temp.d(), '16:00'), null) $q$,
+  'P0001', 'closed', 'review fetta 5: "Nessuna preferenza" durante una chiusura → closed, non unavailable');
 select throws_ok($q$ select public.create_online_booking('e5000000-0000-4000-8000-000000001903',
   null, pg_temp.loc(pg_temp.d(), '15:00'), null) $q$,
   'P0001', 'service_unavailable', 'SPEC §3.2: servizio disattivato senza barbiere scelto → service_unavailable');

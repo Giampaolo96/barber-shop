@@ -351,10 +351,11 @@ test.describe('Cliente con magic link (SPEC §5.5, §8, §2)', () => {
     await page.goto('/profilo');
     await expectPath(page, '/profilo/completa');
 
-    // Nome, telefono e consenso privacy (marketing facoltativo, non dato) → area clienti
+    // Nome, telefono e consenso privacy (marketing facoltativo, non dato) → area clienti.
+    // Review fetta 5 (approvato dall'utente): si torna alla pagina da cui si era partiti (/profilo).
     await fillCompleteProfile(page, { fullName: 'Elisa Prova', phone: '+39 333 1234567', privacy: true });
-    await expectPath(page, '/');
-    await expect(page.getByRole('heading', { name: it.shop.name })).toBeVisible();
+    await expectPath(page, '/profilo');
+    await expect(page.getByRole('heading', { name: s('profile.title') })).toBeVisible();
 
     // Aggiunta di sicurezza 6: il logout è un <button> dentro un <form>, mai un link
     await expect(logoutButton(page)).toBeVisible();

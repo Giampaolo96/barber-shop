@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { BlockedNotice } from "@/components/booking/blocked-notice";
+import { AccessNotice } from "@/components/booking/access-notice";
 import { RestartNotice } from "@/components/booking/restart-notice";
 import { SlotPicker } from "@/components/booking/slot-picker";
 import { StepHeader } from "@/components/booking/step-header";
 import { it } from "@/i18n/it";
 import { getAvailableDays, getAvailableSlots } from "@/lib/booking/availability";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
-import { ANY_BARBER, BOOK_PATH, barberStepUrl } from "@/lib/booking/paths";
+import { ANY_BARBER, BOOK_PATH, barberStepUrl, timeStepUrl } from "@/lib/booking/paths";
 import { getBookableService } from "@/lib/booking/queries";
 import { barberChoiceSchema } from "@/lib/booking/schemas";
 import { addDays, isValidLocalDate, localDateOf } from "@/lib/domain/local-time";
@@ -24,9 +24,9 @@ export default async function ChooseTimePage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const { shop, blocked } = await loadBookingPageContext();
+  const { shop, access } = await loadBookingPageContext();
   const params = paramsSchema.safeParse(await searchParams);
-  const service = params.success && !blocked ? await getBookableService(params.data.servizio) : null;
+  const service = params.success && access === "ok" ? await getBookableService(params.data.servizio) : null;
   const barberId = params.success ? params.data.barbiere : ANY_BARBER;
   const validBarber = service !== null && (barberId === ANY_BARBER || service.barberIds.includes(barberId));
   const backHref =
@@ -35,8 +35,12 @@ export default async function ChooseTimePage({
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-4">
       <StepHeader step={3} title={it.booking.time.title} backHref={backHref} />
-      {blocked ? (
-        <BlockedNotice phone={shop.phone} />
+      {access !== "ok" ? (
+        <AccessNotice
+          access={access}
+          phone={shop.phone}
+          retryHref={params.success ? timeStepUrl(params.data.servizio, params.data.barbiere) : BOOK_PATH}
+        />
       ) : !service || !validBarber ? (
         <RestartNotice />
       ) : (

@@ -463,6 +463,10 @@ export type Database = {
         Args: { p_barber_id: string; p_service_id: string; p_starts_at: string };
         Returns: string;
       };
+      online_slot_shop_error: {
+        Args: { p_service_id: string; p_starts_at: string };
+        Returns: string;
+      };
       reorder_services: { Args: { p_ids: string[] }; Returns: undefined };
       revoke_user_sessions: { Args: { p_user_id: string }; Returns: undefined };
       search_customers: {

@@ -17,7 +17,11 @@ const phone = z
     return String(parsed.number);
   });
 
-export const emailLoginSchema = z.object({ email, next: z.string().max(2048).optional() });
+// `next` troppo lungo o non valido si scarta (ritorno alla home): non deve far fallire il login.
+export const emailLoginSchema = z.object({
+  email,
+  next: z.string().max(2048).optional().catch(undefined),
+});
 
 // La password non si tocca e non si valida oltre il "non vuota": la lunghezza minima vale
 // per le password nuove e il modulo di login non deve rivelare la policy.
@@ -41,5 +45,6 @@ export const EMAIL_LINK_TYPES = ["email", "magiclink", "signup"] as const;
 export const emailLinkSchema = z.object({
   tokenHash: z.string().min(1).max(512),
   type: z.enum(EMAIL_LINK_TYPES),
-  next: z.string().max(2048).nullish(),
+  // Percorso relativo, oppure l'URL di redirect con la destinazione codificata (più lungo).
+  next: z.string().max(4096).nullish(),
 });

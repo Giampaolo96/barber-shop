@@ -98,68 +98,87 @@ export async function getBarbersForService(serviceId: string): Promise<BookableB
     .sort((a, b) => a.name.localeCompare(b.name, "it"));
 }
 
-/** Prenotazioni del cliente (RLS: solo le proprie), con nomi di servizio e barbiere. */
-export async function getMyBookings(customerId: string): Promise<MyBooking[]> {
+/** Colonne di "Le mie prenotazioni" (nomi di servizio e barbiere leggibili anche se disattivati). */
+const MY_BOOKING_COLUMNS =
+  "id, starts_at, status, duration_min, price_cents, notes, services(name), barbers(display_name)";
+
+type MyBookingRow = {
+  id: string;
+  starts_at: string;
+  status: string;
+  duration_min: number;
+  price_cents: number;
+  notes: string | null;
+  services: { name: string } | null;
+  barbers: { display_name: string } | null;
+};
+
+const toMyBooking = (b: MyBookingRow): MyBooking => ({
+  id: b.id,
+  startsAt: b.starts_at,
+  status: b.status,
+  durationMin: b.duration_min,
+  priceCents: b.price_cents,
+  notes: b.notes,
+  serviceName: b.services?.name ?? "",
+  barberName: b.barbers?.display_name ?? "",
+});
+
+/** Prenotazioni del cliente (RLS: solo le proprie); null se la lettura non riesce. */
+export async function getMyBookings(customerId: string): Promise<MyBooking[] | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("bookings")
-    .select(
-      "id, starts_at, status, duration_min, price_cents, notes, services(name), barbers(display_name)",
-    )
+    .select(MY_BOOKING_COLUMNS)
     .eq("customer_id", customerId)
     .order("starts_at", { ascending: false })
     .limit(200);
-  if (error) console.error("getMyBookings", error);
-  return (data ?? []).map((b) => ({
-    id: b.id,
-    startsAt: b.starts_at,
-    status: b.status,
-    durationMin: b.duration_min,
-    priceCents: b.price_cents,
-    notes: b.notes,
-    serviceName: b.services?.name ?? "",
-    barberName: b.barbers?.display_name ?? "",
-  }));
+  if (error) {
+    console.error("getMyBookings", error);
+    return null;
+  }
+  return data.map(toMyBooking);
 }
 
-/** Prima prenotazione confermata non ancora iniziata. */
-export async function getNextBooking(customerId: string): Promise<MyBooking | null> {
+/** Prima prenotazione confermata non ancora iniziata (`booking` null se non c'è). */
+export async function getNextBooking(
+  customerId: string,
+): Promise<{ ok: true; booking: MyBooking | null } | { ok: false }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("bookings")
-    .select(
-      "id, starts_at, status, duration_min, price_cents, notes, services(name), barbers(display_name)",
-    )
+    .select(MY_BOOKING_COLUMNS)
     .eq("customer_id", customerId)
     .eq("status", "confirmed")
     .gte("starts_at", new Date().toISOString())
     .order("starts_at")
     .limit(1)
     .maybeSingle();
-  if (error) console.error("getNextBooking", error);
-  if (!data) return null;
-  return {
-    id: data.id,
-    startsAt: data.starts_at,
-    status: data.status,
-    durationMin: data.duration_min,
-    priceCents: data.price_cents,
-    notes: data.notes,
-    serviceName: data.services?.name ?? "",
-    barberName: data.barbers?.display_name ?? "",
-  };
+  if (error) {
+    console.error("getNextBooking", error);
+    return { ok: false };
+  }
+  return { ok: true, booking: data ? toMyBooking(data) : null };
 }
 
-/** Il cliente è bloccato per la prenotazione online? Legge i soli campi del proprio profilo. */
+export type BookingProfile = { isBlocked: boolean; noShowCount: number };
+
+/** Campi del proprio profilo che decidono il blocco; `profile` null se manca il profilo. */
 export async function getBookingProfile(
   customerId: string,
-): Promise<{ isBlocked: boolean; noShowCount: number } | null> {
+): Promise<{ ok: true; profile: BookingProfile | null } | { ok: false }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
     .select("is_blocked, no_show_count")
     .eq("id", customerId)
     .maybeSingle();
-  if (error) console.error("getBookingProfile", error);
-  return data ? { isBlocked: data.is_blocked, noShowCount: data.no_show_count } : null;
+  if (error) {
+    console.error("getBookingProfile", error);
+    return { ok: false };
+  }
+  return {
+    ok: true,
+    profile: data ? { isBlocked: data.is_blocked, noShowCount: data.no_show_count } : null,
+  };
 }

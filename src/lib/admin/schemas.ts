@@ -158,6 +158,13 @@ export const settingsSchema = z.object({
   privacyPolicyVersion: requiredText(50),
 });
 
+/**
+ * Impostazioni salvabili dal modulo: la versione dell'informativa è in sola lettura finché non c'è
+ * il flusso di nuovo consenso (fetta 9). Cambiarla oggi impedirebbe a tutti i clienti di prenotare
+ * (create_online_booking richiede il consenso alla versione corrente) senza poterlo rinnovare.
+ */
+export const editableSettingsSchema = settingsSchema.omit({ privacyPolicyVersion: true });
+
 // Account staff -------------------------------------------------------------------
 
 /** Account creato dall'admin: sempre un barbiere, il ruolo non arriva dal client. */

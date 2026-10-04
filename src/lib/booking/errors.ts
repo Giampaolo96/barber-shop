@@ -1,5 +1,6 @@
 // Codici d'errore di create_online_booking / cancel_own_booking (e SQLSTATE) → testi per il cliente.
 import { it } from "@/i18n/it";
+import { ONLINE_BOOKING_LIMITS } from "./rules";
 
 const t = it.booking.errors;
 
@@ -8,6 +9,8 @@ const MESSAGES: Record<string, string> = {
   barber_unavailable: t.barberUnavailable,
   not_aligned: t.slotUnavailable,
   outside_hours: t.slotUnavailable,
+  // Assenza del barbiere e orario occupato non si distinguono (ADR 005).
+  unavailable: t.slotUnavailable,
   time_off: t.slotUnavailable,
   closed: t.slotUnavailable,
   too_soon: t.tooSoon,
@@ -27,6 +30,19 @@ const MESSAGES: Record<string, string> = {
   invalid: t.invalid,
 };
 
+/** Testo di it.ts per il codice; i limiti restano come segnaposto `{max}` (vedi bookingErrorText). */
 export function bookingErrorMessage(code: string): string {
   return Object.hasOwn(MESSAGES, code) ? MESSAGES[code] : t.generic;
+}
+
+const LIMITS: Partial<Record<string, number>> = {
+  notes_too_long: ONLINE_BOOKING_LIMITS.maxNotesLength,
+  too_many_future: ONLINE_BOOKING_LIMITS.maxFutureBookings,
+};
+
+/** Testo da mostrare: il messaggio con i limiti al posto dei segnaposto. */
+export function bookingErrorText(code: string): string {
+  const max = Object.hasOwn(LIMITS, code) ? LIMITS[code] : undefined;
+  const message = bookingErrorMessage(code);
+  return max === undefined ? message : message.replace("{max}", String(max));
 }

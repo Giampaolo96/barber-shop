@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { BlockedNotice } from "@/components/booking/blocked-notice";
+import { AccessNotice } from "@/components/booking/access-notice";
 import { RestartNotice } from "@/components/booking/restart-notice";
 import { StepHeader, choiceClass } from "@/components/booking/step-header";
 import { it } from "@/i18n/it";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
-import { ANY_BARBER, BOOK_PATH, timeStepUrl } from "@/lib/booking/paths";
+import { ANY_BARBER, BOOK_PATH, barberStepUrl, timeStepUrl } from "@/lib/booking/paths";
 import { getBarbersForService, getBookableService } from "@/lib/booking/queries";
 
 // Passo 2 di 4 (SPEC §5.2): barbiere oppure "Nessuna preferenza".
@@ -15,19 +15,23 @@ export default async function ChooseBarberPage({
 }: {
   searchParams: Promise<{ servizio?: string }>;
 }) {
-  const { shop, blocked } = await loadBookingPageContext();
+  const { shop, access } = await loadBookingPageContext();
   const t = it.booking.barber;
   const serviceId = z.uuid().safeParse((await searchParams).servizio);
 
-  const service = serviceId.success && !blocked ? await getBookableService(serviceId.data) : null;
+  const service = serviceId.success && access === "ok" ? await getBookableService(serviceId.data) : null;
   const barbers = service ? await getBarbersForService(service.id) : [];
   if (service && barbers.length === 1) redirect(timeStepUrl(service.id, barbers[0].id));
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-4">
       <StepHeader step={2} title={t.title} backHref={BOOK_PATH} />
-      {blocked ? (
-        <BlockedNotice phone={shop.phone} />
+      {access !== "ok" ? (
+        <AccessNotice
+          access={access}
+          phone={shop.phone}
+          retryHref={serviceId.success ? barberStepUrl(serviceId.data) : BOOK_PATH}
+        />
       ) : !service || barbers.length === 0 ? (
         <RestartNotice />
       ) : (

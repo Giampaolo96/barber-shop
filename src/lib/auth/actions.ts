@@ -10,12 +10,17 @@ import {
   CUSTOMER_LOGIN_PATH,
   HOME_PATH,
   STAFF_LOGIN_PATH,
-  decideAccess,
   isStaffRole,
 } from "./access";
 import { loadCurrentUser, requireRole } from "./current-user";
 import { createEmailLinkVerifier, openCustomerSession } from "./email-link";
-import { emailRedirectUrl, nextFromEmailLink, safeNextPath } from "./safe-next-path";
+import {
+  completeProfileUrl,
+  destinationAfterLogin,
+  emailRedirectUrl,
+  nextFromEmailLink,
+  safeNextPath,
+} from "./safe-next-path";
 import {
   completeProfileSchema,
   emailLinkSchema,
@@ -83,13 +88,11 @@ export async function confirmEmailLink(formData: FormData): Promise<void> {
   if (result.status === "invalid") redirect(invalidLink);
 
   revalidatePath("/", "layout");
-  if (!result.user.profileComplete) redirect(COMPLETE_PROFILE_PATH);
-
   // La destinazione richiesta vale solo se è un percorso interno che l'utente può aprire.
   const next = safeNextPath(nextFromEmailLink(parsed.data.next));
-  const path = new URL(next, "http://internal.invalid").pathname;
-  const decision = decideAccess({ path, ...result.user });
-  redirect(decision.type === "redirect" ? decision.to : next);
+  // Al primo accesso la destinazione passa da /profilo/completa.
+  if (!result.user.profileComplete) redirect(completeProfileUrl(COMPLETE_PROFILE_PATH, next));
+  redirect(destinationAfterLogin(next, result.user));
 }
 
 /** Login dello staff: errore generico per qualunque credenziale non valida. */
@@ -166,7 +169,9 @@ export async function completeProfile(
   }
 
   revalidatePath("/", "layout");
-  redirect(HOME_PATH);
+  // Torna alla pagina da cui il cliente era partito (es. nel mezzo di una prenotazione).
+  const next = safeNextPath(formData.get("next")?.toString());
+  redirect(destinationAfterLogin(next, { ...user, profileComplete: true }));
 }
 
 /** Logout: solo da form (POST), mai da un link. */

@@ -1,9 +1,14 @@
+import { decideAccess, type AccessInput } from "./access";
+
 // Destinazione dopo il login: solo percorsi relativi interni, per non fare da open redirect.
 
 const BASE = "http://internal.invalid";
 
+/** Oltre questa lunghezza la destinazione si scarta (si torna alla home). */
+export const NEXT_MAX_LENGTH = 2048;
+
 export function safeNextPath(next: string | null | undefined): string {
-  if (typeof next !== "string" || !next.startsWith("/")) return "/";
+  if (typeof next !== "string" || !next.startsWith("/") || next.length > NEXT_MAX_LENGTH) return "/";
   // `//host` e `/\host` sono URL esterni per il browser; spazi e caratteri di controllo
   // vengono rimossi dal parser degli URL e possono nasconderli.
   if (next.startsWith("//") || /[\\\s\u0000-\u001f\u007f]/.test(next)) return "/";
@@ -40,4 +45,20 @@ export function nextFromEmailLink(value: string | null | undefined): string | nu
   } catch {
     return null;
   }
+}
+
+/** `/profilo/completa` con la destinazione da raggiungere dopo il salvataggio. */
+export function completeProfileUrl(path: string, next: string): string {
+  return next === "/" ? path : `${path}?next=${encodeURIComponent(next)}`;
+}
+
+/**
+ * Dove mandare l'utente dopo login o completamento del profilo: `next` (già passato da
+ * safeNextPath) se può aprirlo, altrimenti dove dice decideAccess. Senza destinazione valida si
+ * torna alla home.
+ */
+export function destinationAfterLogin(next: string, user: Omit<AccessInput, "path">): string {
+  const path = new URL(next, BASE).pathname;
+  const decision = decideAccess({ path, ...user });
+  return decision.type === "redirect" ? decision.to : next;
 }
