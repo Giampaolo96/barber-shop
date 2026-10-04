@@ -426,6 +426,15 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      availability_inputs: {
+        Args: { p_barber_id: string; p_from: string; p_service_id: string; p_to: string };
+        Returns: {
+          barber_id: string;
+          ends_at: string;
+          kind: Database["public"]["Enums"]["availability_kind"];
+          starts_at: string;
+        }[];
+      };
       barber_accounts: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -440,6 +449,10 @@ export type Database = {
       };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_staff: { Args: Record<PropertyKey, never>; Returns: boolean };
+      local_band_to_interval: {
+        Args: { p_date: string; p_end: string; p_start: string; p_tz: string };
+        Returns: unknown;
+      };
       reorder_services: { Args: { p_ids: string[] }; Returns: undefined };
       revoke_user_sessions: { Args: { p_user_id: string }; Returns: undefined };
       search_customers: {
@@ -454,6 +467,7 @@ export type Database = {
       timemultirange: { Args: Record<PropertyKey, never>; Returns: unknown };
     };
     Enums: {
+      availability_kind: "work" | "time_off" | "closure" | "busy";
       booking_source: "online" | "manual";
       booking_status:
         | "confirmed"
@@ -580,6 +594,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      availability_kind: ["work", "time_off", "closure", "busy"],
       booking_source: ["online", "manual"],
       booking_status: [
         "confirmed",

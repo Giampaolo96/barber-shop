@@ -5,7 +5,7 @@
 -- Sicurezza + decisioni approvate per la fetta 4.
 -- Interfaccia attesa:
 --   public.availability_inputs(p_service_id uuid, p_barber_id uuid, p_from timestamptz, p_to timestamptz)
---     returns table (kind text, barber_id uuid, starts_at timestamptz, ends_at timestamptz)
+--     returns table (kind public.availability_kind, barber_id uuid, starts_at timestamptz, ends_at timestamptz)
 --     security definer, stable, search_path = ''; eseguibile da anon e authenticated, non da PUBLIC.
 --   kind: 'work' (fasce convertite nella timezone di shop_settings), 'time_off', 'closure'
 --   (barber_id null), 'busy' (solo confirmed, ends_at = blocked_until).
@@ -160,7 +160,7 @@ select is(pg_get_function_identity_arguments(pg_temp.fn('availability_inputs')),
   'p_service_id uuid, p_barber_id uuid, p_from timestamp with time zone, p_to timestamp with time zone',
   'fetta 4: nomi dei parametri (chiamata RPC con argomenti nominati)');
 select is(pg_get_function_result(pg_temp.fn('availability_inputs')),
-  'TABLE(kind text, barber_id uuid, starts_at timestamp with time zone, ends_at timestamp with time zone)',
+  'TABLE(kind availability_kind, barber_id uuid, starts_at timestamp with time zone, ends_at timestamp with time zone)',
   'SPEC §4 / CLAUDE.md regola 6: solo kind, barber_id, starts_at, ends_at (nessun dato di clienti o prenotazioni)');
 select is((select prosecdef from pg_proc where oid = pg_temp.fn('availability_inputs')), true,
   'fetta 4: availability_inputs è security definer');

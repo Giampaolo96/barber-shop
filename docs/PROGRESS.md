@@ -6,7 +6,7 @@
 | 1 | completata | 2026-10-02 | Vedi "Fetta 1" sotto |
 | 2 | completata | 2026-10-02 | Vedi "Fetta 2" sotto |
 | 3 | completata | 2026-10-03 | Vedi "Fetta 3" sotto |
-| 4 | da fare | | |
+| 4 | completata | 2026-10-04 | Vedi "Fetta 4" sotto |
 | 5 | da fare | | |
 | 6 | da fare | | |
 | 7 | da fare | | |
@@ -218,3 +218,52 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 10. Duplicazioni minori (`ServerClient`, codici d'errore Postgres).
 11. Le azioni di riga restituiscono `error` invece di `invalid` se Zod fallisce.
 12. Account staff: il messaggio d'errore di un'azione precedente resta visibile dopo un'altra riuscita.
+
+## Fetta 4 – Motore disponibilità
+
+**Stato**: completata, review chiusa (un giro, nessun bloccante). Migrazione da applicare a Supabase cloud (`db push`); CI da verificare dopo il push.
+
+**Fatto**
+- Migrazione `20261004090000_availability_inputs.sql`:
+  - `local_band_to_interval(date, time, time, tz)`: funzione interna, senza grant;
+  - `availability_inputs(service, barber | null, from, to)`: `security definer`, eseguibile da anon e authenticated. Restituisce solo `kind`, `barber_id`, `starts_at` e `ends_at`.
+- `src/lib/availability/` (motore puro): `computeSlotsByBarber`, `computeSlots`, `availableDays`, `pickBarber`.
+- `src/lib/booking/availability.ts` (`server-only`): `getAvailableSlots` e `getAvailableDays`, con il client della richiesta e un solo caricamento dei dati per periodo.
+- `docs/adr/004-motore-disponibilita.md`; SPEC §4 allineata alle decisioni (buffer, griglia, orizzonte, bilanciamento).
+- Test:
+  - `tests/acceptance/availability-{engine,server,db}.test.ts`;
+  - `supabase/tests/17_availability_inputs.test.sql` e la regressione `18_review_fixes_fetta4.test.sql`;
+  - in `09` e `10` aggiunta `availability_inputs` alle funzioni eseguibili da anon (approvato dall'utente).
+
+**Esiti** (prima delle migliorie): lint ok, typecheck ok, Vitest 974/974, pgTAP 848/848. La fetta non ha UI.
+
+**Decisioni** (dettaglio nell'ADR 004)
+- **Niente service role** nel percorso di disponibilità: i dati arrivano da `availability_inputs`, tagliati sul periodo richiesto e sulla finestra che va da adesso alla fine dell'orizzonte.
+- **Fasce di lavoro** convertite in SQL (l'ora legale la gestisce Postgres); test con date fisse 2026-10-25 e 2027-03-28.
+- **Griglia** allineata all'orologio locale; con una granularità non ammessa il motore lancia un errore.
+- **Buffer** solo verso le prenotazioni successive; le prenotazioni esistenti occupano fino a `blocked_until`.
+- **Orizzonte** riferito all'inizio dello slot (fino alla fine del giorno locale di oggi + N); anticipo con bordo incluso.
+- **`pickBarber`**: sceglie solo tra i barbieri liberi; vince chi ha meno prenotazioni non cancellate nel giorno; a parità decide un hash FNV-1a di `data:barber_id`, che ruota con la data.
+- **`getAvailableDays`**: al massimo 366 giorni.
+- **`date`** è sempre una data locale `YYYY-MM-DD` nella timezone del negozio.
+
+**Da fare nelle prossime fette**
+- **Fetta 5:**
+  - esporre `getAvailableSlots` e `getAvailableDays` come server action o route, con rate limiting e senza `requireRole` (l'accesso anon è voluto);
+  - la funzione di creazione ricontrolla in SQL fascia, assenze, chiusure, anticipo, orizzonte e allineamento alla griglia;
+  - test di coerenza tra motore e validazione SQL;
+  - fonte dei conteggi giornalieri per `pickBarber`.
+
+**Migliorie della review applicate** (tutte, su richiesta dell'utente; la review è chiusa)
+1. SPEC §4 allineata alle decisioni dell'ADR 004.
+2. **Prenotazioni oltre il periodo:** `availability_inputs` legge le `busy` fino a `p_to` + 60 minuti (il buffer massimo). Regressione in `supabase/tests/18_review_fixes_fetta4.test.sql`.
+3–4. **Modulo di dominio condiviso** `src/lib/domain/`:
+   - `local-time.ts` (spostato da `src/lib/admin/`, dove resta un re-export usato dai test della fetta 3), con in più `localDateOf` e `startOfLocalDay`;
+   - `settings.ts`, con `SLOT_GRANULARITY_OPTIONS` e `SETTINGS_LIMITS`, che `schemas.ts` riesporta.
+   Il motore non importa nulla da `src/lib/admin/`.
+5. **Servizio non leggibile:** restituisce subito una lista vuota, senza durata di ripiego.
+6. **Argomenti della RPC senza cast:** `src/lib/db/database.ts` corregge i tipi generati (`p_barber_id` e `barber_id` nullable). Tutti i client Supabase lo usano.
+7. **`availableDays`:** si ferma al primo slot di ogni giorno e salta le fasce già superate.
+8. **`kind` come enum Postgres** `availability_kind`: i tipi generati sono già ristretti. Nel test di accettazione 17 è cambiata solo l'attesa sul tipo di ritorno, con l'approvazione dell'utente.
+
+**Esiti dopo le migliorie**: lint ok, typecheck ok, Vitest 974/974, pgTAP 852/852, Playwright 65/65 (con `SUPABASE_SERVICE_ROLE_KEY` nell'ambiente).

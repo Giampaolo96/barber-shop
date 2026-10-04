@@ -90,11 +90,11 @@ Input: servizio, data, barbiere (oppure "qualsiasi").
 Per ogni barbiere candidato (abilitato al servizio e attivo):
 1. Prendi le fasce di lavoro del giorno della settimana, convertite in timestamp reali nella timezone del negozio (attenzione ai cambi di ora legale).
 2. Sottrai chiusure del negozio e assenze del barbiere.
-3. Sottrai le prenotazioni `confirmed` esistenti, ciascuna estesa di `buffer_min`.
-4. Negli intervalli liberi rimasti genera gli orari di inizio con passo `slot_granularity_min`, tenendo solo quelli per cui `inizio + durata servizio + buffer` sta dentro l'intervallo.
-5. Scarta gli orari prima di `now + min_advance_min` e oltre `max_horizon_days`.
+3. Sottrai le prenotazioni `confirmed` esistenti, ciascuna fino al proprio `blocked_until` (buffer copiato alla creazione).
+4. Negli intervalli liberi rimasti genera gli orari di inizio sulla griglia dell'orologio locale (multipli di `slot_granularity_min` dalla mezzanotte), tenendo solo quelli per cui `inizio + durata servizio` sta dentro l'intervallo e `inizio + durata + buffer_min` non tocca la prenotazione successiva (nessuna pausa richiesta prima di fine fascia, assenze o chiusure).
+5. Scarta gli orari prima di `now + min_advance_min` (bordo incluso) e quelli che iniziano dopo la fine del giorno locale di oggi + `max_horizon_days`.
 
-Con "qualsiasi barbiere": unione degli orari; alla conferma viene assegnato il barbiere libero con meno prenotazioni quel giorno (bilanciamento semplice).
+Con "qualsiasi barbiere": unione degli orari; alla conferma viene assegnato, tra i barbieri liberi in quello slot, quello con meno prenotazioni non cancellate quel giorno; a parità decide un criterio deterministico che ruota con la data. Dettagli in `docs/adr/004-motore-disponibilita.md`.
 
 Il calcolo avviene lato server (funzione Postgres `security definer` o server action) e restituisce **solo orari**, mai dati di altre prenotazioni. L'inserimento finale è comunque protetto dal vincolo di esclusione: se due clienti prendono lo stesso slot in contemporanea, il secondo riceve un errore gestito ("Orario appena occupato, scegline un altro").
 

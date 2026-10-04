@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@supabase/supabase-js";
 import { supabaseEnv } from "./env";
-import type { Database } from "./types";
+import type { Database } from "./database";
 
 /**
  * Client service_role: aggira la RLS. Lo usano solo le server action degli account staff

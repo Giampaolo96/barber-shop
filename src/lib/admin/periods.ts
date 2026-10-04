@@ -1,6 +1,6 @@
 // Periodi di assenza e chiusura: conversione fra il modulo (ora locale del negozio) e i
 // timestamptz del database. Logica pura, senza I/O.
-import { addDays, allDayRangeToUtc, localDateTimeToUtc, utcToLocalParts } from "./local-time";
+import { addDays, allDayRangeToUtc, localDateTimeToUtc, utcToLocalParts } from "@/lib/domain/local-time";
 import type { Period } from "./schemas";
 
 /** Periodo del modulo → intervallo UTC [startsAt, endsAt). */

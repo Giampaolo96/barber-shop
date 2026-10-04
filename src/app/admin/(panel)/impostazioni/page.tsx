@@ -1,6 +1,6 @@
 import { SettingsForm } from "@/components/admin/settings-form";
 import { it } from "@/i18n/it";
-import { SETTINGS_LIMITS, SLOT_GRANULARITY_OPTIONS } from "@/lib/admin/schemas";
+import { SETTINGS_LIMITS, SLOT_GRANULARITY_OPTIONS } from "@/lib/domain/settings";
 import { requireRole } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/db/server";
 

@@ -1,5 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr";
-import type { Database } from "./types";
+import type { Database } from "./database";
 
 /** Client per i componenti "use client": solo URL e chiave pubblica. */
 export function createClient() {

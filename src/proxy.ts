@@ -5,7 +5,7 @@ import { DISABLED_REASON, STAFF_LOGIN_PATH, decideAccess, isStaffRole } from "@/
 import { ACCESS_PROFILE_COLUMNS, toCurrentUser } from "@/lib/auth/profile";
 import type { CurrentUser } from "@/lib/auth/profile";
 import { supabaseEnv } from "@/lib/db/env";
-import type { Database } from "@/lib/db/types";
+import type { Database } from "@/lib/db/database";
 
 // Rinnova la sessione e applica le regole di accesso prima del rendering. È un primo
 // filtro: pagine e server action ricontrollano comunque il ruolo.

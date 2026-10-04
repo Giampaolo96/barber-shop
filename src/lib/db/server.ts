@@ -3,7 +3,7 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { supabaseEnv } from "./env";
-import type { Database } from "./types";
+import type { Database } from "./database";
 
 /** Client per server component, server action e route handler: sessione nei cookie. */
 export async function createClient() {

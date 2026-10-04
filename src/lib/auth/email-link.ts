@@ -3,7 +3,7 @@ import "server-only";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/db/server";
 import { supabaseEnv } from "@/lib/db/env";
-import type { Database } from "@/lib/db/types";
+import type { Database } from "@/lib/db/database";
 import { isStaffRole } from "./access";
 import { loadCurrentUser } from "./current-user";
 import type { CurrentUser } from "./profile";
