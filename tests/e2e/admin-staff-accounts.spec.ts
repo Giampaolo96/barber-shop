@@ -210,10 +210,12 @@ test.describe('Admin – account staff dei barbieri (SPEC §2, §3.3, §5.5)', (
       await expect(unblockButton(page)).toBeVisible();
       await expect.poll(async () => (await profileOf(api, profileId))?.is_blocked).toBe(true);
 
-      // Sessione già aperta: respinta alla visita successiva
+      // Sessione già aperta: respinta alla visita successiva. Il messaggio "Account disabilitato"
+      // qui non è garantito: se una richiesta del browser (es. un prefetch della build di
+      // produzione) passa dal proxy dopo il blocco, i cookie vengono tolti lì e questa visita
+      // arriva anonima, senza ?motivo. Il messaggio è verificato al nuovo login, più sotto.
       await barber.goto('/admin');
       await expectPath(barber, '/admin/login');
-      await expect(barber.getByText(s('auth.staffLogin.accountDisabled'))).toBeVisible();
       await expect(adminNavLink(barber, 'admin.nav.calendar')).toHaveCount(0);
 
       // Sessioni revocate lato server: il refresh token di prima non funziona più

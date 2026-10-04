@@ -267,3 +267,8 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 8. **`kind` come enum Postgres** `availability_kind`: i tipi generati sono già ristretti. Nel test di accettazione 17 è cambiata solo l'attesa sul tipo di ritorno, con l'approvazione dell'utente.
 
 **Esiti dopo le migliorie**: lint ok, typecheck ok, Vitest 974/974, pgTAP 852/852, Playwright 65/65 (con `SUPABASE_SERVICE_ROLE_KEY` nell'ambiente).
+
+**Correzione dopo la chiusura** (CI, 2026-10-04, approvata dall'utente)
+- L'e2e "blocco e sblocco dell'account" (`admin-staff-accounts.spec.ts`) era instabile in CI. Se dopo il blocco una richiesta del browser del barbiere (per esempio un prefetch della build di produzione) passa dal proxy, i cookie vengono tolti in quel momento e la visita successiva di `/admin` arriva anonima, senza `?motivo=disabilitato`. Il comportamento è verificato con un test di prova in locale.
+- Ora, dopo la revoca, il test verifica solo il redirect a `/admin/login` e l'assenza del menu admin. "Account disabilitato" resta verificato al nuovo login.
+- Esclusa la gara fra progetti Playwright: lo spec gira solo in `mobile-chromium` e usa dati unici.
