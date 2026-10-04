@@ -221,7 +221,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 
 ## Fetta 4 – Motore disponibilità
 
-**Stato**: completata, review chiusa (un giro, nessun bloccante). Migrazione da applicare a Supabase cloud (`db push`); CI da verificare dopo il push.
+**Stato**: completata, review chiusa (un giro, nessun bloccante). Migrazione applicata a Supabase cloud il 2026-10-04 (`db push`); verificato dall'utente che `availability_inputs` è security definer ed eseguibile da anon e authenticated, e che `local_band_to_interval` non è eseguibile da nessuno dei due. CI verde, confermata dall'utente il 2026-10-04.
 
 **Fatto**
 - Migrazione `20261004090000_availability_inputs.sql`:
