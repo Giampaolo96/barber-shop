@@ -17,7 +17,7 @@ const phone = z
     return String(parsed.number);
   });
 
-export const emailLoginSchema = z.object({ email });
+export const emailLoginSchema = z.object({ email, next: z.string().max(2048).optional() });
 
 // La password non si tocca e non si valida oltre il "non vuota": la lunghezza minima vale
 // per le password nuove e il modulo di login non deve rivelare la policy.

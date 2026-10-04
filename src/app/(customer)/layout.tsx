@@ -4,6 +4,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { it } from "@/i18n/it";
 import { ADMIN_PATH, CUSTOMER_LOGIN_PATH, HOME_PATH, isStaffRole } from "@/lib/auth/access";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { MY_BOOKINGS_PATH } from "@/lib/booking/paths";
 
 const linkClass = "inline-flex h-11 items-center rounded-lg px-3 text-sm font-medium";
 
@@ -28,9 +29,14 @@ export default async function CustomerLayout({ children }: { children: ReactNode
                   {it.nav.staffArea}
                 </Link>
               ) : (
-                <Link href="/profilo" className={linkClass}>
-                  {it.nav.profile}
-                </Link>
+                <>
+                  <Link href={MY_BOOKINGS_PATH} className={linkClass}>
+                    {it.nav.bookings}
+                  </Link>
+                  <Link href="/profilo" className={linkClass}>
+                    {it.nav.profile}
+                  </Link>
+                </>
               )}
               <LogoutButton />
             </>

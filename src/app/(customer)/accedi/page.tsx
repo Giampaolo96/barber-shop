@@ -1,12 +1,13 @@
 import { CustomerLoginForm } from "@/components/auth/customer-login-form";
 import { it } from "@/i18n/it";
+import { safeNextPath } from "@/lib/auth/safe-next-path";
 
 export default async function CustomerLoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ errore?: string }>;
+  searchParams: Promise<{ errore?: string; next?: string }>;
 }) {
-  const { errore } = await searchParams;
+  const { errore, next } = await searchParams;
   const t = it.auth.customerLogin;
 
   return (
@@ -18,7 +19,7 @@ export default async function CustomerLoginPage({
           {t.invalidLink}
         </p>
       )}
-      <CustomerLoginForm />
+      <CustomerLoginForm next={safeNextPath(next)} />
     </main>
   );
 }

@@ -80,6 +80,7 @@ confirmed ──► completed
 3. Il barbiere scelto deve essere abilitato al servizio.
 4. Il cliente vede solo le proprie prenotazioni; non deve mai poter dedurre dati di altri clienti.
 5. Le prenotazioni manuali dello staff possono derogare alle regole 2 (es. fuori orario), mai alla 1.
+6. Un cliente non può avere due prenotazioni `confirmed` sovrapposte (su `[inizio, fine)`, senza buffer), nemmeno con barbieri diversi.
 
 ---
 
@@ -105,10 +106,10 @@ Il calcolo avviene lato server (funzione Postgres `security definer` o server ac
 1. **Home**: info negozio, pulsante "Prenota", prossima prenotazione in evidenza.
 2. **Flusso di prenotazione** (max 4 schermate):
    1. scelta servizio (nome, durata, prezzo);
-   2. scelta barbiere (con foto) oppure "Nessuna preferenza";
+   2. scelta barbiere (con foto) oppure "Nessuna preferenza"; il passo si salta se il servizio ha un solo barbiere abilitato;
    3. scelta giorno (striscia orizzontale di date) e orario (griglia di slot);
    4. riepilogo + note opzionali + conferma.
-3. **Le mie prenotazioni**: future e passate; cancellazione consentita fino a `cancel_limit_min` prima, poi pulsante "Chiama il negozio".
+3. **Le mie prenotazioni**: future e passate; cancellazione consentita fino a `cancel_limit_min` prima (bordo incluso), poi pulsante "Chiama il negozio". Il cliente bloccato (manualmente o per no-show) vede l'invito a chiamare il negozio già all'inizio del flusso.
 4. **Profilo**: nome, telefono, email, consensi, eliminazione account.
 5. **Registrazione/login**: email con magic link; il login Google è rimandato (vedi domande aperte). Il telefono è obbligatorio in profilo per essere contattabili: al primo accesso il cliente completa il profilo (nome, telefono salvato in formato E.164, consensi), necessario per le pagine private e per prenotare ma non per le pagine pubbliche. Lo staff entra con email e password da `/admin/login`, senza auto-registrazione.
 6. **Installazione PWA**: banner che spiega come aggiungere l'app alla schermata Home (istruzioni specifiche per iOS).
@@ -140,7 +141,7 @@ Rimandati: push notification PWA, SMS, WhatsApp.
 - Dati raccolti minimi: nome, email, telefono, storico prenotazioni.
 - Eliminazione account da parte del cliente → anonimizzazione delle prenotazioni passate (restano per le statistiche senza dati personali).
 - Row Level Security attiva su **tutte** le tabelle; nessuna chiave privilegiata nel codice client.
-- Rate limiting sulla creazione prenotazioni per evitare abusi.
+- Rate limiting sulla creazione prenotazioni per evitare abusi: nel database, per cliente, al massimo 3 prenotazioni online future e 10 creazioni nelle ultime 24 ore; per le richieste anonime una regola del firewall Vercel (ADR 005).
 
 ## 9. Requisiti non funzionali
 

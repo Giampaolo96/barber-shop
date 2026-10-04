@@ -442,16 +442,26 @@ export type Database = {
           profile_id: string;
         }[];
       };
+      cancel_own_booking: { Args: { p_booking_id: string }; Returns: undefined };
+      create_online_booking: {
+        Args: { p_barber_id: string; p_notes: string; p_service_id: string; p_starts_at: string };
+        Returns: string;
+      };
       current_barber_id: { Args: Record<PropertyKey, never>; Returns: string };
       current_user_role: {
         Args: Record<PropertyKey, never>;
         Returns: Database["public"]["Enums"]["user_role"];
       };
+      fnv1a_32: { Args: { p_text: string }; Returns: number };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_staff: { Args: Record<PropertyKey, never>; Returns: boolean };
       local_band_to_interval: {
         Args: { p_date: string; p_end: string; p_start: string; p_tz: string };
         Returns: unknown;
+      };
+      online_slot_error: {
+        Args: { p_barber_id: string; p_service_id: string; p_starts_at: string };
+        Returns: string;
       };
       reorder_services: { Args: { p_ids: string[] }; Returns: undefined };
       revoke_user_sessions: { Args: { p_user_id: string }; Returns: undefined };

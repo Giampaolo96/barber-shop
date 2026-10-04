@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/db/server";
 import {
@@ -14,7 +15,7 @@ import {
 } from "./access";
 import { loadCurrentUser, requireRole } from "./current-user";
 import { createEmailLinkVerifier, openCustomerSession } from "./email-link";
-import { safeNextPath } from "./safe-next-path";
+import { emailRedirectUrl, nextFromEmailLink, safeNextPath } from "./safe-next-path";
 import {
   completeProfileSchema,
   emailLinkSchema,
@@ -31,13 +32,24 @@ export async function requestMagicLink(
   _previous: MagicLinkState,
   formData: FormData,
 ): Promise<MagicLinkState> {
-  const parsed = emailLoginSchema.safeParse({ email: formData.get("email") });
+  const parsed = emailLoginSchema.safeParse({
+    email: formData.get("email"),
+    next: formData.get("next") ?? undefined,
+  });
   if (!parsed.success) return { status: "invalid" };
+
+  // Pagina da cui il cliente è stato mandato al login: ci torna dopo il link (solo percorsi interni).
+  const next = safeNextPath(parsed.data.next);
+  const origin = (await headers()).get("origin");
+  const redirectTo =
+    next !== "/" && origin && /^https?:\/\/[^/]+$/.test(origin)
+      ? emailRedirectUrl(origin, next)
+      : undefined;
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
-    options: { shouldCreateUser: true },
+    options: { shouldCreateUser: true, emailRedirectTo: redirectTo },
   });
   // L'esito non si mostra all'utente (niente enumerazione degli account); resta nei log.
   if (error) console.error("magic link non inviato:", error.code ?? error.message);
@@ -74,7 +86,7 @@ export async function confirmEmailLink(formData: FormData): Promise<void> {
   if (!result.user.profileComplete) redirect(COMPLETE_PROFILE_PATH);
 
   // La destinazione richiesta vale solo se è un percorso interno che l'utente può aprire.
-  const next = safeNextPath(parsed.data.next);
+  const next = safeNextPath(nextFromEmailLink(parsed.data.next));
   const path = new URL(next, "http://internal.invalid").pathname;
   const decision = decideAccess({ path, ...result.user });
   redirect(decision.type === "redirect" ? decision.to : next);

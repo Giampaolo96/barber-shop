@@ -39,7 +39,8 @@ Non usare `--include-seed`: il seed crea utenti demo con password nota.
 ## 5. Progetto Supabase cloud e autenticazione
 1. Crea il progetto su https://supabase.com (regione UE) e copia URL e chiave pubblica nelle variabili di Vercel (sezione 3).
 2. **Authentication → URL Configuration**: `Site URL` = URL di produzione dell'app (es. `https://<progetto>.vercel.app`). I link delle email usano questo valore.
-3. **Authentication → Email Templates**: nei template *Magic Link* e *Confirm signup* incolla il contenuto di `supabase/templates/magic_link.html` e `confirmation.html`. Il link deve restare `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email`.
+3. **Authentication → Email Templates**: nei template *Magic Link* e *Confirm signup* incolla il contenuto di `supabase/templates/magic_link.html` e `confirmation.html`. Il link deve restare `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next={{ .RedirectTo }}`: `next` riporta il cliente alla pagina da cui è partito (es. il flusso di prenotazione).
+   In **Authentication → URL Configuration → Redirect URLs** aggiungi `https://<dominio>/**`: se l'URL di redirect non è ammesso, Supabase usa il Site URL e il cliente, dopo il login, torna alla home invece che alla pagina di partenza.
 4. **Authentication → Providers → Email**: conferma dell'email attiva, lunghezza minima della password 10, cambio password sicuro attivo (come in `supabase/config.toml`, che vale solo in locale).
 5. **SMTP proprio, obbligatorio per i clienti reali**: il servizio email predefinito di Supabase non è adatto alla produzione (pochi invii all'ora, consegna solo a indirizzi del team, nessuna garanzia di recapito). In **Authentication → SMTP Settings** configura un provider tuo, ad esempio Resend, con un dominio mittente verificato (SPF e DKIM).
 6. **Limiti di invio e abusi**: l'app non limita da sé le richieste di magic link, ci pensa Supabase. In **Authentication → Rate Limits** lascia almeno 60 secondi tra due email allo stesso indirizzo e imposta il tetto orario di email in base al piano del provider SMTP (i valori di `supabase/config.toml`, come `max_frequency = "1s"`, valgono solo in locale e servono ai test). Se compaiono richieste automatiche, attiva il CAPTCHA in **Authentication → Attack Protection** (Turnstile o hCaptcha): in quel caso il form di `/accedi` va adeguato per inviare il token del CAPTCHA.
@@ -54,3 +55,12 @@ Lo staff non si registra da solo. Per creare il primo admin:
     where id = (select id from auth.users where email = 'titolare@esempio.it');
    ```
 3. L'admin entra da `/admin/login`. Gli account dei barbieri si creano dalla scheda del barbiere in `/admin/barbieri` (ADR 003).
+
+## 7. Rate limiting (firewall Vercel)
+La creazione delle prenotazioni è limitata nel database, per cliente (al massimo 3 prenotazioni online future e 10 creazioni nelle ultime 24 ore, ADR 005). Gli orari liberi sono pubblici e non hanno un limite nell'app: un limitatore in memoria non funziona sulle funzioni serverless, e uno nel database eseguibile da anon sarebbe usabile per bloccare altri utenti.
+
+Per frenare le richieste automatiche configura una regola di rate limiting del firewall Vercel (disponibile anche sul piano Hobby, una regola per progetto; finestra fissa da 10 s a 10 min, chiave IP):
+1. Progetto → **Firewall** → **Configure** → **New Rule**.
+2. Condizioni: *Request Path* che inizia con `/prenota` e *Method* uguale a `POST` (le server action, comprese quelle degli orari, sono POST sulla pagina).
+3. Azione **Rate Limit**, *Fixed Window* 60 s, limite indicativo 60 richieste per IP, risposta 429. Conviene partire con l'azione **Log** per qualche giorno e controllare il traffico prima di passare al blocco.
+4. **Review Changes** → **Publish**.

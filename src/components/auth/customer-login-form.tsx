@@ -10,12 +10,14 @@ import type { MagicLinkState } from "@/lib/auth/actions";
 
 const initialState: MagicLinkState = { status: "idle" };
 
-export function CustomerLoginForm() {
+/** `next`: pagina a cui tornare dopo il link (già validata con safeNextPath). */
+export function CustomerLoginForm({ next = "/" }: { next?: string }) {
   const [state, formAction, pending] = useActionState(requestMagicLink, initialState);
   const t = it.auth.customerLogin;
 
   return (
     <form action={formAction} noValidate className="flex w-full flex-col gap-4">
+      {next !== "/" && <input type="hidden" name="next" value={next} />}
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">{t.emailLabel}</Label>
         <Input

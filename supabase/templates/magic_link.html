@@ -1,4 +1,4 @@
 <h2>Accedi a Barber Shop</h2>
 <p>Tocca il pulsante per entrare. Il link vale una sola volta e scade dopo un'ora.</p>
-<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email">Accedi</a></p>
+<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email&amp;next={{ .RedirectTo }}">Accedi</a></p>
 <p>Se non hai chiesto tu questo link, ignora questa email.</p>

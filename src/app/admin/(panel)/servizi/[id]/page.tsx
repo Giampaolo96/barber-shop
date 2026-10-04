@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ServiceForm } from "@/components/admin/service-form";
 import { it } from "@/i18n/it";
-import { centsToInput } from "@/lib/admin/money";
+import { centsToInput } from "@/lib/domain/money";
 import { isUuid } from "@/lib/admin/schemas";
 import { requireRole } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/db/server";

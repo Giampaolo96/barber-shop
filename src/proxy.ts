@@ -1,7 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { DISABLED_REASON, STAFF_LOGIN_PATH, decideAccess, isStaffRole } from "@/lib/auth/access";
+import {
+  CUSTOMER_LOGIN_PATH,
+  DISABLED_REASON,
+  STAFF_LOGIN_PATH,
+  decideAccess,
+  isStaffRole,
+} from "@/lib/auth/access";
 import { ACCESS_PROFILE_COLUMNS, toCurrentUser } from "@/lib/auth/profile";
 import type { CurrentUser } from "@/lib/auth/profile";
 import { supabaseEnv } from "@/lib/db/env";
@@ -51,6 +57,10 @@ export async function proxy(request: NextRequest) {
   const target = request.nextUrl.clone();
   target.pathname = decision.to;
   target.search = "";
+  // Anonimo su una pagina privata del cliente: dopo il login torna lì, parametri compresi.
+  if (!user && decision.to === CUSTOMER_LOGIN_PATH) {
+    target.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+  }
 
   // Staff bloccato a sessione aperta: resta fuori da /admin e la sessione del browser
   // viene chiusa togliendo i cookie di autenticazione.

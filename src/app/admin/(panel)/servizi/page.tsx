@@ -2,7 +2,7 @@ import Link from "next/link";
 import { RowAction } from "@/components/admin/row-action";
 import { buttonVariants } from "@/components/ui/button";
 import { it } from "@/i18n/it";
-import { formatCents } from "@/lib/admin/money";
+import { formatCents } from "@/lib/domain/money";
 import { deleteService, moveService } from "@/lib/admin/service-actions";
 import { fillText } from "@/lib/admin/text";
 import { requireRole } from "@/lib/auth/current-user";

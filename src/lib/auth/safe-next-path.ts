@@ -16,3 +16,28 @@ export function safeNextPath(next: string | null | undefined): string {
   }
   return next;
 }
+
+// Ritorno dopo il magic link: la destinazione viaggia nell'URL di redirect di Supabase
+// (`{{ .RedirectTo }}` nel template), codificata in base64url perché arrivi intatta dentro la
+// query di /auth/confirm. Se Supabase non accetta il redirect usa il SiteURL: si torna alla home.
+const RETURN_PARAM = "n";
+
+/** URL di redirect per signInWithOtp che porta con sé `next` (già validato). */
+export function emailRedirectUrl(origin: string, next: string): string {
+  return `${origin}/?${RETURN_PARAM}=${Buffer.from(next, "utf8").toString("base64url")}`;
+}
+
+/**
+ * Destinazione grezza dal parametro `next` di /auth/confirm: un percorso relativo così com'è,
+ * oppure quella codificata nell'URL di redirect. Il risultato va sempre validato con safeNextPath.
+ */
+export function nextFromEmailLink(value: string | null | undefined): string | null {
+  if (typeof value !== "string" || value === "") return null;
+  if (value.startsWith("/")) return value;
+  try {
+    const encoded = new URL(value).searchParams.get(RETURN_PARAM);
+    return encoded ? Buffer.from(encoded, "base64url").toString("utf8") : null;
+  } catch {
+    return null;
+  }
+}

@@ -27,6 +27,7 @@ I passi tecnici di dettaglio sono in `docs/DEPLOY.md`; qui c'è cosa deve esiste
 - [ ] Progetto (o organizzazione) intestato al titolare, regione UE.
 - [ ] **SMTP proprio** in *Authentication → SMTP Settings* con la chiave Resend per Supabase e il mittente del sottodominio di invio (`docs/DEPLOY.md` §5).
 - [ ] **Template** *Magic Link* e *Confirm signup* copiati da `supabase/templates/magic_link.html` e `confirmation.html`, con nome e recapiti del negozio.
+  Il ritorno alla pagina di partenza dopo il login (es. nel mezzo di una prenotazione) dipende da questi template (parametro `next={{ .RedirectTo }}`), quindi dall'SMTP proprio: senza, il cliente torna sempre alla home.
 - [ ] **Rate limit delle email** in *Authentication → Rate Limits*, tarati sul piano Resend; CAPTCHA pronto da attivare in caso di abusi (`docs/DEPLOY.md` §5).
 - [ ] **Valutazione del piano Pro**: nel piano gratuito i progetti inattivi vengono messi in pausa e i backup sono limitati. Per un negozio che lavora tutti i giorni servono backup giornalieri e nessuna pausa.
 - [ ] Migrazioni applicate (`npx supabase db push`), **senza seed**: gli utenti demo hanno una password nota.
@@ -38,7 +39,8 @@ I passi tecnici di dettaglio sono in `docs/DEPLOY.md`; qui c'è cosa deve esiste
 - [ ] Variabili d'ambiente di produzione impostate (`docs/DEPLOY.md` §3), compresa la chiave Resend per l'app.
 - [ ] In Supabase, *Authentication → URL Configuration*:
   - [ ] **Site URL** = dominio personalizzato (i link delle email lo usano);
-  - [ ] **Redirect URLs** aggiornati al dominio personalizzato; via quelli di prova non più necessari.
+  - [ ] **Redirect URLs** aggiornati al dominio personalizzato (`https://<dominio>/**`, serve al ritorno dopo il login); via quelli di prova non più necessari.
+- [ ] Regola di **rate limiting del firewall** sul flusso di prenotazione (`docs/DEPLOY.md` §7).
 - [ ] Prova end-to-end in produzione: magic link di un cliente, login dello staff, prenotazione e cancellazione.
 
 ## 5. Privacy (GDPR)

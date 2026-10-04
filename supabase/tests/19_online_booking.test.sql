@@ -325,7 +325,7 @@ select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-400
 select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-4000-8000-000000001901',
   pg_temp.loc(pg_temp.d(), '09:30')), null,
   'SPEC §12: assenza parziale – servizio che finisce all''inizio dell''assenza → valido');
-select is(pg_temp.ose('e5000000-0000-4000-8000-000000001902', 'eb000000-0000-4000-8000-000000001902',
+select is(pg_temp.ose('e5000000-0000-4000-8000-000000001901', 'eb000000-0000-4000-8000-000000001902',
   pg_temp.loc(pg_temp.d(), '10:00')), null,
   'SPEC §3.5: l''assenza di A non tocca B');
 

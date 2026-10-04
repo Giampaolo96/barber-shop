@@ -7,7 +7,7 @@
 | 2 | completata | 2026-10-02 | Vedi "Fetta 2" sotto |
 | 3 | completata | 2026-10-03 | Vedi "Fetta 3" sotto |
 | 4 | completata | 2026-10-04 | Vedi "Fetta 4" sotto |
-| 5 | da fare | | |
+| 5 | completata | 2026-10-04 | Vedi "Fetta 5" sotto |
 | 6 | da fare | | |
 | 7 | da fare | | |
 | 8 | da fare | | |
@@ -272,3 +272,52 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 - L'e2e "blocco e sblocco dell'account" (`admin-staff-accounts.spec.ts`) era instabile in CI. Se dopo il blocco una richiesta del browser del barbiere (per esempio un prefetch della build di produzione) passa dal proxy, i cookie vengono tolti in quel momento e la visita successiva di `/admin` arriva anonima, senza `?motivo=disabilitato`. Il comportamento è verificato con un test di prova in locale.
 - Ora, dopo la revoca, il test verifica solo il redirect a `/admin/login` e l'assenza del menu admin. "Account disabilitato" resta verificato al nuovo login.
 - Esclusa la gara fra progetti Playwright: lo spec gira solo in `mobile-chromium` e usa dati unici.
+
+## Fetta 5 – Flusso prenotazione cliente + "Le mie prenotazioni"
+
+**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie elencate sotto, da decidere). Migrazioni da applicare a Supabase cloud (`db push`); regola del firewall Vercel e Redirect URLs da configurare (`docs/DEPLOY.md` §5 e §7). CI da verificare dopo il push.
+
+**Fatto**
+- 4 migrazioni `2026100410*`:
+  - `online_slot_error` (definer, solo `authenticated`): stesse regole del motore, fasce contigue unite con `range_agg`;
+  - `create_online_booking` (definer, solo `authenticated`) con `fnv1a_32` interna: profilo completo con consenso alla versione corrente, blocco manuale o per no-show, nota ≤ 500, advisory lock per cliente, limiti 3 future / 10 nelle 24 ore, sovrapposizione del cliente, "Nessuna preferenza" scelta nel DB con il criterio di `pickBarber`;
+  - `cancel_own_booking` (definer, solo `authenticated`), bordo del limite incluso;
+  - policy `services_select_own_bookings` e `barbers_select_own_bookings`.
+- `src/lib/booking/`: `rules`, `schemas`, `errors`, `actions` (`createBooking`, `cancelBooking`), `availability-actions`, `queries`, `paths`, `format`, `page-context`. `src/lib/db/database.ts` corregge i tipi di `create_online_booking` (`p_barber_id` e `p_notes` nullable). Denaro spostato in `src/lib/domain/money.ts` (re-export in `src/lib/admin/money.ts`).
+- Pagine: home (info negozio, "Prenota", prossima prenotazione), `/prenota`, `/prenota/barbiere` (saltata con un solo barbiere), `/prenota/orario` (resa dal server dall'URL, cambio giorno senza ricaricare dopo l'idratazione), `/prenota/riepilogo`, `/prenotazioni`; link "Prenotazioni" nell'header.
+- Ritorno dopo il login: il proxy aggiunge `?next=` (percorso e parametri); `next` viaggia codificato in `emailRedirectTo` e nel template come `next={{ .RedirectTo }}`; validato con `safeNextPath` all'invio e dopo la decodifica. Template e `additional_redirect_urls` aggiornati.
+- Vitest: progetto `db` separato per i `*-db.test.ts`, un file alla volta.
+- `docs/adr/005-prenotazione-online.md`; SPEC §3.7.6, §5.2, §5.3, §8; `DEPLOY.md` §5 e §7 (firewall Vercel); `GO-LIVE.md`.
+- Test: `supabase/tests/19_online_booking.test.sql` (98), `tests/acceptance/booking-rules.test.ts` (21), `tests/acceptance/booking-db.test.ts` (8: coerenza motore/SQL, scelta del barbiere uguale a `pickBarber`, concorrenza reale), `tests/e2e/booking.spec.ts` (4).
+
+**Esiti**: lint ok, typecheck ok, Vitest 1003/1003, pgTAP 950/950, Playwright 69/69 (con `SUPABASE_SERVICE_ROLE_KEY` nell'ambiente).
+
+**Decisioni** (dettaglio nell'ADR 005)
+- Rate limiting della creazione nel database, per cliente; per le richieste al flusso una regola del firewall Vercel (disponibile anche sul piano Hobby: 1 regola, chiave IP, finestra 10 s–10 min).
+- Advisory lock per cliente prima dei controlli su limiti e sovrapposizioni; in pgTAP si verifica solo la presa del lock, la gara reale è in `booking-db.test.ts`.
+- "Nessuna preferenza" nel database, nella stessa transazione, senza retry lato server.
+- Sovrapposizione del cliente su `[starts_at, ends_at)`, senza buffer. Cancellazione con bordo incluso. Nota ≤ 500 caratteri.
+- Login richiesto da `/prenota`; messaggio di blocco su `/prenota` e nel riepilogo.
+- Dopo conferma e cancellazione redirect a `/prenotazioni` con banner.
+
+**Correzioni ai test di accettazione** (approvate dall'utente)
+- Prima del commit `f908fd4`: progetto Vitest `db`, ripristino dell'orizzonte in `finally`, caso dell'ora legale saltato con messaggio se non c'è un cambio d'ora nei prossimi 365 giorni.
+- Dopo: in `19_online_booking.test.sql` il test "l'assenza di A non tocca B" usava un servizio a cui B non è abilitato (refuso), ora usa F5 Taglio.
+
+**Da fare nelle prossime fette**
+- Fetta 9: `profileComplete` non confronta la versione del consenso privacy, il database sì: un cliente con un consenso vecchio lo scopre alla conferma ("Completa il tuo profilo per prenotare").
+- Produzione: `db push` delle 4 migrazioni; template email con `next={{ .RedirectTo }}`; Redirect URLs `https://<dominio>/**`; regola del firewall.
+
+**Migliorie della review** (non applicate: decide l'utente)
+1. Committare insieme il rename `admin/money.ts → domain/money.ts` e il nuovo re-export `src/lib/admin/money.ts` (usato da `admin-utils.test.ts`).
+2. Con "Nessuna preferenza" un orario non valido per motivi indipendenti dal barbiere (troppo vicino, fuori orizzonte, fuori griglia, chiusura) restituisce `taken` ("Orario appena occupato").
+3. `online_slot_error` distingue `time_off`, `closed` e `taken`: un cliente può dedurre le assenze di un barbiere (nessun dato di altri clienti). Ridurre i codici per i non staff tocca i test pgTAP 19.
+4. La regola del firewall copre solo le POST; ogni GET di `/prenota/orario` calcola i giorni su tutto l'orizzonte. Inoltre `/prenota` richiede il login: la "disponibilità anonima" citata in ADR 005 e `DEPLOY.md` §7 oggi non è raggiungibile, il testo va allineato.
+5. Se la lettura del profilo fallisce, `page-context.ts` tratta il cliente come bloccato.
+6. Un errore di lettura delle prenotazioni mostra "Nessuna prenotazione." invece di un errore.
+7. Un `next` oltre 2048 caratteri fa fallire lo schema del login (risposta "invalid" con un'email corretta).
+8. Al primo accesso il redirect a `/profilo/completa` perde `next`.
+9. Codice morto e duplicazioni: `home.callShop` inutilizzato, select e mapping duplicati in `queries.ts`, link `tel:` costruito in tre punti.
+10. Mancano test unitari per `emailRedirectUrl` e `nextFromEmailLink`.
+11. I limiti 500 e 3 sono scritti nei testi di `it.ts` invece che con un segnaposto.
+
