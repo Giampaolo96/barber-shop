@@ -276,7 +276,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 
 ## Fetta 5 – Flusso prenotazione cliente + "Le mie prenotazioni"
 
-**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 2–11 applicate su richiesta dell'utente nel commit "fix: review fetta 5"). 5 migrazioni da applicare a Supabase cloud (`db push`); regola del firewall Vercel e Redirect URLs da configurare (`docs/DEPLOY.md` §5 e §7). CI da verificare dopo il push.
+**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 2–11 applicate su richiesta dell'utente nel commit "fix: review fetta 5"). Migrazioni già presenti su Supabase cloud (verificato il 2026-10-05: il `db push` della fetta 6 ha applicato solo le 2 nuove); regola del firewall Vercel e Redirect URLs da configurare (`docs/DEPLOY.md` §5 e §7). CI da verificare dopo il push.
 
 **Fatto**
 - 4 migrazioni `2026100410*`:
@@ -340,7 +340,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 
 ## Fetta 6 – Calendario admin + prenotazioni manuali + cambi stato
 
-**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 1–10 applicate su richiesta dell'utente nel commit "fix: review fetta 6"). 2 migrazioni da applicare a Supabase cloud (`db push`). CI da verificare dopo il push.
+**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 1–10 applicate su richiesta dell'utente nel commit "fix: review fetta 6"). Fetta chiusa il 2026-10-05: le 2 migrazioni sono applicate a Supabase cloud (`db push` dell'utente; il vincolo sul cliente si è creato senza errori, quindi nel cloud non c'erano sovrapposizioni) e la CI è verde (confermato dall'utente).
 
 **Fatto**
 - Migrazioni:
@@ -394,7 +394,6 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 
 **Da fare nelle prossime fette**
 - Fetta 6b (Clienti): elenco con ricerca, storico, contatore no-show, blocco/sblocco. Va deciso come l'admin toglie un blocco automatico per no-show: oggi il contatore segue solo le prenotazioni.
-- Produzione: `db push` delle 2 migrazioni. Prima verificare che nel cloud nessun cliente abbia due `confirmed` sovrapposte, altrimenti la creazione del vincolo fallisce.
 
 **Migliorie della review** (tutte applicate su richiesta dell'utente; la review è chiusa)
 1. `updateBooking` e `createManualBooking` non verificano che servizio (in modifica) e barbiere siano attivi: i moduli li escludono, un POST costruito a mano no.
