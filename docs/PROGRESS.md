@@ -433,7 +433,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 
 ## Fetta 6b – Admin: clienti (SPEC §6.7)
 
-**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 1–6 applicate o accettate su richiesta dell'utente nel commit "fix: review fetta 6b"). Da fare: `db push` delle 4 migrazioni `20261005*` della fetta su Supabase cloud, CI.
+**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 1–6 applicate o accettate su richiesta dell'utente nel commit "fix: review fetta 6b"). Le 4 migrazioni `20261005*` sono applicate a Supabase cloud (`db push` dell'utente, 2026-10-05, senza errori). CI verde dopo il push del 2026-10-05 (`948daa4`), confermata dall'utente.
 
 **Fatto**
 - Migrazioni:
