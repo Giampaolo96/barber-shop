@@ -590,12 +590,12 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 
 **Decisioni**: il barbiere demo è lo staff di prova, perché l'email dell'admin è usata da altri test in parallelo. Un `?code=` vuoto va comunque a `/auth/callback`, che lo rifiuta. Un cliente già loggato che apre un link scaduto finisce in home senza messaggio. Uno staff con una sessione aperta che apre il link resta su `/admin`.
 
-**Limiti** (finché manca l'SMTP): il link vale solo nel browser della richiesta e si consuma all'apertura (gli scanner della posta possono invalidarlo).
+**Limiti** (finché manca l'SMTP): il link vale solo nel browser della richiesta e solo l'ultimo richiesto (un solo `code_verifier` per browser); si consuma all'apertura (gli scanner della posta possono invalidarlo).
 **Test esistente modificato** (approvato dall'utente): `tests/acceptance/auth.test.ts`, "nessun route handler GET esegue signOut". Ha un'eccezione stretta solo per `src/app/auth/callback/route.ts`, dove un nuovo test verifica che ogni `signOut` usi `scope: "local"`.
 
 **Esiti**: lint ok, typecheck ok, Vitest 1292/1292, pgTAP 1090/1090, Playwright 88/88. Review: nessun bloccante (open redirect, login forzato e cookie verificati).
 
-**Migliorie dalla review** (non applicate: decide l'utente)
+**Migliorie dalla review** (1, 2, 3 e 7 applicate su richiesta dell'utente nel commit "fix: review ripiego login"; 4, 5 e 6 annotate; la review è chiusa)
 1. Con `/auth/confirm?code=…&next=<origin>/?n=…` la destinazione si perde (il callback legge `n` solo dalla query). Oggi il ritorno è sempre `/?n=`: caso marginale.
 2. Ramo staff: l'errore di `signOut` (revoca fallita) non viene registrato.
 3. Limite da documentare: vale solo l'ultimo link richiesto da quel browser (un solo `code_verifier`).
@@ -603,4 +603,10 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 5. Solo verificati a mano, senza e2e: staff con sessione già aperta che apre il link, pulizia del verifier, ramo senza profilo.
 6. Errore solo nel fragment su `/auth/confirm` non intercettato: oggi GoTrue lo mette anche nella query, quindi lo gestisce il proxy.
 7. Documentazione: GO-LIVE dice ancora "senza, il cliente torna sempre alla home"; in DEPLOY il punto "4bis." spezza l'elenco numerato.
+
+**Come sono state applicate le migliorie 1, 2, 3 e 7** (commit "fix: review ripiego login")
+1. `callbackDestination(url)` in `email-fallback.ts`: legge prima `next` (code arrivato su `/auth/confirm`), poi `n`, sempre attraverso `safeNextPath`. Test in `tests/acceptance/auth-fallback-review-fixes.test.ts`.
+2. Nel ramo staff, se la revoca della sessione fallisce, l'errore va nel log; il redirect non cambia.
+3. `DEPLOY.md` §5 e PROGRESS: vale solo l'ultimo link richiesto da quel browser.
+7. `GO-LIVE.md` allineato al ripiego (la pagina di partenza si conserva con i Redirect URLs). In `DEPLOY.md` §5 il ripiego è il punto 5 e i successivi sono rinumerati.
 

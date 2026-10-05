@@ -42,19 +42,20 @@ Non usare `--include-seed`: il seed crea utenti demo con password nota.
 3. **Authentication → Email Templates**: nei template *Magic Link* e *Confirm signup* incolla il contenuto di `supabase/templates/magic_link.html` e `confirmation.html`. Il link deve restare `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next={{ .RedirectTo }}`: `next` riporta il cliente alla pagina da cui è partito (es. il flusso di prenotazione).
    In **Authentication → URL Configuration → Redirect URLs** aggiungi `https://<dominio>/**`: se l'URL di redirect non è ammesso, Supabase usa il Site URL e il cliente, dopo il login, torna alla home invece che alla pagina di partenza.
 4. **Authentication → Providers → Email**: conferma dell'email attiva, lunghezza minima della password 10, cambio password sicuro attivo (come in `supabase/config.toml`, che vale solo in locale).
-4bis. **Ripiego senza template personalizzato** (solo finché manca l'SMTP proprio): con il template predefinito di Supabase il link passa da `/auth/v1/verify` e torna all'app con `?code=` (flusso PKCE) oppure con `?error=…&error_code=…` se il link è scaduto o già usato. L'app lo gestisce:
+5. **Ripiego senza template personalizzato** (solo finché manca l'SMTP proprio): con il template predefinito di Supabase il link passa da `/auth/v1/verify` e torna all'app con `?code=` (flusso PKCE) oppure con `?error=…&error_code=…` se il link è scaduto o già usato. L'app lo gestisce:
    - il proxy rimanda `/?code=` e `/auth/confirm?code=` a `/auth/callback`, che scambia il codice e apre la sessione solo ai clienti (per lo staff la revoca);
    - un errore nella query o nel fragment porta a `/accedi?errore=link`.
 
    Limiti del ripiego:
    - il link funziona solo nel browser che l'ha richiesto (il `code_verifier` è in un cookie);
+   - vale solo l'ultimo link richiesto da quel browser: ogni richiesta sostituisce il `code_verifier`, quindi un link precedente porta a `/accedi?errore=link`;
    - il token si consuma all'apertura, quindi uno scanner della posta può invalidarlo prima del cliente;
    - la destinazione di ritorno si conserva solo se `https://<dominio>/**` è tra i Redirect URLs.
 
    Con l'SMTP e i template del punto 3 il flusso principale (`/auth/confirm` con conferma tramite pulsante) torna a essere l'unico usato, e il ripiego non serve più.
-5. **SMTP proprio, obbligatorio per i clienti reali**: il servizio email predefinito di Supabase non è adatto alla produzione (pochi invii all'ora, consegna solo a indirizzi del team, nessuna garanzia di recapito). In **Authentication → SMTP Settings** configura un provider tuo, ad esempio Resend, con un dominio mittente verificato (SPF e DKIM).
-6. **Limiti di invio e abusi**: l'app non limita da sé le richieste di magic link, ci pensa Supabase. In **Authentication → Rate Limits** lascia almeno 60 secondi tra due email allo stesso indirizzo e imposta il tetto orario di email in base al piano del provider SMTP (i valori di `supabase/config.toml`, come `max_frequency = "1s"`, valgono solo in locale e servono ai test). Se compaiono richieste automatiche, attiva il CAPTCHA in **Authentication → Attack Protection** (Turnstile o hCaptcha): in quel caso il form di `/accedi` va adeguato per inviare il token del CAPTCHA.
-7. Login con Google: rimandato. Quando serve, vanno create le credenziali OAuth su Google Cloud e attivato il provider.
+6. **SMTP proprio, obbligatorio per i clienti reali**: il servizio email predefinito di Supabase non è adatto alla produzione (pochi invii all'ora, consegna solo a indirizzi del team, nessuna garanzia di recapito). In **Authentication → SMTP Settings** configura un provider tuo, ad esempio Resend, con un dominio mittente verificato (SPF e DKIM).
+7. **Limiti di invio e abusi**: l'app non limita da sé le richieste di magic link, ci pensa Supabase. In **Authentication → Rate Limits** lascia almeno 60 secondi tra due email allo stesso indirizzo e imposta il tetto orario di email in base al piano del provider SMTP (i valori di `supabase/config.toml`, come `max_frequency = "1s"`, valgono solo in locale e servono ai test). Se compaiono richieste automatiche, attiva il CAPTCHA in **Authentication → Attack Protection** (Turnstile o hCaptcha): in quel caso il form di `/accedi` va adeguato per inviare il token del CAPTCHA.
+8. Login con Google: rimandato. Quando serve, vanno create le credenziali OAuth su Google Cloud e attivato il provider.
 
 ## 6. Primo admin
 Lo staff non si registra da solo. Per creare il primo admin:

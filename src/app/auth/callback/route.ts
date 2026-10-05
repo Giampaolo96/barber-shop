@@ -2,13 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { COMPLETE_PROFILE_PATH, STAFF_LOGIN_PATH, isStaffRole } from "@/lib/auth/access";
 import { loadCurrentUser } from "@/lib/auth/current-user";
-import { INVALID_LINK_PATH } from "@/lib/auth/email-fallback";
-import {
-  completeProfileUrl,
-  destinationAfterLogin,
-  nextFromEmailLink,
-  safeNextPath,
-} from "@/lib/auth/safe-next-path";
+import { INVALID_LINK_PATH, callbackDestination } from "@/lib/auth/email-fallback";
+import { completeProfileUrl, destinationAfterLogin } from "@/lib/auth/safe-next-path";
 import type { Database } from "@/lib/db/database";
 import { supabaseEnv } from "@/lib/db/env";
 
@@ -52,7 +47,8 @@ export async function GET(request: NextRequest) {
 
   const user = await loadCurrentUser(supabase);
   if (!user || isStaffRole(user.role)) {
-    await supabase.auth.signOut({ scope: "local" });
+    const { error: revokeError } = await supabase.auth.signOut({ scope: "local" });
+    if (revokeError) console.error("sessione del link non revocata:", revokeError.code ?? revokeError.message);
     const response = redirectTo(user ? STAFF_LOGIN_PATH : INVALID_LINK_PATH);
     // Solo la pulizia del code_verifier: nessun cookie di sessione nuovo arriva al browser.
     for (const cookie of pending) {
@@ -61,7 +57,7 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
-  const next = safeNextPath(nextFromEmailLink(request.url));
+  const next = callbackDestination(request.nextUrl);
   const response = redirectTo(
     user.profileComplete ? destinationAfterLogin(next, user) : completeProfileUrl(COMPLETE_PROFILE_PATH, next),
   );
