@@ -521,6 +521,13 @@ export type Database = {
         }[];
       };
       set_working_hours: { Args: { p_barber_id: string; p_hours: Json }; Returns: undefined };
+      shop_closures_on_local_day: {
+        Args: { p_at: string };
+        Returns: {
+          ends_at: string;
+          starts_at: string;
+        }[];
+      };
       shop_closures_today: {
         Args: Record<PropertyKey, never>;
         Returns: {

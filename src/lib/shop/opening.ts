@@ -2,7 +2,7 @@
 // Le fasce di oggi (giorno locale nella timezone del negozio, weekday ISO come working_hours)
 // diventano istanti reali, meno le chiusure; intervalli [inizio, fine).
 import { isoWeekday } from "@/lib/calendar/grid";
-import { localDateOf, localDateTimeToUtc } from "@/lib/domain/local-time";
+import { addDays, localDateOf, localDateTimeToUtc } from "@/lib/domain/local-time";
 
 export type OpeningHours = { weekday: number; start: string; end: string };
 export type ShopClosure = { startsAt: Date; endsAt: Date };
@@ -12,6 +12,12 @@ export type OpeningStatus =
   | { state: "closed_today" };
 
 type Interval = { start: number; end: number };
+
+/** Ora locale del giorno `date` come istante; "24:00" è la mezzanotte del giorno dopo. */
+function localInstant(date: string, time: string, timezone: string): number {
+  if (time === "24:00") return localDateTimeToUtc(addDays(date, 1), "00:00", timezone).getTime();
+  return localDateTimeToUtc(date, time, timezone).getTime();
+}
 
 /** Unisce gli intervalli sovrapposti o contigui (es. 09–13 e 13–15). */
 function merge(intervals: Interval[]): Interval[] {
@@ -54,8 +60,8 @@ export function openingStatus(input: {
     input.hours
       .filter((band) => band.weekday === weekday)
       .map((band) => ({
-        start: localDateTimeToUtc(today, band.start, timezone).getTime(),
-        end: localDateTimeToUtc(today, band.end, timezone).getTime(),
+        start: localInstant(today, band.start, timezone),
+        end: localInstant(today, band.end, timezone),
       }))
       .filter((band) => band.start < band.end),
   ).flatMap((band) => subtract(band, closures));

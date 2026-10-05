@@ -49,7 +49,7 @@ export function FlyFlight() {
         />
       </svg>
       <Fly
-        className="fly-flight absolute top-0 left-0 size-8 text-vein"
+        className="fly-flight absolute top-0 left-0 size-8 text-on-marble"
         style={{ offsetPath: `path("${FLIGHT_PATH}")`, offsetRotate: "auto 90deg" }}
       />
     </div>

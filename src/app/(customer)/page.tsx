@@ -19,16 +19,17 @@ const t = it.home;
 export default async function HomePage() {
   const [user, shop, opening] = await Promise.all([getCurrentUser(), getShopInfo(), getOpeningData()]);
   const next = user?.role === "customer" ? await getNextBooking(user.id) : null;
-  const timezone = shop?.timezone ?? "Europe/Rome";
+  // Fuso orario sempre dalle impostazioni: senza impostazioni niente stato, orari né data.
+  const timezone = shop?.timezone ?? null;
   const name = splitShopName(shop?.name ?? it.shop.name);
   const fullName = [name.lead, name.rest].filter(Boolean).join(" ");
   const now = new Date();
-  const status = opening ? openingStatus({ now, timezone, ...opening }) : null;
+  const status = opening && timezone ? openingStatus({ now, timezone, ...opening }) : null;
   const tel = telHref(shop?.phone ?? null);
 
   return (
     <main className="flex flex-1 flex-col">
-      <section className="relative overflow-hidden bg-marble text-vein">
+      <section className="on-ink relative overflow-hidden bg-marble text-on-marble">
         <HeroBackground />
         <div className="relative mx-auto flex w-full max-w-xl flex-col px-4 pt-4 pb-10">
           <HeroMark />
@@ -38,10 +39,10 @@ export default async function HomePage() {
             </span>
             {name.rest && <span className="block text-3xl italic lowercase sm:text-4xl">{name.rest}</span>}
           </h1>
-          {status && (
+          {status && timezone && (
             <p className="mt-8 text-base">
               {status.state === "open"
-                ? fillText(t.openNow, { time: formatTime(status.until, timezone) })
+                ? fillText(t.openNow, { time: closingTime(status.until, timezone) })
                 : status.state === "opens_later"
                   ? fillText(t.opensAt, { time: formatTime(status.at, timezone) })
                   : t.closedToday}
@@ -52,11 +53,11 @@ export default async function HomePage() {
 
       <div className="mx-auto flex w-full max-w-xl flex-col gap-10 px-4 py-8">
         {user?.role === "customer" && (
-          <section className="flex flex-col gap-3 bg-ink p-5 text-surface">
+          <section className="on-ink flex flex-col gap-3 bg-ink p-5 text-surface">
             <h2 className="text-sm font-medium">{t.nextBooking}</h2>
             {next && !next.ok ? (
               <p role="alert">{it.booking.errors.listLoad}</p>
-            ) : next?.booking ? (
+            ) : next?.booking && timezone ? (
               <>
                 <p className="font-display text-3xl leading-tight first-letter:uppercase">
                   {formatLongDate(next.booking.startsAt, timezone)}
@@ -86,7 +87,9 @@ export default async function HomePage() {
           {t.book}
         </Link>
 
-        {opening && <WeeklyHours hours={opening.hours} today={isoWeekday(localDateOf(now, timezone))} />}
+        {opening && timezone && (
+          <WeeklyHours hours={opening.hours} today={isoWeekday(localDateOf(now, timezone))} />
+        )}
 
         {(shop?.address || tel) && (
           <section className="flex flex-col gap-3">
@@ -106,6 +109,12 @@ export default async function HomePage() {
       </div>
     </main>
   );
+}
+
+/** Ora di chiusura: una fascia fino a mezzanotte chiude alle 24:00, non alle 00:00. */
+function closingTime(until: Date, timezone: string): string {
+  const time = formatTime(until, timezone);
+  return time === "00:00" ? "24:00" : time;
 }
 
 /** Orari della settimana, da lunedì: le fasce unite del negozio o "Chiuso"; oggi in grassetto. */

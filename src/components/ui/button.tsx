@@ -13,7 +13,7 @@ const buttonVariants = cva(
       variant: {
         default: "border-ink bg-ink text-surface hover:bg-surface hover:text-ink",
         outline: "border-ink bg-surface text-ink hover:bg-ink hover:text-surface aria-expanded:bg-ink aria-expanded:text-surface",
-        secondary: "border-line bg-surface text-ink hover:border-ink",
+        secondary: "border-ink bg-surface text-ink hover:bg-disabled",
         ghost: "border-transparent hover:bg-disabled aria-expanded:bg-disabled",
         destructive:
           "border-destructive bg-surface text-destructive hover:bg-destructive hover:text-surface focus-visible:outline-destructive",

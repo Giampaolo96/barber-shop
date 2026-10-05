@@ -21,7 +21,8 @@ I nomi semantici sono in `src/styles/tokens.css`, che li mappa su shadcn (`--bac
 | `--surface` | fondo | `#FFFFFF` |
 | `--ink` | testo, bordi interattivi, pieni | `#000000` |
 | `--surface-marble` | solo la testata in marmo | `#171717` |
-| `--marble-vein` | venature, scia e mosca sul marmo | `#FFFFFF` |
+| `--marble-vein` | venature e scia sul marmo | `#FFFFFF` |
+| `--ink-on-marble` | testo e mosca sul marmo | `#FFFFFF` |
 | `--ink-muted` | testo secondario (6,7:1 sul bianco) | `#5C5C5C` |
 | `--line` | divisori | `#DADADA` |
 | `--surface-disabled` / `--ink-disabled` | disabilitato, giorni non lavorativi | `#F2F2F2` / `#8F8F8F` |
@@ -34,6 +35,8 @@ Regole:
 - Nessun colore letterale fuori da `src/themes/` (lo verifica `tests/acceptance/theme.test.ts`); nei componenti si usano solo le classi dei token.
 - Gli errori sono riconoscibili anche senza colore: testo esplicito e filetto a sinistra (`border-l-2 border-destructive`).
 - Il disabilitato usa i suoi colori, non l'opacità.
+- Focus unico per ogni elemento interattivo: contorno pieno di 2px staccato di 2px (`:focus-visible` in `globals.css`, colore `--ring`). Sui fondi scuri (blocco nero, marmo) si aggiunge la classe `on-ink`, che rende il contorno chiaro.
+- Un'informazione data solo dall'aspetto (es. giorno tratteggiato = senza orari) ha anche un testo per gli screen reader.
 - Le foto dei barbieri sono quadrate e in scala di grigi, coerenti con il bianco e nero.
 - I campi nativi (`select`, `textarea`) usano `selectClass` e `textareaClass` di `src/components/ui/field.ts`, allineati a `<Input>`.
 - I font sono self-hosted con `next/font` (nessuna richiesta a Google a runtime) e si importano solo nel tema.

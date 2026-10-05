@@ -25,6 +25,11 @@
   --ring: var(--ink);
 }
 
+/* Contesti scuri (blocco nero, marmo): testo e focus chiari. */
+.on-ink {
+  --ring: var(--surface);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -50,6 +55,7 @@
   --color-surface: var(--surface);
   --color-marble: var(--surface-marble);
   --color-vein: var(--marble-vein);
+  --color-on-marble: var(--ink-on-marble);
   --color-line: var(--line);
   --color-disabled: var(--surface-disabled);
   --color-ink-disabled: var(--ink-disabled);

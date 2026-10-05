@@ -49,6 +49,7 @@ export const it = {
       slotsLabel: "Orari liberi",
       noSlots: "Nessun orario libero in questo giorno.",
       noDays: "Nessun giorno disponibile nei prossimi giorni.",
+      dayUnavailable: "{day}, nessun orario libero",
       loading: "Caricamento…",
     },
     summary: {

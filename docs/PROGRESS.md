@@ -506,7 +506,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 
 ## Fetta 8a – Identità visiva (tema "Mosca")
 
-**Stato**: completata, review chiusa (un giro, nessun bloccante; 11 migliorie da decidere, sotto). Da fare: commit della fetta, `db push` della migrazione `20261006090000` su Supabase cloud, CI.
+**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 1–10 applicate su richiesta dell'utente nel commit "fix: review fetta 8a", la 11 annotata). Da fare: `db push` delle 3 migrazioni `20261006*` su Supabase cloud, CI.
 
 **Fatto**
 - Design system a token:
@@ -545,7 +545,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 - Il dev server avviato a mano senza `SUPABASE_SERVICE_ROLE_KEY` fa fallire gli e2e degli account staff ("A server error occurred"). Per gli e2e conviene lasciare che lo avvii Playwright.
 - Fermando `npm run dev`/`start` da Claude Code su Windows resta in ascolto il processo figlio di Next sulla porta 3000: va terminato a mano.
 
-**Migliorie dalla review** (non applicate: decide l'utente)
+**Migliorie dalla review** (decisioni dell'utente sotto, in "Come sono state applicate")
 1. Focus quasi invisibile su fondo nero (link "Le mie prenotazioni" nel blocco nero): outline `--ring` = nero.
 2. Focus non esplicito su giorni, orari, scelte, "Indietro" e link della testata: si affidano al contorno del browser, a differenza delle primitive.
 3. Giorni senza orari: `aria-disabled`/`aria-label` su `span` (ruolo generico) non vengono letti. Meglio un testo `sr-only` ("nessun orario libero").
@@ -557,4 +557,16 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 9. `.mcp.json` con `@playwright/mcp@latest`: versione da fissare.
 10. `dayParts` e `formatLongDate` senza test unitari.
 11. `generateMetadata` nel root layout legge le impostazioni con i cookie: tutte le route diventano dinamiche.
+
+**Come sono state applicate le migliorie** (commit "fix: review fetta 8a")
+1–2. Focus unico: `:focus-visible` in `globals.css` (contorno pieno di 2px, staccato di 2px, colore `--ring`) per ogni elemento interattivo. La classe `on-ink` (`tokens.css`) rende il contorno chiaro sul blocco nero e sul marmo.
+3. Giorni senza orari: contenuto visivo `aria-hidden` e testo `sr-only` "{giorno}, nessun orario libero" (`it.booking.time.dayUnavailable`).
+4. Variante `secondary` di Button a bordo nero.
+5. Home: il fuso orario viene solo da `shop_settings`; senza impostazioni non si mostrano stato, orari né la data della prossima prenotazione.
+6. Opzione B, decisa dall'utente: nessun vincolo nel database, perché i test 18 e 19 e il motore usano fasce fino alle 24:00. La migrazione `20261006100000_shop_opening_hours_until_midnight.sql` fa sì che `shop_opening_hours()` restituisca `24:00` invece di `00:00`. `openingStatus` tratta "24:00" come la mezzanotte del giorno dopo, e la home mostra "24:00" anche nello stato. Test in `supabase/tests/25_review_fixes_fetta8a.test.sql` e `tests/acceptance/theme-review-fixes.test.ts`.
+7. Migrazione `20261006100100_shop_closures_for_day.sql`: il calcolo del giorno locale passa nella funzione interna `shop_closures_on_local_day(p_at)` (definer, nessun grant), usata da `shop_closures_today()` con `now()`. Test sui giorni di 25 ore (25/10/2026) e di 23 ore (28/03/2027).
+8. Token `--ink-on-marble` (`text-on-marble`) per testo e mosca sul marmo; `--marble-vein` resta per venature e scia.
+9. `.mcp.json`: `@playwright/mcp@0.0.83`.
+10. Test di `dayParts` e `formatLongDate` in `tests/acceptance/theme-review-fixes.test.ts`.
+11. Annotata, non applicata: `generateMetadata` nel root layout legge le impostazioni con i cookie, quindi tutte le route sono dinamiche (lo erano già quasi tutte per l'autenticazione). Da rivedere se servirà il rendering statico, ad esempio con un titolo letto senza sessione.
 

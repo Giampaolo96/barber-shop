@@ -3,6 +3,7 @@
 import Link, { useLinkStatus } from "next/link";
 import { useState, useTransition } from "react";
 import { it } from "@/i18n/it";
+import { fillText } from "@/lib/admin/text";
 import { fetchAvailableSlots } from "@/lib/booking/availability-actions";
 import { dayParts, formatDayLabel, formatTime } from "@/lib/booking/format";
 import { summaryStepUrl, timeStepUrl } from "@/lib/booking/paths";
@@ -80,12 +81,11 @@ export function SlotPicker({
                     {content}
                   </Link>
                 ) : (
-                  <span
-                    aria-disabled="true"
-                    aria-label={formatDayLabel(date)}
-                    className={`${box} border-dashed border-line text-ink-disabled`}
-                  >
-                    {content}
+                  <span className={`${box} border-dashed border-line text-ink-disabled`}>
+                    <span aria-hidden="true" className="contents">
+                      {content}
+                    </span>
+                    <span className="sr-only">{fillText(t.dayUnavailable, { day: formatDayLabel(date) })}</span>
                   </span>
                 )}
               </li>

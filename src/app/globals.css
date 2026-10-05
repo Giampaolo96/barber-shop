@@ -7,7 +7,13 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring;
+    @apply border-border;
+  }
+  /* Focus unico per ogni elemento interattivo (docs/DESIGN.md): contorno pieno staccato
+     dall'elemento. Nei contesti scuri (.on-ink) --ring diventa il colore del fondo chiaro. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   body {
     @apply bg-background text-foreground;
