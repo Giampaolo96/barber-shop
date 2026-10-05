@@ -63,13 +63,25 @@ export function CustomerPicker({ initial }: { initial: { id: string; label: stri
         </p>
       )}
       {result?.ok && result.matches.length === 0 && <p className="text-sm">{t.noCustomers}</p>}
+      {result?.ok && result.blockStatusUnknown && result.matches.length > 0 && (
+        <p role="alert" className="text-sm text-destructive">
+          {t.customerBlockUnknown}
+        </p>
+      )}
       {result?.ok && result.matches.length > 0 && (
         <ul className="flex flex-col gap-1">
           {result.matches.map((match) => {
             const label = [match.fullName, match.phone].filter(Boolean).join(" · ");
             return (
               <li key={match.id} className="flex items-center justify-between gap-2 text-sm">
-                <span>{label}</span>
+                <span>
+                  {label}
+                  {match.blocked && (
+                    <span className="ml-2 rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive">
+                      {t.customerBlocked}
+                    </span>
+                  )}
+                </span>
                 <Button
                   type="button"
                   size="sm"

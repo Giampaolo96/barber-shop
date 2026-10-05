@@ -38,10 +38,16 @@ export type CalendarFormState = {
 
 export type CalendarRowState = { status: "idle" | "saved" | "invalid" | "stale" | CalendarErrorCode };
 
-export type CustomerMatch = { id: string; fullName: string; phone: string | null };
+/** `blocked`: bloccato per la prenotazione online; null se non è stato possibile verificarlo. */
+export type CustomerMatch = { id: string; fullName: string; phone: string | null; blocked: boolean | null };
 
-/** Esito della ricerca clienti: un errore non va mostrato come "nessun cliente". */
-export type CustomerSearchResult = { ok: true; matches: CustomerMatch[] } | { ok: false };
+/**
+ * Esito della ricerca clienti: un errore non va mostrato come "nessun cliente", e un blocco non
+ * verificato non va mostrato come "non bloccato" (`blockStatusUnknown`).
+ */
+export type CustomerSearchResult =
+  | { ok: true; matches: CustomerMatch[]; blockStatusUnknown: boolean }
+  | { ok: false };
 
 const MINUTE = 60_000;
 const CALENDAR_AREA = "/admin";
@@ -343,7 +349,7 @@ export async function saveStaffNote(
 export async function searchCustomers(query: string): Promise<CustomerSearchResult> {
   await requireRole(["barber", "admin"]);
   const parsed = customerQuerySchema.safeParse(query);
-  if (!parsed.success) return { ok: true, matches: [] };
+  if (!parsed.success) return { ok: true, matches: [], blockStatusUnknown: false };
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("search_customers", { q: parsed.data });
@@ -351,8 +357,28 @@ export async function searchCustomers(query: string): Promise<CustomerSearchResu
     console.error("searchCustomers", error.code);
     return { ok: false };
   }
+  // Etichetta "Bloccato" (decisione fetta 6b): search_customers resta invariata.
+  let blockedIds: Set<string> | null = new Set();
+  if (data.length > 0) {
+    const { data: blocked, error: blockedError } = await supabase.rpc("blocked_customer_ids", {
+      p_ids: data.map((row) => row.id),
+    });
+    if (blockedError || !blocked) {
+      console.error("blocked_customer_ids", blockedError?.code);
+      blockedIds = null;
+    } else {
+      blockedIds = new Set(blocked);
+    }
+  }
+
   return {
     ok: true,
-    matches: data.map((row) => ({ id: row.id, fullName: row.full_name ?? "", phone: row.phone })),
+    matches: data.map((row) => ({
+      id: row.id,
+      fullName: row.full_name ?? "",
+      phone: row.phone,
+      blocked: blockedIds ? blockedIds.has(row.id) : null,
+    })),
+    blockStatusUnknown: blockedIds === null,
   };
 }

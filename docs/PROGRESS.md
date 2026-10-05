@@ -9,7 +9,7 @@
 | 4 | completata | 2026-10-04 | Vedi "Fetta 4" sotto |
 | 5 | completata | 2026-10-04 | Vedi "Fetta 5" sotto |
 | 6 | completata | 2026-10-05 | Vedi "Fetta 6" sotto |
-| 6b | da fare | | Clienti (SPEC §6.7), spostata dalla fetta 6 |
+| 6b | completata | 2026-10-05 | Vedi "Fetta 6b" sotto |
 | 7 | da fare | | |
 | 8 | da fare | | |
 | 9 | da fare | | |
@@ -430,3 +430,54 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
   - `/accedi` e le pagine del flusso cliente, con il cliente demo e il magic link via Mailpit.
 - Nessuna asserzione cambiata. Se il warm-up fallisce stampa solo un avviso.
 - Verificato con 3 giri completi in dev: 76/76 ogni volta.
+
+## Fetta 6b – Admin: clienti (SPEC §6.7)
+
+**Stato**: completata, review chiusa (un giro, nessun bloccante; 6 migliorie da decidere, sotto). Da fare: commit della fetta, `db push` delle 2 migrazioni su Supabase cloud, CI.
+
+**Fatto**
+- Migrazioni:
+  - `20261005100000_profiles_no_show_reset.sql`:
+    - colonne `no_show_reset_at` e `no_show_reset_by`, con indice sulla FK e senza grant di update;
+    - contatore no-show che rispetta l'azzeramento, con il trigger anche su `starts_at`;
+    - `reset_no_show_count` (definer, solo admin non bloccato, solo `customer`, `P0002` altrimenti);
+  - `20261005100100_admin_customers.sql`: `admin_customers`, `admin_customer` (definer, `is_admin()` interno, email da `auth.users`), `blocked_customer_ids` (definer, solo staff).
+- `src/lib/customers/`: `status` (puro), `schemas`, `paths`, `queries`, `actions` (`setCustomerBlocked`, `resetNoShows`).
+- Pagine:
+  - `/admin/clienti`: ricerca GET su nome, telefono ed email, 25 per pagina, stato del blocco;
+  - `/admin/clienti/[id]`: dati, stato, contatore, ultimo azzeramento, Blocca/Sblocca, Azzera no-show, storico (max 100 righe);
+  - `error.tsx`.
+- Prenotazione manuale: `searchCustomers` restituisce `blocked`, mostrato come etichetta "Bloccato". Se `blocked_customer_ids` fallisce: avviso, `blocked: null` e log dell'errore.
+- Testi in `it.admin.customers` e `it.admin.calendar.form.customerBlocked/customerBlockUnknown`.
+- Documentazione: `docs/adr/007-clienti.md`; ADR 001 (significato del contatore); SPEC §3.1 e §6.7.
+- Test (commit `fbd3102`):
+  - pgTAP `supabase/tests/22_admin_customers.test.sql` (72);
+  - Vitest `tests/acceptance/customers.test.ts` (50);
+  - e2e `tests/e2e/admin-customers.spec.ts` (3).
+
+**Esiti**: lint ok, typecheck ok, Vitest 1219/1219, pgTAP 1062/1062, Playwright 79/79 (dev, con `SUPABASE_SERVICE_ROLE_KEY`).
+
+**Decisioni** (dettaglio nell'ADR 007)
+- Azzeramento dei no-show con `no_show_reset_at`/`no_show_reset_by`. Da quel momento `no_show_count` conta solo le no-show di prenotazioni con `starts_at >= no_show_reset_at`.
+- Il perdono copre il passato: una no-show segnata dopo l'azzeramento su una prenotazione precedente non conta, e correggere o eliminare una vecchia no-show non decrementa. Il cambio di `customer_id` segue l'azzeramento di ciascun cliente.
+- Blocca/Sblocca agisce solo su `is_blocked` e solo sui `customer`. Non cancella prenotazioni né chiude la sessione: impedisce solo la prenotazione online.
+- Email visibile e cercabile solo dall'admin, tramite funzioni definer con `is_admin()` interno: un admin bloccato non le usa.
+- Etichetta "Bloccato" nella manuale con la funzione separata `blocked_customer_ids` (`search_customers` invariata, il suo test in `04_rls_barber` resta valido). Il barbiere vede il blocco anche di clienti mai serviti.
+- `q` troncato a 100; pagina non valida → 1; `p_offset` negativo → 0; oltre l'ultima pagina, elenco vuoto con il link alla prima.
+- Errori del database: `42501` → "Operazione non consentita", il resto (`P0002`...) → errore generico. Cliente bloccato sia dall'admin sia per no-show → due etichette.
+
+**Correzioni ai test di accettazione**: nessuna dopo il commit `fbd3102`. Prima del commit spec-qa aveva adeguato due casi della propria prima consegna alle decisioni 4 e 7: un dato di prova (`count: 1`) e l'atteso `blockStatusUnknown: false`.
+
+**Problemi d'ambiente trovati durante gli e2e**
+- `booking.spec.ts` (fetta 5) cerca le email in Mailpit, che restituisce al massimo 50 messaggi. Con 50 email accumulate per `cliente@demo.local` il test non vede quella nuova. Risolto svuotando la casella locale (`DELETE http://127.0.0.1:54324/api/v1/messages`); il test resta fragile (miglioria 6).
+- Non lanciare gli e2e in background mentre gira `npm test`, ad esempio con il quality gate di fine turno: il progetto Vitest `db` scrive sul database e la CPU satura. I login dello staff vanno in timeout in dev, e falliscono anche sulla build di produzione.
+- Un caso di `calendar-schemas.test.ts` è andato in timeout (5 s) al primo giro a freddo e sotto carico. Non si ripete a macchina libera.
+
+**Migliorie dalla review** (non applicate: decide l'utente)
+1. Race tra azzeramento e una no-show segnata in contemporanea. In READ COMMITTED il +1 del trigger, valutato prima del commit dell'azzeramento, si applica dopo e non viene mai stornato. Correzione: mettere la condizione su `no_show_reset_at` nel `WHERE` dell'update del contatore (o `select ... for update` sul profilo). Finestra stretta: servono due admin contemporanei.
+2. `no_show_reset_at`/`no_show_reset_by` (uuid dell'admin) sono leggibili anche dal cliente stesso e dal barbiere dei suoi appuntamenti (`grant select` su tutto `profiles`). Da rivedere con i grant di colonna su `profiles` o da accettare nell'ADR 007.
+3. `getCustomer` ignora l'errore nella lettura del nome di chi ha azzerato (mostra "—" senza log).
+4. `service_role` può eseguire le 4 funzioni nuove (inoffensivo: senza JWT danno 42501), a differenza di `search_customers`, che ha il revoke esplicito.
+5. Classe del badge "bloccato" ripetuta tre volte: estrarre un `BlockedBadge`.
+6. `booking.spec.ts`: rendere robusta la lettura da Mailpit (filtro o paginazione, oppure svuotare la casella in `global-setup.ts`). Tocca test esistenti.
+

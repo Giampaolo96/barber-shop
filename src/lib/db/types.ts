@@ -225,6 +225,8 @@ export type Database = {
           marketing_consent: boolean;
           marketing_consent_at: string | null;
           no_show_count: number;
+          no_show_reset_at: string | null;
+          no_show_reset_by: string | null;
           phone: string | null;
           privacy_consent_at: string | null;
           privacy_policy_version: string | null;
@@ -238,6 +240,8 @@ export type Database = {
           marketing_consent?: boolean;
           marketing_consent_at?: string | null;
           no_show_count?: number;
+          no_show_reset_at?: string | null;
+          no_show_reset_by?: string | null;
           phone?: string | null;
           privacy_consent_at?: string | null;
           privacy_policy_version?: string | null;
@@ -251,12 +255,22 @@ export type Database = {
           marketing_consent?: boolean;
           marketing_consent_at?: string | null;
           no_show_count?: number;
+          no_show_reset_at?: string | null;
+          no_show_reset_by?: string | null;
           phone?: string | null;
           privacy_consent_at?: string | null;
           privacy_policy_version?: string | null;
           role?: Database["public"]["Enums"]["user_role"];
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "profiles_no_show_reset_by_fkey";
+            columns: ["no_show_reset_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       services: {
         Row: {
@@ -426,6 +440,33 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      admin_customer: {
+        Args: { p_id: string };
+        Returns: {
+          created_at: string;
+          email: string;
+          full_name: string;
+          id: string;
+          is_blocked: boolean;
+          no_show_count: number;
+          no_show_reset_at: string;
+          no_show_reset_by: string;
+          phone: string;
+        }[];
+      };
+      admin_customers: {
+        Args: { p_limit?: number; p_offset?: number; q?: string };
+        Returns: {
+          created_at: string;
+          email: string;
+          full_name: string;
+          id: string;
+          is_blocked: boolean;
+          no_show_count: number;
+          phone: string;
+          total_count: number;
+        }[];
+      };
       availability_inputs: {
         Args: { p_barber_id: string; p_from: string; p_service_id: string; p_to: string };
         Returns: {
@@ -442,6 +483,7 @@ export type Database = {
           profile_id: string;
         }[];
       };
+      blocked_customer_ids: { Args: { p_ids: string[] }; Returns: string[] };
       cancel_own_booking: { Args: { p_booking_id: string }; Returns: undefined };
       create_online_booking: {
         Args: { p_barber_id: string; p_notes: string; p_service_id: string; p_starts_at: string };
@@ -468,6 +510,7 @@ export type Database = {
         Returns: string;
       };
       reorder_services: { Args: { p_ids: string[] }; Returns: undefined };
+      reset_no_show_count: { Args: { p_customer_id: string }; Returns: undefined };
       revoke_user_sessions: { Args: { p_user_id: string }; Returns: undefined };
       search_customers: {
         Args: { q: string };

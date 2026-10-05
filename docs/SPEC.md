@@ -36,7 +36,7 @@ Un utente ha un solo ruolo. Un admin può essere anche barbiere: lo è quando es
 - `max_horizon_days` – quanto avanti si può prenotare (default **30**, da 1 a 365).
 - `cancel_limit_min` – il cliente può cancellare fino a X minuti prima (default **120**, massimo 7 giorni).
 - `buffer_min` – pausa automatica dopo ogni appuntamento (default **0**, massimo 60).
-- `no_show_block_threshold` – dopo N no-show il cliente viene bloccato dalla prenotazione online (default **3**, 0 = disattivato, massimo 10).
+- `no_show_block_threshold` – dopo N no-show il cliente viene bloccato dalla prenotazione online (default **3**, 0 = disattivato, massimo 10). Si contano le no-show dall'ultimo azzeramento dell'admin (§6.7).
 - `privacy_policy_version` – versione corrente dell'informativa privacy: il consenso di un cliente vale solo per questa versione.
 
 ### 3.2 Servizi (`services`)
@@ -122,7 +122,7 @@ Il calcolo avviene lato server (funzione Postgres `security definer` o server ac
 4. **Servizi**: CRUD, ordinamento, attivazione.
 5. **Barbieri**: CRUD, servizi abilitati, orari settimanali, assenze. Vista delle assenze (`/admin/assenze`): l'admin vede quelle di tutti i barbieri, prima le future, con filtro per barbiere (parte dalla propria scheda se è anche barbiere) e ne inserisce scegliendo il barbiere; il barbiere vede e gestisce solo le proprie.
 6. **Chiusure negozio**.
-7. **Clienti**: elenco con ricerca, storico prenotazioni, contatore no-show, blocco/sblocco.
+7. **Clienti** (solo admin): elenco con ricerca per nome, telefono o email, storico prenotazioni, contatore no-show, blocco/sblocco. Il blocco manuale impedisce solo la prenotazione online (le prenotazioni già fissate restano). "Azzera no-show" toglie il blocco automatico: da quel momento contano solo le no-show di appuntamenti successivi all'azzeramento (ADR 007). Nella ricerca della prenotazione manuale i clienti bloccati hanno l'etichetta "Bloccato".
 8. **Impostazioni**: i parametri della sezione 3.1.
 9. **Statistiche base**: prenotazioni e incasso stimato per giorno/settimana/mese, per barbiere e per servizio, tasso di no-show.
 
