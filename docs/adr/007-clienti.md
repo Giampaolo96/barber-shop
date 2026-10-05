@@ -40,4 +40,7 @@ SPEC §6.7 chiede per l'admin elenco dei clienti con ricerca, storico, contatore
 
 - Il totale storico dei no-show non è più un campo: si legge dallo storico delle prenotazioni.
 - Gli errori del database nelle azioni: `42501` → "Operazione non consentita", il resto (es. `P0002`) → errore generico.
+- `no_show_reset_at` e `no_show_reset_by` sono leggibili, come il resto di `profiles`, anche dal cliente stesso e dal barbiere dei suoi appuntamenti (grant di select su tutta la tabella). Accettato: contengono solo una data e l'id interno dell'admin, non dati personali di altri clienti (review fetta 6b).
+- Il contatore valuta la condizione sull'azzeramento nel `WHERE` dell'update del profilo, non con una lettura separata: con un azzeramento concorrente Postgres la ricontrolla sulla riga aggiornata (review fetta 6b, test in `customers-review-fixes-db.test.ts`).
+- Le quattro funzioni non sono eseguibili da `service_role`, come `search_customers`.
 - Un'assenza di `shop_settings` in `blocked_customer_ids` vale come soglia 0 (solo blocco manuale).

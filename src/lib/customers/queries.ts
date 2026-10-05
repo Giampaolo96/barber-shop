@@ -74,11 +74,13 @@ export async function getCustomer(supabase: ServerClient, id: string): Promise<C
 
   let resetByName: string | null = null;
   if (row.no_show_reset_by) {
-    const { data: author } = await supabase
+    const { data: author, error: authorError } = await supabase
       .from("profiles")
       .select("full_name")
       .eq("id", row.no_show_reset_by)
       .maybeSingle();
+    // Il nome dell'autore è solo informativo: la scheda si mostra comunque, con "—".
+    if (authorError) console.error("autore dell'azzeramento non leggibile:", authorError.code);
     resetByName = author?.full_name ?? null;
   }
 

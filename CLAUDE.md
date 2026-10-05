@@ -43,6 +43,7 @@ npx supabase db reset          # riapplica migrazioni + seed
 npx supabase gen types typescript --local > src/lib/db/types.ts
 ```
 Prima di dichiarare finito un task: `lint`, `typecheck` e `test` devono passare. L'hook `Stop` lo verifica in automatico solo quando ci sono modifiche non committate in `src/`, `supabase/migrations/` o `supabase/seed.sql` (le cartelle dei test non contano: i test di accettazione nascono rossi).
+Non lasciare suite di test lunghe (es. `test:e2e`) in background a fine turno: l'hook `Stop` lancia i controlli in parallelo e satura la macchina (timeout di login negli e2e, test Vitest in timeout). Eseguile in primo piano, oppure aspetta che finiscano prima di chiudere il turno.
 
 ## Regole di dominio non negoziabili
 1. Nessuna sovrapposizione di prenotazioni `confirmed` dello stesso barbiere: garantita da un **vincolo di esclusione** (`btree_gist` + `tstzrange`), non solo dal codice.

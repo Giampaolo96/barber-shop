@@ -51,31 +51,34 @@ const TIME = /^\d{2}:\d{2}$/;
 // ---------------------------------------------------------------------------
 type MailpitSummary = { ID: string; Created: string };
 
-const countEmails = async (request: APIRequestContext, to: string): Promise<number> => {
-  const response = await request.get(`${MAILPIT_URL}/api/v1/search`, { params: { query: `to:"${to}"` } });
+/**
+ * Id dell'email più recente arrivata a `to` (null se nessuna). La ricerca di Mailpit restituisce i
+ * messaggi dal più recente e al massimo 50 per pagina: contarli non funziona con la casella piena,
+ * il più recente sì.
+ */
+const newestEmailId = async (request: APIRequestContext, to: string): Promise<string | null> => {
+  const response = await request.get(`${MAILPIT_URL}/api/v1/search`, { params: { query: `to:"${to}"`, limit: '1' } });
   expect(response.ok(), 'Mailpit non raggiungibile su http://127.0.0.1:54324').toBe(true);
-  return ((await response.json()) as { messages: MailpitSummary[] }).messages.length;
+  return ((await response.json()) as { messages: MailpitSummary[] }).messages[0]?.ID ?? null;
 };
 
-/** Link /auth/confirm dell'email più recente arrivata a `to` dopo le prime `skip`. */
-const latestConfirmLink = async (request: APIRequestContext, to: string, skip: number): Promise<string> => {
-  let messages: MailpitSummary[] = [];
+/** Link /auth/confirm dell'email più recente arrivata a `to`, diversa da `previousId`. */
+const latestConfirmLink = async (request: APIRequestContext, to: string, previousId: string | null): Promise<string> => {
+  let newest: string | null = null;
   await expect
     .poll(
       async () => {
-        const response = await request.get(`${MAILPIT_URL}/api/v1/search`, { params: { query: `to:"${to}"` } });
-        messages = ((await response.json()) as { messages: MailpitSummary[] }).messages;
-        return messages.length;
+        newest = await newestEmailId(request, to);
+        return newest !== null && newest !== previousId;
       },
       { message: `nessuna email arrivata a ${to}`, timeout: 10_000 },
     )
-    .toBeGreaterThan(skip);
-  const newest = [...messages].sort((a, b) => b.Created.localeCompare(a.Created))[0];
-  const message = (await (await request.get(`${MAILPIT_URL}/api/v1/message/${newest?.ID}`)).json()) as { HTML: string };
+    .toBe(true);
+  const message = (await (await request.get(`${MAILPIT_URL}/api/v1/message/${newest}`)).json()) as { HTML: string };
   const href = [...message.HTML.matchAll(/href="([^"]+)"/g)]
     .map((m) => (m[1] ?? '').replace(/&amp;/g, '&'))
     .find((h) => h.includes('/auth/confirm?'));
-  expect(href, 'link /auth/confirm nell\'email').toBeDefined();
+  expect(href, "link /auth/confirm nell'email").toBeDefined();
   const url = new URL(href ?? 'http://invalid.invalid');
   return `${url.pathname}${url.search}`;
 };
@@ -86,7 +89,7 @@ const latestConfirmLink = async (request: APIRequestContext, to: string, skip: n
  */
 const loginFromCurrentPage = async (page: Page, email: string): Promise<void> => {
   await expectPath(page, '/accedi');
-  const before = await countEmails(page.request, email);
+  const before = await newestEmailId(page.request, email);
   await page.getByLabel(s('auth.customerLogin.emailLabel')).fill(email);
   await page.getByRole('button', { name: s('auth.customerLogin.submit') }).click();
   await expect(page.getByText(s('auth.customerLogin.linkSent'))).toBeVisible();

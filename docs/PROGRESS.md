@@ -433,7 +433,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 
 ## Fetta 6b – Admin: clienti (SPEC §6.7)
 
-**Stato**: completata, review chiusa (un giro, nessun bloccante; 6 migliorie da decidere, sotto). Da fare: commit della fetta, `db push` delle 2 migrazioni su Supabase cloud, CI.
+**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 1–6 applicate o accettate su richiesta dell'utente nel commit "fix: review fetta 6b"). Da fare: `db push` delle 4 migrazioni `20261005*` della fetta su Supabase cloud, CI.
 
 **Fatto**
 - Migrazioni:
@@ -473,11 +473,28 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 - Non lanciare gli e2e in background mentre gira `npm test`, ad esempio con il quality gate di fine turno: il progetto Vitest `db` scrive sul database e la CPU satura. I login dello staff vanno in timeout in dev, e falliscono anche sulla build di produzione.
 - Un caso di `calendar-schemas.test.ts` è andato in timeout (5 s) al primo giro a freddo e sotto carico. Non si ripete a macchina libera.
 
-**Migliorie dalla review** (non applicate: decide l'utente)
+**Migliorie dalla review** (decisioni dell'utente sotto, in "Come sono state applicate")
 1. Race tra azzeramento e una no-show segnata in contemporanea. In READ COMMITTED il +1 del trigger, valutato prima del commit dell'azzeramento, si applica dopo e non viene mai stornato. Correzione: mettere la condizione su `no_show_reset_at` nel `WHERE` dell'update del contatore (o `select ... for update` sul profilo). Finestra stretta: servono due admin contemporanei.
 2. `no_show_reset_at`/`no_show_reset_by` (uuid dell'admin) sono leggibili anche dal cliente stesso e dal barbiere dei suoi appuntamenti (`grant select` su tutto `profiles`). Da rivedere con i grant di colonna su `profiles` o da accettare nell'ADR 007.
 3. `getCustomer` ignora l'errore nella lettura del nome di chi ha azzerato (mostra "—" senza log).
 4. `service_role` può eseguire le 4 funzioni nuove (inoffensivo: senza JWT danno 42501), a differenza di `search_customers`, che ha il revoke esplicito.
 5. Classe del badge "bloccato" ripetuta tre volte: estrarre un `BlockedBadge`.
 6. `booking.spec.ts`: rendere robusta la lettura da Mailpit (filtro o paginazione, oppure svuotare la casella in `global-setup.ts`). Tocca test esistenti.
+
+**Come sono state applicate le migliorie** (commit "fix: review fetta 6b")
+1. Migrazione `20261005120000_no_show_count_atomic_reset.sql`: il trigger del contatore mette la condizione sull'azzeramento nel `WHERE` (e nel `SET`) dell'update del profilo, che Postgres ricontrolla dopo l'attesa del lock. Test di regressione in `tests/acceptance/customers-review-fixes-db.test.ts`, progetto Vitest `db`: due sessioni `psql` nel container (`docker exec`), un azzeramento che tiene il lock e una no-show precedente segnata nel frattempo. Prima della correzione il contatore finiva a 1, ora a 0.
+2. Accettata e documentata nell'ADR 007: le colonne di azzeramento sono leggibili dal cliente e dal barbiere, e contengono solo una data e l'id interno dell'admin.
+3. `getCustomer` scrive nel log l'errore di lettura dell'autore dell'azzeramento.
+4. Migrazione `20261005120100_customers_functions_no_service_role.sql`: revoke da `service_role` sulle 4 funzioni. pgTAP `supabase/tests/23_review_fixes_fetta6b.test.sql` (4).
+5. Componente `BlockedBadge` (`src/components/admin/customers/blocked-badge.tsx`), usato nella sezione Clienti e nella ricerca della manuale.
+6. `booking.spec.ts` (con l'ok dell'utente): invece di contare i risultati, che Mailpit restituisce al massimo 50 per volta, confronta l'id dell'email più recente prima e dopo la richiesta del link. Verificato con 63 messaggi per `cliente@demo.local`: 4/4.
+- `CLAUDE.md`: regola sulle suite lunghe da non lasciare in background a fine turno.
+
+**Esiti dopo le migliorie**: lint ok, typecheck ok, Vitest 1220/1220, pgTAP 1066/1066.
+- Playwright con `--workers=3`: 79/79.
+- Con i worker predefiniti 1–20 test falliscono al login dello staff (redirect a `/admin` oltre 5 s in dev). Nessun processo dell'app rimasto attivo, ma sulla macchina girano applicazioni pesanti (un gioco, Docker Desktop): è un problema di carico, non del codice.
+
+**Problemi aperti**
+- Lo stesso conteggio Mailpit limitato a 50 resta in `tests/e2e/auth.spec.ts`, `tests/e2e/review-fixes-fetta5.spec.ts` e `tests/e2e/global-setup.ts`, non modificati senza l'ok dell'utente. Con la casella piena il warm-up del cliente salta (solo un avviso) e i test di quei file possono fallire. Correzione proposta: la stessa di `booking.spec.ts`.
+- Gli e2e in dev con 8 worker sono sensibili al carico della macchina; valutare `workers` più bassi in locale o la build di produzione.
 

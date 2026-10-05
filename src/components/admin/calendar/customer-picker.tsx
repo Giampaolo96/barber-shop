@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BlockedBadge } from "@/components/admin/customers/blocked-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,8 +78,8 @@ export function CustomerPicker({ initial }: { initial: { id: string; label: stri
                 <span>
                   {label}
                   {match.blocked && (
-                    <span className="ml-2 rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive">
-                      {t.customerBlocked}
+                    <span className="ml-2">
+                      <BlockedBadge>{t.customerBlocked}</BlockedBadge>
                     </span>
                   )}
                 </span>

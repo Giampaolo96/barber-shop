@@ -1,4 +1,5 @@
 import { it } from "@/i18n/it";
+import { BlockedBadge } from "./blocked-badge";
 import { fillText } from "@/lib/admin/text";
 import { customerBlockStatus } from "@/lib/customers/status";
 
@@ -16,15 +17,9 @@ export function CustomerStatusBadges({
   if (!status.blocked) return <span>{t.active}</span>;
   return (
     <span className="flex flex-wrap gap-1">
-      {status.manual && (
-        <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive">
-          {t.blockedByAdmin}
-        </span>
-      )}
+      {status.manual && <BlockedBadge>{t.blockedByAdmin}</BlockedBadge>}
       {status.noShow && (
-        <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive">
-          {fillText(t.blockedByNoShow, { count: customer.noShowCount, threshold })}
-        </span>
+        <BlockedBadge>{fillText(t.blockedByNoShow, { count: customer.noShowCount, threshold })}</BlockedBadge>
       )}
     </span>
   );
