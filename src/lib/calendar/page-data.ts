@@ -25,6 +25,8 @@ type ServerClient = Awaited<ReturnType<typeof createClient>>;
 export type DayColumn = {
   barberId: string;
   barberName: string;
+  /** Un barbiere disattivato si mostra (ha prenotazioni) ma non è prenotabile. */
+  isActive: boolean;
   bands: Interval[];
   bookings: CalendarBooking[];
   /** Assenze del barbiere e chiusure del negozio. */
@@ -80,6 +82,7 @@ export async function loadDayView(
   const columns: DayColumn[] = visible.map((barber) => ({
     barberId: barber.id,
     barberName: barber.displayName,
+    isActive: barber.isActive,
     bands: localBandsToIntervals(query.date, bandsOn(bands, barber.id, query.date), timezone),
     bookings: shown.filter((booking) => booking.barberId === barber.id),
     periods: [

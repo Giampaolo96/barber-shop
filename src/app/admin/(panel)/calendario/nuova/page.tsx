@@ -4,7 +4,7 @@ import { it } from "@/i18n/it";
 import { requireRole } from "@/lib/auth/current-user";
 import { getStaffBarbers } from "@/lib/calendar/page-data";
 import { getCalendarSettings, getServices } from "@/lib/calendar/queries";
-import { calendarHref, parseCalendarQuery } from "@/lib/calendar/view";
+import { calendarHref, newBookingBarber, parseCalendarQuery } from "@/lib/calendar/view";
 import { createClient } from "@/lib/db/server";
 import { isValidLocalTime, localDateOf } from "@/lib/domain/local-time";
 
@@ -30,7 +30,7 @@ export default async function NewManualBookingPage({
   const time = typeof params.ora === "string" && isValidLocalTime(params.ora) ? params.ora : "";
   const bookable = barbers.filter((barber) => barber.isActive);
   const activeServices = services.filter((service) => service.isActive);
-  const barberId = bookable.find((barber) => barber.id === query.barberId)?.id ?? bookable[0]?.id;
+  const { barberId, requestedUnavailable } = newBookingBarber({ requestedId: query.barberId, barbers });
 
   return (
     <div className="flex flex-col gap-4">
@@ -38,6 +38,11 @@ export default async function NewManualBookingPage({
         {it.admin.calendar.detail.backToCalendar}
       </Link>
       <h1 className="text-2xl font-semibold">{t.form.title}</h1>
+      {requestedUnavailable && (
+        <p role="alert" className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+          {t.requestedBarberUnavailable}
+        </p>
+      )}
       {barberId ? (
         <ManualBookingForm
           barbers={bookable.map((barber) => ({ id: barber.id, label: barber.displayName }))}

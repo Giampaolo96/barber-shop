@@ -7,17 +7,12 @@ import { redirect } from "next/navigation";
 import { COMPLETE_PROFILE_PATH } from "@/lib/auth/access";
 import { requireRole } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/db/server";
+import { rpcErrorCode as errorCode } from "./errors";
 import { MY_BOOKINGS_PATH } from "./paths";
 import { cancelBookingSchema, createBookingSchema } from "./schemas";
 
 /** `code`: codice di create_online_booking / cancel_own_booking, SQLSTATE o "invalid". */
 export type BookingActionState = { status: "idle" } | { status: "error"; code: string };
-
-type RpcError = { code?: string; message: string };
-
-/** Le funzioni del DB sollevano P0001 con il codice come messaggio; altrimenti vale lo SQLSTATE. */
-const errorCode = (error: RpcError): string =>
-  error.code === "P0001" ? error.message : (error.code ?? "error");
 
 export async function createBooking(
   _previous: BookingActionState,
@@ -44,7 +39,7 @@ export async function createBooking(
   });
   if (error) {
     const code = errorCode(error);
-    if (!(error.code === "P0001" || code === "23P01")) console.error("createBooking", error);
+    if (!(error.code === "P0001" || error.code === "23P01")) console.error("createBooking", error);
     return { status: "error", code };
   }
 

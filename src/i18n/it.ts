@@ -321,6 +321,12 @@ export const it = {
       dayOff: "Riposo",
       noBookings: "Nessuna prenotazione",
       loadError: "Non è stato possibile caricare il calendario. Riprova tra poco.",
+      pageError: "Non è stato possibile caricare la pagina. Riprova tra poco.",
+      retry: "Riprova",
+      bufferBlock: "Pausa dopo l'appuntamento",
+      inactiveBarberNoBooking: "Barbiere disattivato: non si possono aggiungere prenotazioni.",
+      requestedBarberUnavailable:
+        "Il barbiere indicato è disattivato o non disponibile: scegline un altro prima di salvare.",
       statusLabels: {
         confirmed: "Confermata",
         completed: "Completata",
@@ -341,6 +347,8 @@ export const it = {
         customerSearchLabel: "Cerca cliente (nome o telefono)",
         customerSearchHint: "Scrivi almeno 3 caratteri.",
         noCustomers: "Nessun cliente trovato.",
+        searching: "Ricerca in corso…",
+        searchError: "Ricerca non riuscita. Riprova tra poco.",
         selectedCustomer: "Cliente scelto: {name}",
         chooseCustomer: "Scegli",
         guestNameLabel: "Nome e cognome",
@@ -387,6 +395,9 @@ export const it = {
         customerBusy: "Il cliente ha già una prenotazione in questo orario.",
         notEnabled: "Il barbiere non è abilitato a questo servizio.",
         forbidden: "Operazione non consentita o prenotazione non più disponibile.",
+        inactive: "Il servizio o il barbiere scelto è disattivato: scegline un altro.",
+        stale: "La prenotazione è stata modificata nel frattempo: ricarica la pagina.",
+        invalidTime: "Questo orario non esiste per il cambio dell'ora legale: scegline un altro.",
       },
       status: {
         markCompleted: "Segna completata",

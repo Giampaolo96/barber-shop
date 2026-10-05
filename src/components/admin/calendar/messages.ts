@@ -17,6 +17,9 @@ export const CALENDAR_ERROR_TEXT: Partial<Record<string, string>> = {
   customer_busy: t.errors.customerBusy,
   not_enabled: t.errors.notEnabled,
   forbidden: t.errors.forbidden,
+  inactive: t.errors.inactive,
+  stale: t.errors.stale,
+  invalid_time: t.errors.invalidTime,
   invalid: it.admin.common.invalid,
   error: it.admin.common.error,
 };

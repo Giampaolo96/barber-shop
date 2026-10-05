@@ -87,6 +87,7 @@ export default async function AdminCalendarPage({ searchParams }: { searchParams
         {week.barberId ? (
           <WeekView
             barberId={week.barberId}
+            barberActive={data.barbers.some((barber) => barber.id === week.barberId && barber.isActive)}
             days={week.days}
             timezone={settings.timezone}
             showCancelled={query.showCancelled}
@@ -99,7 +100,7 @@ export default async function AdminCalendarPage({ searchParams }: { searchParams
   }
 
   if (!day) return null;
-  const firstBarber = day.columns[0]?.barberId ?? data.ownBarberId;
+  const firstBarber = day.columns.find((column) => column.isActive)?.barberId;
   return (
     <div className="flex flex-col gap-4">
       <CalendarToolbar

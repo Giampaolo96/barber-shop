@@ -12,11 +12,13 @@ const t = it.admin.calendar;
 /** Vista settimana (SPEC §6.1): un barbiere alla volta, un elenco per giorno. */
 export function WeekView({
   barberId,
+  barberActive,
   days,
   timezone,
   showCancelled,
 }: {
   barberId: string;
+  barberActive: boolean;
   days: WeekDay[];
   timezone: string;
   showCancelled: boolean;
@@ -55,12 +57,16 @@ export function WeekView({
               </li>
             ))}
           </ul>
-          <Link
-            href={newBookingPath({ barberId, date: day.date })}
-            className="mt-auto inline-flex min-h-11 items-center text-xs font-medium underline-offset-4 hover:underline"
-          >
-            {t.newBooking}
-          </Link>
+          {barberActive ? (
+            <Link
+              href={newBookingPath({ barberId, date: day.date })}
+              className="mt-auto inline-flex min-h-11 items-center text-xs font-medium underline-offset-4 hover:underline"
+            >
+              {t.newBooking}
+            </Link>
+          ) : (
+            <p className="mt-auto text-xs opacity-70">{t.inactiveBarberNoBooking}</p>
+          )}
         </section>
       ))}
     </div>

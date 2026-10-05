@@ -30,6 +30,21 @@ const MESSAGES: Record<string, string> = {
   invalid: t.invalid,
 };
 
+type RpcError = { code?: string; message: string };
+
+/**
+ * Codice dell'errore di una RPC: le funzioni del DB sollevano P0001 con il codice come messaggio;
+ * altrimenti vale lo SQLSTATE. Un 23P01 del vincolo sul cliente (ADR 006, gara con una manuale
+ * dello staff) è la sovrapposizione del cliente, non un orario occupato.
+ */
+export function rpcErrorCode(error: RpcError): string {
+  if (error.code === "P0001") return error.message;
+  if (error.code === "23P01" && error.message.includes('"bookings_customer_no_overlap"')) {
+    return "customer_overlap";
+  }
+  return error.code ?? "error";
+}
+
 /** Testo di it.ts per il codice; i limiti restano come segnaposto `{max}` (vedi bookingErrorText). */
 export function bookingErrorMessage(code: string): string {
   return Object.hasOwn(MESSAGES, code) ? MESSAGES[code] : t.generic;

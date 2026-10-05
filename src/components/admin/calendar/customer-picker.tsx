@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { it } from "@/i18n/it";
-import { type CustomerMatch, searchCustomers } from "@/lib/calendar/actions";
+import { type CustomerSearchResult, searchCustomers } from "@/lib/calendar/actions";
 
 const t = it.admin.calendar.form;
 const MIN_QUERY = 3;
@@ -13,7 +13,7 @@ const MIN_QUERY = 3;
 /** Ricerca di un cliente registrato (SPEC §6.2): l'id scelto viaggia in `customerId`. */
 export function CustomerPicker({ initial }: { initial: { id: string; label: string } | null }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ query: string; matches: CustomerMatch[] } | null>(null);
+  const [results, setResults] = useState<{ query: string; result: CustomerSearchResult } | null>(null);
   const [selected, setSelected] = useState(initial);
   const searchable = query.trim().length >= MIN_QUERY;
 
@@ -21,9 +21,11 @@ export function CustomerPicker({ initial }: { initial: { id: string; label: stri
     if (!searchable) return;
     let current = true;
     const timer = setTimeout(() => {
-      void searchCustomers(query).then((matches) => {
-        if (current) setResults({ query, matches });
-      });
+      searchCustomers(query)
+        .catch((): CustomerSearchResult => ({ ok: false }))
+        .then((result) => {
+          if (current) setResults({ query, result });
+        });
     }, 250);
     return () => {
       current = false;
@@ -31,7 +33,9 @@ export function CustomerPicker({ initial }: { initial: { id: string; label: stri
     };
   }, [query, searchable]);
 
-  const matches = searchable && results?.query === query ? results.matches : null;
+  // Senza risultato per la ricerca attuale la ricerca è in corso.
+  const result = searchable && results?.query === query ? results.result : null;
+  const searching = searchable && result === null;
 
   return (
     <div className="flex flex-col gap-2">
@@ -43,14 +47,25 @@ export function CustomerPicker({ initial }: { initial: { id: string; label: stri
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         aria-describedby="customerSearchHint"
+        aria-busy={searching}
       />
       <p id="customerSearchHint" className="text-xs opacity-70">
         {t.customerSearchHint}
       </p>
-      {matches && matches.length === 0 && <p className="text-sm">{t.noCustomers}</p>}
-      {matches && matches.length > 0 && (
+      {searching && (
+        <p role="status" className="text-sm opacity-70">
+          {t.searching}
+        </p>
+      )}
+      {result && !result.ok && (
+        <p role="alert" className="text-sm text-destructive">
+          {t.searchError}
+        </p>
+      )}
+      {result?.ok && result.matches.length === 0 && <p className="text-sm">{t.noCustomers}</p>}
+      {result?.ok && result.matches.length > 0 && (
         <ul className="flex flex-col gap-1">
-          {matches.map((match) => {
+          {result.matches.map((match) => {
             const label = [match.fullName, match.phone].filter(Boolean).join(" · ");
             return (
               <li key={match.id} className="flex items-center justify-between gap-2 text-sm">

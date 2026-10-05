@@ -7,10 +7,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getOwnBarberId } from "@/lib/admin/queries";
+import { idSchema } from "@/lib/admin/schemas";
 import { requireRole } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/db/server";
-import { localDateTimeToUtc } from "@/lib/domain/local-time";
-import { bookingUpdateValues, editNeedsWarnings } from "./edit";
+import { exactLocalDateTimeToUtc } from "@/lib/domain/local-time";
+import { bookingUpdateValues, editNeedsWarnings, unchangedStart, usesInactiveChoice } from "./edit";
 import { type CalendarErrorCode, calendarErrorCode } from "./errors";
 import { bookingDetailPath, CREATED_PARAM } from "./paths";
 import { getCalendarSettings, slotWarnings } from "./queries";
@@ -24,17 +25,23 @@ import {
 import { allowedTransitions } from "./transitions";
 import { decideWarnings, type WarningCode } from "./warnings";
 
+/** Esiti propri delle azioni: scelta disattivata, dato cambiato nel frattempo, ora inesistente. */
+type ActionErrorCode = "inactive" | "stale" | "invalid_time";
+
 export type CalendarFormState = {
-  status: "idle" | "saved" | "invalid" | "warnings" | CalendarErrorCode;
+  status: "idle" | "saved" | "invalid" | "warnings" | CalendarErrorCode | ActionErrorCode;
   /** Avvisi da confermare (status "warnings"). */
   warnings?: WarningCode[];
   /** Valori inviati, per ripresentare il modulo dopo avvisi o errori. */
   values?: Record<string, string>;
 };
 
-export type CalendarRowState = { status: "idle" | "saved" | "invalid" | CalendarErrorCode };
+export type CalendarRowState = { status: "idle" | "saved" | "invalid" | "stale" | CalendarErrorCode };
 
 export type CustomerMatch = { id: string; fullName: string; phone: string | null };
+
+/** Esito della ricerca clienti: un errore non va mostrato come "nessun cliente". */
+export type CustomerSearchResult = { ok: true; matches: CustomerMatch[] } | { ok: false };
 
 const MINUTE = 60_000;
 const CALENDAR_AREA = "/admin";
@@ -88,16 +95,24 @@ export async function createManualBooking(
       return { status: "forbidden", values };
     }
 
-    const { data: service } = await supabase
-      .from("services")
-      .select("duration_min, is_active")
-      .eq("id", input.serviceId)
-      .maybeSingle();
-    // Un servizio disattivato non è più prenotabile (SPEC §3.2).
-    if (!service?.is_active) return { status: "invalid", values };
+    const [{ data: service }, { data: barber }] = await Promise.all([
+      supabase.from("services").select("duration_min, is_active").eq("id", input.serviceId).maybeSingle(),
+      supabase.from("barbers").select("is_active").eq("id", input.barberId).maybeSingle(),
+    ]);
+    if (!service || !barber) return { status: "invalid", values };
+    // Servizi e barbieri disattivati non sono più prenotabili (SPEC §3.2), nemmeno a mano.
+    if (
+      usesInactiveChoice({
+        service: { changed: true, active: service.is_active },
+        barber: { changed: true, active: barber.is_active },
+      })
+    ) {
+      return { status: "inactive", values };
+    }
 
     const { timezone } = await getCalendarSettings(supabase);
-    const startsAt = localDateTimeToUtc(input.date, input.time, timezone);
+    const startsAt = exactLocalDateTimeToUtc(input.date, input.time, timezone);
+    if (!startsAt) return { status: "invalid_time", values };
     const endsAt = new Date(startsAt.getTime() + service.duration_min * MINUTE);
     const current = await slotWarnings(supabase, {
       barberId: input.barberId,
@@ -151,42 +166,62 @@ export async function updateBooking(
 ): Promise<CalendarFormState> {
   await requireRole(["admin"]);
   const values = formValues(formData);
-  const parsed = updateBookingSchema.safeParse({
-    id: text(formData, "id"),
-    barberId: text(formData, "barberId"),
-    serviceId: text(formData, "serviceId"),
-    date: text(formData, "date"),
-    time: text(formData, "time"),
-    durationMin: text(formData, "durationMin"),
-    price: text(formData, "price"),
-    confirmedWarnings: confirmedWarnings(formData),
-  });
-  if (!parsed.success) return { status: "invalid", values };
-  const input = parsed.data;
+  const target = idSchema.safeParse({ id: text(formData, "id") });
+  if (!target.success) return { status: "invalid", values };
 
   const supabase = await createClient();
   try {
     const { data: existing } = await supabase
       .from("bookings")
       .select("status, barber_id, service_id, starts_at, ends_at")
-      .eq("id", input.id)
+      .eq("id", target.data.id)
       .maybeSingle();
     if (!existing) return { status: "forbidden", values };
 
-    // Cambiando servizio la durata la ricopia il database dal nuovo servizio.
-    let durationMin = input.durationMin;
-    if (input.serviceId !== existing.service_id) {
-      const { data: service } = await supabase
-        .from("services")
-        .select("duration_min")
-        .eq("id", input.serviceId)
-        .maybeSingle();
-      if (!service) return { status: "invalid", values };
-      durationMin = service.duration_min;
-    }
-
+    // Data e ora invariate: vale l'istante salvato (review fetta 6). Allo schema arriva un orario
+    // segnaposto valido, perché quello salvato può non rispettare il passo di 5 minuti.
     const { timezone } = await getCalendarSettings(supabase);
-    const startsAt = localDateTimeToUtc(input.date, input.time, timezone);
+    const kept = unchangedStart(
+      new Date(existing.starts_at),
+      text(formData, "date") ?? "",
+      text(formData, "time") ?? "",
+      timezone,
+    );
+    const parsed = updateBookingSchema.safeParse({
+      id: target.data.id,
+      barberId: text(formData, "barberId"),
+      serviceId: text(formData, "serviceId"),
+      date: text(formData, "date"),
+      time: kept ? "00:00" : text(formData, "time"),
+      durationMin: text(formData, "durationMin"),
+      price: text(formData, "price"),
+      confirmedWarnings: confirmedWarnings(formData),
+    });
+    if (!parsed.success) return { status: "invalid", values };
+    const input = parsed.data;
+
+    const startsAt = kept ?? exactLocalDateTimeToUtc(input.date, input.time, timezone);
+    if (!startsAt) return { status: "invalid_time", values };
+
+    // Cambiando servizio la durata la ricopia il database dal nuovo servizio.
+    const serviceChanged = input.serviceId !== existing.service_id;
+    const barberChanged = input.barberId !== existing.barber_id;
+    const [{ data: service }, { data: barber }] = await Promise.all([
+      supabase.from("services").select("duration_min, is_active").eq("id", input.serviceId).maybeSingle(),
+      supabase.from("barbers").select("is_active").eq("id", input.barberId).maybeSingle(),
+    ]);
+    if (!service || !barber) return { status: "invalid", values };
+    // Restano ammessi servizio e barbiere già sulla prenotazione, anche se disattivati.
+    if (
+      usesInactiveChoice({
+        service: { changed: serviceChanged, active: service.is_active },
+        barber: { changed: barberChanged, active: barber.is_active },
+      })
+    ) {
+      return { status: "inactive", values };
+    }
+    const durationMin = serviceChanged ? service.duration_min : input.durationMin;
+
     const next = {
       barberId: input.barberId,
       startsAt,
@@ -231,33 +266,41 @@ export async function changeBookingStatus(
     id: text(formData, "id"),
     status: text(formData, "status"),
   });
-  if (!parsed.success) return { status: "invalid" };
+  // Stato mostrato dalla pagina al momento del clic: se nel frattempo è cambiato, si chiede di ricaricare.
+  const expected = bookingStatusSchema.shape.status.safeParse(text(formData, "expectedStatus"));
+  if (!parsed.success || !expected.success) return { status: "invalid" };
 
-  const supabase = await createClient();
-  const { data: existing } = await supabase
-    .from("bookings")
-    .select("status, starts_at")
-    .eq("id", parsed.data.id)
-    .maybeSingle();
-  if (!existing) return { status: "forbidden" };
+  try {
+    const supabase = await createClient();
+    const { data: existing } = await supabase
+      .from("bookings")
+      .select("status, starts_at")
+      .eq("id", parsed.data.id)
+      .maybeSingle();
+    if (!existing) return { status: "forbidden" };
+    if (existing.status !== expected.data) return { status: "stale" };
 
-  const allowed = allowedTransitions({
-    role: user.role === "admin" ? "admin" : "barber",
-    status: existing.status,
-    startsAt: new Date(existing.starts_at),
-    now: new Date(),
-  });
-  if (!allowed.includes(parsed.data.status)) return { status: "forbidden" };
+    const allowed = allowedTransitions({
+      role: user.role === "admin" ? "admin" : "barber",
+      status: existing.status,
+      startsAt: new Date(existing.starts_at),
+      now: new Date(),
+    });
+    if (!allowed.includes(parsed.data.status)) return { status: "forbidden" };
 
-  // Solo se lo stato è ancora quello letto: due cambi concorrenti non si sovrascrivono.
-  const { data: updated, error } = await supabase
-    .from("bookings")
-    .update({ status: parsed.data.status })
-    .eq("id", parsed.data.id)
-    .eq("status", existing.status)
-    .select("id");
-  if (error) return { status: calendarErrorCode(error) };
-  if (updated.length !== 1) return { status: "error" };
+    // Solo se lo stato è ancora quello letto: due cambi concorrenti non si sovrascrivono.
+    const { data: updated, error } = await supabase
+      .from("bookings")
+      .update({ status: parsed.data.status })
+      .eq("id", parsed.data.id)
+      .eq("status", existing.status)
+      .select("id");
+    if (error) return { status: calendarErrorCode(error) };
+    if (updated.length !== 1) return { status: "stale" };
+  } catch (error) {
+    console.error("changeBookingStatus", error);
+    return { status: "error" };
+  }
 
   revalidatePath(CALENDAR_AREA, "layout");
   return { status: "saved" };
@@ -275,29 +318,41 @@ export async function saveStaffNote(
   });
   if (!parsed.success) return { status: "invalid" };
 
-  const supabase = await createClient();
   const { bookingId, note } = parsed.data;
-  const { error } =
-    note === null
-      ? await supabase.from("booking_staff_notes").delete().eq("booking_id", bookingId)
-      : await supabase.from("booking_staff_notes").upsert({ booking_id: bookingId, note });
-  if (error) return { status: calendarErrorCode(error) };
+  try {
+    const supabase = await createClient();
+    // Prenotazione non visibile all'utente (RLS): errore, mai "salvato" (il delete toccherebbe 0 righe).
+    const { data: booking } = await supabase.from("bookings").select("id").eq("id", bookingId).maybeSingle();
+    if (!booking) return { status: "forbidden" };
+
+    const { error } =
+      note === null
+        ? await supabase.from("booking_staff_notes").delete().eq("booking_id", bookingId)
+        : await supabase.from("booking_staff_notes").upsert({ booking_id: bookingId, note });
+    if (error) return { status: calendarErrorCode(error) };
+  } catch (error) {
+    console.error("saveStaffNote", error);
+    return { status: "error" };
+  }
 
   revalidatePath(bookingDetailPath(bookingId));
   return { status: "saved" };
 }
 
 /** Ricerca cliente per la prenotazione manuale (SPEC §6.2), tramite search_customers (ADR 001). */
-export async function searchCustomers(query: string): Promise<CustomerMatch[]> {
+export async function searchCustomers(query: string): Promise<CustomerSearchResult> {
   await requireRole(["barber", "admin"]);
   const parsed = customerQuerySchema.safeParse(query);
-  if (!parsed.success) return [];
+  if (!parsed.success) return { ok: true, matches: [] };
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("search_customers", { q: parsed.data });
   if (error) {
     console.error("searchCustomers", error.code);
-    return [];
+    return { ok: false };
   }
-  return data.map((row) => ({ id: row.id, fullName: row.full_name ?? "", phone: row.phone }));
+  return {
+    ok: true,
+    matches: data.map((row) => ({ id: row.id, fullName: row.full_name ?? "", phone: row.phone })),
+  };
 }

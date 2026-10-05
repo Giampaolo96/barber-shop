@@ -38,6 +38,17 @@ export function localDateTimeToUtc(date: string, time: string, tz: string): Date
   return fromZonedTime(`${date}T${time}:00`, tz);
 }
 
+/**
+ * Come localDateTimeToUtc, ma `null` se l'ora locale non esiste (buco del passaggio all'ora
+ * legale, es. 02:30 del 28/03): la conversione la sposterebbe in silenzio.
+ */
+export function exactLocalDateTimeToUtc(date: string, time: string, tz: string): Date | null {
+  if (!isValidLocalDate(date) || !isValidLocalTime(time)) return null;
+  const instant = localDateTimeToUtc(date, time, tz);
+  const back = utcToLocalParts(instant, tz);
+  return back.date === date && back.time === time ? instant : null;
+}
+
 /** Istante UTC → data e ora locali del negozio. */
 export function utcToLocalParts(d: Date, tz: string): LocalParts {
   return { date: localDateOf(d, tz), time: formatInTimeZone(d, tz, "HH:mm") };

@@ -74,6 +74,18 @@ export function blockPosition(grid: DayGrid, block: Interval): { row: number; sp
   return { row, span: Math.max(end - row, 1) };
 }
 
+/**
+ * Righe occupate: quelle che iniziano dentro un intervallo. Per le prenotazioni si passa
+ * `[starts_at, blocked_until)`, così anche le righe del buffer risultano occupate.
+ */
+export function busyRows(grid: DayGrid, blocks: Interval[]): boolean[] {
+  return grid.rows.map((row) =>
+    blocks.some(
+      (block) => block.startsAt.getTime() <= row.getTime() && row.getTime() < block.endsAt.getTime(),
+    ),
+  );
+}
+
 /** Giorno della settimana ISO (1 = lunedì … 7 = domenica) di una data `YYYY-MM-DD`. */
 export function isoWeekday(date: string): number {
   const [year, month, day] = date.split("-").map(Number);

@@ -111,7 +111,7 @@ export default async function BookingDetailPage({
               <RowAction
                 key={status}
                 action={changeBookingStatus}
-                fields={{ id: booking.id, status }}
+                fields={{ id: booking.id, status, expectedStatus: booking.status }}
                 label={TRANSITION_LABEL[status]}
                 messages={CALENDAR_ERROR_TEXT}
                 variant={status.startsWith("cancelled") ? "destructive" : "outline"}

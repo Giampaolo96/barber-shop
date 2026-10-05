@@ -16,6 +16,8 @@ export type CalendarBarber = { id: string; displayName: string; isActive: boolea
 
 export type CalendarBooking = Interval & {
   id: string;
+  /** Fine del buffer dopo l'appuntamento: fino a qui il barbiere è occupato. */
+  blockedUntil: Date;
   barberId: string;
   status: BookingStatus;
   serviceName: string;
@@ -83,7 +85,7 @@ export async function getServices(supabase: ServerClient): Promise<CatalogServic
 }
 
 const BOOKING_COLUMNS =
-  "id, barber_id, starts_at, ends_at, status, guest_name, service:services(name), customer:profiles!bookings_customer_id_fkey(full_name)";
+  "id, barber_id, starts_at, ends_at, blocked_until, status, guest_name, service:services(name), customer:profiles!bookings_customer_id_fkey(full_name)";
 
 /** Prenotazioni dei barbieri che si sovrappongono a `[from, to)`, in ordine di inizio. */
 export async function getBookingsInRange(
@@ -107,6 +109,7 @@ export async function getBookingsInRange(
     status: row.status,
     startsAt: new Date(row.starts_at),
     endsAt: new Date(row.ends_at),
+    blockedUntil: new Date(row.blocked_until),
     serviceName: row.service?.name ?? "",
     // Un cliente che ha eliminato l'account resta senza nome (anonimizzazione, SPEC §8).
     customerName: row.guest_name ?? row.customer?.full_name ?? "",

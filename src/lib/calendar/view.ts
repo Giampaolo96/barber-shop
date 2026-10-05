@@ -54,3 +54,19 @@ export function defaultWeekBarber(input: {
   const [firstByName] = [...active].sort((a, b) => a.displayName.localeCompare(b.displayName, "it"));
   return firstByName?.id ?? null;
 }
+
+/**
+ * Barbiere preselezionato nella nuova prenotazione. Se quello richiesto (`?barbiere=`) non è
+ * prenotabile (disattivato o non visibile) lo si segnala, invece di cambiarlo in silenzio.
+ */
+export function newBookingBarber(input: {
+  requestedId: string | null;
+  barbers: Array<{ id: string; isActive: boolean }>;
+}): { barberId: string | null; requestedUnavailable: boolean } {
+  const active = input.barbers.filter((barber) => barber.isActive);
+  const requested = active.find((barber) => barber.id === input.requestedId);
+  return {
+    barberId: requested?.id ?? active[0]?.id ?? null,
+    requestedUnavailable: input.requestedId !== null && !requested,
+  };
+}

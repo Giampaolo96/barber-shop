@@ -340,7 +340,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 
 ## Fetta 6 – Calendario admin + prenotazioni manuali + cambi stato
 
-**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie elencate sotto, non applicate). 2 migrazioni da applicare a Supabase cloud (`db push`). CI da verificare dopo il push.
+**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 1–10 applicate su richiesta dell'utente nel commit "fix: review fetta 6"). 2 migrazioni da applicare a Supabase cloud (`db push`). CI da verificare dopo il push.
 
 **Fatto**
 - Migrazioni:
@@ -396,7 +396,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 - Fetta 6b (Clienti): elenco con ricerca, storico, contatore no-show, blocco/sblocco. Va deciso come l'admin toglie un blocco automatico per no-show: oggi il contatore segue solo le prenotazioni.
 - Produzione: `db push` delle 2 migrazioni. Prima verificare che nel cloud nessun cliente abbia due `confirmed` sovrapposte, altrimenti la creazione del vincolo fallisce.
 
-**Migliorie della review** (non applicate: decide l'utente)
+**Migliorie della review** (tutte applicate su richiesta dell'utente; la review è chiusa)
 1. `updateBooking` e `createManualBooking` non verificano che servizio (in modifica) e barbiere siano attivi: i moduli li escludono, un POST costruito a mano no.
 2. Cambio d'ora: un orario della seconda occorrenza delle 02:xx, salvato dalla modifica senza cambiarlo, torna sulla prima. Un orario inesistente (02:30 del 28/03) viene spostato senza avviso. Proposta: riusare `starts_at` se data e ora non cambiano.
 3. Una prenotazione con minuti non multipli di 5 (seed o import) non si modifica più nemmeno nel solo prezzo (passo di 5 minuti). Stessa correzione del punto 2.
@@ -407,3 +407,21 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 8. Le righe nel buffer dopo una prenotazione restano cliccabili; il DB poi rifiuta con "barbiere occupato".
 9. Ricerca clienti senza indicatore di caricamento; un errore della RPC appare come "Nessun cliente trovato".
 10. `src/i18n/it.ts` in CRLF nella copia di lavoro (git normalizza al commit).
+
+**Come sono state applicate le migliorie** (regressioni in `tests/acceptance/calendar-review-fixes.test.ts`, 18 casi)
+1. `createManualBooking` e `updateBooking` leggono `is_active` di servizio e barbiere: una scelta nuova disattivata → "Il servizio o il barbiere scelto è disattivato". In modifica restano ammessi servizio e barbiere già sulla prenotazione (`usesInactiveChoice`).
+2–3. Se data e ora del modulo sono quelle salvate, la modifica riusa `starts_at` (`unchangedStart`): nessuno spostamento nell'ora ripetuta del 25/10 e nessun blocco per minuti non multipli di 5. Gli orari nuovi passano da `exactLocalDateTimeToUtc`: un'ora inesistente (02:30 del 28/03) → "Questo orario non esiste per il cambio dell'ora legale", anche nelle manuali.
+4. `rpcErrorCode` in `src/lib/booking/errors.ts`: un `23P01` di `bookings_customer_no_overlap` nella prenotazione online → `customer_overlap`.
+5. `src/app/admin/(panel)/calendario/error.tsx` (dettaglio e nuova prenotazione), con "Riprova".
+6. Il pulsante di stato invia lo stato mostrato (`expectedStatus`): se nel frattempo è cambiato, o l'update tocca 0 righe → "La prenotazione è stata modificata nel frattempo: ricarica la pagina". Una transizione non ammessa resta `forbidden`. L'azione ha il try/catch. La nota interna controlla prima che la prenotazione sia visibile: altrimenti errore, mai "salvato".
+7. `/admin/calendario/nuova` con un `?barbiere=` disattivato o non visibile mostra un avviso invece di cambiare barbiere in silenzio (`newBookingBarber`). Nella settimana di un barbiere disattivato e nella sua colonna del giorno non ci sono link di nuova prenotazione.
+8. La griglia considera occupate le righe fino a `blocked_until` (`busyRows`): le righe del buffer non sono cliccabili e si vedono come occupate ("Pausa dopo l'appuntamento").
+9. Ricerca clienti: "Ricerca in corso…" mentre aspetta; un errore della RPC → "Ricerca non riuscita", distinto da "Nessun cliente trovato" (`searchCustomers` restituisce `{ ok }`).
+10. `src/i18n/it.ts` normalizzato a LF.
+
+**Esiti dopo le migliorie**: lint ok, typecheck ok, Vitest 1169/1169, pgTAP 990/990.
+- Playwright in dev (`npm run test:e2e`, con `SUPABASE_SERVICE_ROLE_KEY`): 69–72/76. Falliscono al login, a seconda del giro, 1–4 test di `admin-periods.spec.ts` (fetta 3): il redirect a `/admin` non arriva entro 5 s.
+- Lo stesso succede sul commit della fetta (`6dad6ec`, senza queste migliorie). Causa: dalla fetta 6 `/admin` è il calendario, che in dev si compila al primo accesso mentre i primi test fanno login in parallelo.
+- Su build di produzione (`npm run build && npm run start`) `admin-periods` passa sempre (2 giri; suite in 35 s invece di 1,3 min). In quei giri falliscono solo i 3 test degli account staff: lì il server avviato a mano non vedeva `SUPABASE_SERVICE_ROLE_KEY`, che è un problema dell'ambiente locale. In dev con la chiave passano.
+
+**Problema aperto (test, da decidere con l'utente)**: rendere stabili in dev gli e2e che fanno login sotto carico. Ipotesi: un riscaldamento di `/admin` nel `globalSetup` di Playwright, oppure un timeout più lungo in `expectPath` dopo il login. Sono modifiche ai test: servono l'ok dell'utente. La CI usa la build di produzione con `retries: 1`.

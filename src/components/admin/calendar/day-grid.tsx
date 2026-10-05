@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { it } from "@/i18n/it";
-import { blockPosition, type DayGrid, type Interval } from "@/lib/calendar/grid";
+import { blockPosition, busyRows, type DayGrid, type Interval } from "@/lib/calendar/grid";
 import { bookingDetailPath, newBookingPath } from "@/lib/calendar/paths";
 import type { DayColumn } from "@/lib/calendar/page-data";
 import { cn } from "@/lib/utils";
@@ -54,7 +54,13 @@ export function DayGridView({
 
         {columns.map((column, columnIndex) => {
           const gridColumn = columnIndex + 2;
-          const active = column.bookings.filter((booking) => !booking.status.startsWith("cancelled"));
+          // Occupato fino a blocked_until: anche le righe del buffer non sono prenotabili.
+          const busy = busyRows(
+            grid,
+            column.bookings
+              .filter((booking) => booking.status === "confirmed")
+              .map((booking) => ({ startsAt: booking.startsAt, endsAt: booking.blockedUntil })),
+          );
           return [
             <h2
               key={`${column.barberId}-head`}
@@ -64,7 +70,6 @@ export function DayGridView({
               {column.barberName}
             </h2>,
             ...grid.rows.map((row, index) => {
-              const busy = active.some((booking) => covers(booking, row));
               const working = column.bands.some((band) => covers(band, row));
               const period = column.periods.find((candidate) => covers(candidate, row));
               const cellClass = cn(
@@ -72,8 +77,15 @@ export function DayGridView({
                 !working && "bg-muted/60",
                 period && "bg-amber-500/15",
               );
-              if (busy) {
-                return <div key={`${column.barberId}-${index}`} className={cellClass} style={{ gridColumn, gridRow: index + 2 }} />;
+              if (busy[index] || !column.isActive) {
+                return (
+                  <div
+                    key={`${column.barberId}-${index}`}
+                    className={cn(cellClass, busy[index] && "bg-muted")}
+                    title={busy[index] ? t.bufferBlock : t.inactiveBarberNoBooking}
+                    style={{ gridColumn, gridRow: index + 2 }}
+                  />
+                );
               }
               const label = t.newAt.replace("{barber}", column.barberName).replace("{time}", time(row));
               return (

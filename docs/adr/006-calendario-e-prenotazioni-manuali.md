@@ -66,3 +66,11 @@ La fetta 6 porta in `/admin` il calendario (SPEC §6.1), le prenotazioni manuali
 - La nota interna di una manuale si salva dopo la prenotazione, non nella stessa transazione. Se fallisce, la prenotazione resta e lo staff reinserisce la nota dal dettaglio; l'errore va nel log.
 - Una gara fra una manuale dello staff e una prenotazione online dello stesso cliente fa scattare il nuovo vincolo dentro `create_online_booking`. Il cliente vede allora "Orario appena occupato" invece del messaggio sulla propria sovrapposizione: il caso è raro e accettato.
 - Il layout di `/admin` ha `min-w-0` su `<main>`: con molti barbieri il calendario scorre orizzontalmente nel proprio contenitore, senza allargare la pagina.
+
+## Modifiche dopo la review (2026-10-05)
+
+- Le azioni rifiutano servizi e barbieri disattivati quando sono una scelta nuova (SPEC §3.2). In modifica restano ammessi quelli già sulla prenotazione.
+- Se data e ora del modulo sono quelle salvate, la modifica riusa `starts_at`. Gli orari nuovi devono esistere nell'ora locale: un orario nel buco del passaggio all'ora legale viene rifiutato, non spostato.
+- Il cambio di stato invia lo stato mostrato dalla pagina. Se nel frattempo è cambiato, si chiede di ricaricare.
+- Nella prenotazione online un `23P01` del vincolo sul cliente diventa `customer_overlap`. La conseguenza sulla gara con una manuale, descritta sopra, non vale più.
+- La griglia considera occupato il barbiere fino a `blocked_until`, buffer compreso.
