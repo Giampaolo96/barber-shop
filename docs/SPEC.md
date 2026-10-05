@@ -103,7 +103,7 @@ Il calcolo avviene lato server (funzione Postgres `security definer` o server ac
 
 ## 5. Funzionalità – lato cliente (mobile / PWA)
 
-1. **Home**: info negozio, pulsante "Prenota", prossima prenotazione in evidenza.
+1. **Home**: info negozio, pulsante "Prenota", prossima prenotazione in evidenza. Stato di apertura del giorno ("Aperto fino alle…", "Apre alle…", "Oggi chiuso") e orari della settimana: sono l'unione delle fasce dei barbieri attivi, meno le chiusure di oggi, senza dati sui singoli barbieri (`shop_opening_hours`, `shop_closures_today`, fetta 8a).
 2. **Flusso di prenotazione** (max 4 schermate):
    1. scelta servizio (nome, durata, prezzo);
    2. scelta barbiere (con foto) oppure "Nessuna preferenza"; il passo si salta se il servizio ha un solo barbiere abilitato;
@@ -167,6 +167,7 @@ Pagamenti e caparre online, più servizi in una prenotazione, lista d'attesa, pr
 | 6 | Calendario admin + prenotazioni manuali + cambi stato | Staff gestisce una giornata intera |
 | 6b | Admin: clienti (§6.7: elenco, storico, no-show, blocco/sblocco) | L'admin trova un cliente, ne vede lo storico e lo blocca o sblocca |
 | 7 | Notifiche email e promemoria | Email ricevute in ambiente di test |
+| 8a | Identità visiva: design system a token, tema "Mosca", restyling cliente e admin (`docs/DESIGN.md`) | Screenshot a 390 e 1280 px rivisti, test esistenti verdi senza cambiare le asserzioni |
 | 8 | PWA (manifest, icone, installazione) + rifinitura UI | Installabile su iOS e Android |
 | 9 | Statistiche, privacy, eliminazione account | Pronto per il primo uso reale |
 

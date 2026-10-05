@@ -11,7 +11,7 @@ export default async function NewServicePage() {
       <Link href="/admin/servizi" className="text-sm underline">
         {it.admin.common.backToList}
       </Link>
-      <h1 className="text-2xl font-semibold">{it.admin.services.newTitle}</h1>
+      <h1 className="font-display text-4xl leading-tight">{it.admin.services.newTitle}</h1>
       <ServiceForm
         values={{ id: null, name: "", description: "", durationMin: "", price: "", isActive: true }}
       />

@@ -56,7 +56,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
       <Link href={CUSTOMERS_PATH} className="text-sm underline underline-offset-4">
         {t.backToList}
       </Link>
-      <h1 className="text-2xl font-semibold">{customer.fullName ?? t.noName}</h1>
+      <h1 className="font-display text-4xl leading-tight">{customer.fullName ?? t.noName}</h1>
 
       <dl className="grid max-w-lg grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
         {rows.map(([label, value]) => (
@@ -72,7 +72,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
         <div className="text-sm">
           <CustomerStatusBadges customer={customer} threshold={threshold} />
         </div>
-        <p className="text-xs opacity-70">{t.blockHint}</p>
+        <p className="text-xs text-muted-foreground">{t.blockHint}</p>
         <div className="flex flex-wrap gap-2">
           <RowAction
             action={setCustomerBlocked}
@@ -97,7 +97,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">{t.historyTitle}</h2>
         {bookings.length === 0 ? (
-          <p className="text-sm opacity-70">{t.historyEmpty}</p>
+          <p className="text-sm text-muted-foreground">{t.historyEmpty}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -128,7 +128,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             </table>
           </div>
         )}
-        {truncated && <p className="text-sm opacity-70">{fillText(t.historyTruncated, { count: HISTORY_LIMIT })}</p>}
+        {truncated && <p className="text-sm text-muted-foreground">{fillText(t.historyTruncated, { count: HISTORY_LIMIT })}</p>}
       </section>
     </div>
   );

@@ -33,7 +33,7 @@ export default async function ChooseTimePage({
     service && service.barberIds.length > 1 ? barberStepUrl(service.id) : BOOK_PATH;
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-4">
+    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-6">
       <StepHeader step={3} title={it.booking.time.title} backHref={backHref} />
       {access !== "ok" ? (
         <AccessNotice
@@ -80,7 +80,7 @@ async function Picker({
     return <p role="alert">{it.booking.errors.generic}</p>;
   }
   const days = daysResult.days;
-  if (days.length === 0) return <p className="opacity-70">{it.booking.time.noDays}</p>;
+  if (days.length === 0) return <p className="text-muted-foreground">{it.booking.time.noDays}</p>;
 
   const selectedDay = requestedDay && days.includes(requestedDay) ? requestedDay : days[0];
   const slotsResult = await getAvailableSlots({ serviceId, barberId, date: selectedDay });

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { it } from "@/i18n/it";
 import { saveService } from "@/lib/admin/service-actions";
 import type { ServiceFormState } from "@/lib/admin/service-actions";
+import { textareaClass } from "@/components/ui/field";
 
 export type ServiceFormValues = {
   id: string | null;
@@ -39,7 +40,7 @@ export function ServiceForm({ values }: { values: ServiceFormValues }) {
           maxLength={500}
           rows={3}
           defaultValue={values.description}
-          className="rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm"
+          className={textareaClass}
         />
       </div>
       <div className="flex gap-4">

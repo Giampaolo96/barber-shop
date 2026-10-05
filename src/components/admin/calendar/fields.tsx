@@ -4,7 +4,8 @@ import { it } from "@/i18n/it";
 import { TIME_STEP_MIN } from "@/lib/calendar/schemas";
 
 const t = it.admin.calendar.form;
-export const selectClass = "h-11 rounded-lg border border-input bg-transparent px-2.5 text-sm";
+export { selectClass } from "@/components/ui/field";
+import { selectClass } from "@/components/ui/field";
 
 export type Option = { id: string; label: string };
 

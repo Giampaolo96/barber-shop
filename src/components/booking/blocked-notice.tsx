@@ -5,12 +5,12 @@ import { telHref } from "@/lib/booking/format";
 export function BlockedNotice({ phone }: { phone: string | null }) {
   const tel = telHref(phone);
   return (
-    <div role="alert" className="flex flex-col gap-3 rounded-xl border p-4">
+    <div role="alert" className="flex flex-col gap-3 border border-ink p-4">
       <p>{it.booking.errors.blocked}</p>
       {tel && (
         <a
           href={tel}
-          className="inline-flex h-11 w-fit items-center rounded-lg border px-4 text-sm font-medium"
+          className="inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface"
         >
           {it.booking.list.callShop}
         </a>

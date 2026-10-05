@@ -7,6 +7,7 @@ import { ALL_BARBERS, resolveBarberFilter, sortPeriodsForList } from "@/lib/admi
 import { getOwnBarberId, getShopTimezone } from "@/lib/admin/queries";
 import { requireRole } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/db/server";
+import { selectClass } from "@/components/ui/field";
 
 const TIME_OFF_COLUMNS = "id, barber_id, starts_at, ends_at, reason";
 
@@ -30,8 +31,8 @@ export default async function TimeOffPage({
     if (!ownBarberId) {
       return (
         <>
-          <h1 className="text-2xl font-semibold">{it.admin.nav.timeOff}</h1>
-          <p className="text-sm opacity-70">{it.admin.timeOff.noBarber}</p>
+          <h1 className="font-display text-4xl leading-tight">{it.admin.nav.timeOff}</h1>
+          <p className="text-sm text-muted-foreground">{it.admin.timeOff.noBarber}</p>
         </>
       );
     }
@@ -43,7 +44,7 @@ export default async function TimeOffPage({
 
     return (
       <>
-        <h1 className="text-2xl font-semibold">{it.admin.nav.timeOff}</h1>
+        <h1 className="font-display text-4xl leading-tight">{it.admin.nav.timeOff}</h1>
         <h2 className="text-lg font-semibold">{it.admin.period.newTitle}</h2>
         <PeriodForm kind="timeOff" values={EMPTY_PERIOD} />
         <PeriodTable
@@ -80,10 +81,10 @@ export default async function TimeOffPage({
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">{it.admin.nav.timeOff}</h1>
+      <h1 className="font-display text-4xl leading-tight">{it.admin.nav.timeOff}</h1>
       <h2 className="text-lg font-semibold">{it.admin.period.newTitle}</h2>
       {barbers.length === 0 ? (
-        <p className="text-sm opacity-70">{t.noBarbers}</p>
+        <p className="text-sm text-muted-foreground">{t.noBarbers}</p>
       ) : (
         <PeriodForm
           // Il modulo riparte dal barbiere del filtro quando il filtro cambia.
@@ -103,7 +104,7 @@ export default async function TimeOffPage({
             id="barbiere"
             name="barbiere"
             defaultValue={selected ?? ALL_BARBERS}
-            className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm"
+            className={selectClass}
           >
             <option value={ALL_BARBERS}>{t.allBarbers}</option>
             {barbers.map((barber) => (

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { it } from "@/i18n/it";
 import { saveBarber } from "@/lib/admin/barber-actions";
 import type { BarberFormState } from "@/lib/admin/barber-actions";
+import { textareaClass } from "@/components/ui/field";
 
 export type BarberFormValues = {
   id: string | null;
@@ -45,7 +46,7 @@ export function BarberForm({ values, services }: { values: BarberFormValues; ser
           maxLength={500}
           rows={3}
           defaultValue={values.bio}
-          className="rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm"
+          className={textareaClass}
         />
       </div>
       <label htmlFor="isActive" className="flex min-h-11 items-center gap-3 text-sm">
@@ -54,7 +55,7 @@ export function BarberForm({ values, services }: { values: BarberFormValues; ser
       </label>
       <fieldset className="flex flex-col gap-1 rounded-lg border p-3">
         <legend className="px-1 text-sm font-medium">{t.servicesLabel}</legend>
-        {services.length === 0 && <p className="text-sm opacity-70">{t.noServices}</p>}
+        {services.length === 0 && <p className="text-sm text-muted-foreground">{t.noServices}</p>}
         {services.map((service) => (
           <div key={service.id} className="flex min-h-11 items-center gap-3 text-sm">
             <input
@@ -66,7 +67,7 @@ export function BarberForm({ values, services }: { values: BarberFormValues; ser
               className="size-5"
             />
             <label htmlFor={`service-${service.id}`}>{service.name}</label>
-            {!service.isActive && <span className="text-xs opacity-70">{it.admin.common.inactive}</span>}
+            {!service.isActive && <span className="text-xs text-muted-foreground">{it.admin.common.inactive}</span>}
           </div>
         ))}
       </fieldset>

@@ -21,8 +21,8 @@ export default async function ClosuresPage() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">{it.admin.nav.closures}</h1>
-      <p className="text-sm opacity-70">{it.admin.closures.intro}</p>
+      <h1 className="font-display text-4xl leading-tight">{it.admin.nav.closures}</h1>
+      <p className="text-sm text-muted-foreground">{it.admin.closures.intro}</p>
       <h2 className="text-lg font-semibold">{it.admin.period.newTitle}</h2>
       <PeriodForm kind="closure" values={EMPTY_PERIOD} />
       <PeriodTable

@@ -1,57 +1,147 @@
 import Link from "next/link";
 import { it } from "@/i18n/it";
+import { fillText } from "@/lib/admin/text";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { formatDateTime, telHref } from "@/lib/booking/format";
+import { formatLongDate, formatTime, telHref } from "@/lib/booking/format";
 import { BOOK_PATH, MY_BOOKINGS_PATH } from "@/lib/booking/paths";
 import { getNextBooking, getShopInfo } from "@/lib/booking/queries";
+import { isoWeekday } from "@/lib/calendar/grid";
+import { localDateOf } from "@/lib/domain/local-time";
+import { splitShopName } from "@/lib/shop/name";
+import { type OpeningHours, openingStatus } from "@/lib/shop/opening";
+import { getOpeningData } from "@/lib/shop/queries";
+import { HeroBackground, HeroMark } from "@/themes/active";
 
-// Home (SPEC §5.1): info del negozio, pulsante "Prenota", prossima prenotazione del cliente.
+const t = it.home;
+
+// Home (SPEC §5.1): testata del negozio con lo stato di apertura, prossima prenotazione del
+// cliente, "Prenota", orari della settimana, indirizzo e telefono (docs/DESIGN.md).
 export default async function HomePage() {
-  const [user, shop] = await Promise.all([getCurrentUser(), getShopInfo()]);
+  const [user, shop, opening] = await Promise.all([getCurrentUser(), getShopInfo(), getOpeningData()]);
   const next = user?.role === "customer" ? await getNextBooking(user.id) : null;
+  const timezone = shop?.timezone ?? "Europe/Rome";
+  const name = splitShopName(shop?.name ?? it.shop.name);
+  const fullName = [name.lead, name.rest].filter(Boolean).join(" ");
+  const now = new Date();
+  const status = opening ? openingStatus({ now, timezone, ...opening }) : null;
   const tel = telHref(shop?.phone ?? null);
-  const t = it.home;
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 p-4">
-      <section className="flex flex-col gap-1 pt-4 text-center">
-        <h1 className="text-3xl font-semibold">{shop?.name ?? it.shop.name}</h1>
-        {shop?.address && <p className="opacity-70">{shop.address}</p>}
-        {shop?.phone && tel && (
-          <a href={tel} className="inline-flex h-11 items-center justify-center">
-            {shop.phone}
-          </a>
-        )}
+    <main className="flex flex-1 flex-col">
+      <section className="relative overflow-hidden bg-marble text-vein">
+        <HeroBackground />
+        <div className="relative mx-auto flex w-full max-w-xl flex-col px-4 pt-4 pb-10">
+          <HeroMark />
+          <h1 aria-label={fullName} className="-mt-10 font-display">
+            <span className="block text-[5.5rem] leading-[0.9] font-medium tracking-tight sm:text-[7rem]">
+              {name.lead}
+            </span>
+            {name.rest && <span className="block text-3xl italic lowercase sm:text-4xl">{name.rest}</span>}
+          </h1>
+          {status && (
+            <p className="mt-8 text-base">
+              {status.state === "open"
+                ? fillText(t.openNow, { time: formatTime(status.until, timezone) })
+                : status.state === "opens_later"
+                  ? fillText(t.opensAt, { time: formatTime(status.at, timezone) })
+                  : t.closedToday}
+            </p>
+          )}
+        </div>
       </section>
 
-      <Link
-        href={BOOK_PATH}
-        className="flex h-12 items-center justify-center rounded-xl bg-primary text-base font-medium text-primary-foreground"
-      >
-        {t.book}
-      </Link>
+      <div className="mx-auto flex w-full max-w-xl flex-col gap-10 px-4 py-8">
+        {user?.role === "customer" && (
+          <section className="flex flex-col gap-3 bg-ink p-5 text-surface">
+            <h2 className="text-sm font-medium">{t.nextBooking}</h2>
+            {next && !next.ok ? (
+              <p role="alert">{it.booking.errors.listLoad}</p>
+            ) : next?.booking ? (
+              <>
+                <p className="font-display text-3xl leading-tight first-letter:uppercase">
+                  {formatLongDate(next.booking.startsAt, timezone)}
+                  <br />
+                  <time dateTime={next.booking.startsAt}>{formatTime(next.booking.startsAt, timezone)}</time>
+                </p>
+                <p>
+                  {fillText(t.withBarber, { service: next.booking.serviceName, barber: next.booking.barberName })}
+                </p>
+              </>
+            ) : (
+              <p>{t.noBooking}</p>
+            )}
+            <Link
+              href={MY_BOOKINGS_PATH}
+              className="inline-flex h-11 w-fit items-center text-sm font-medium underline underline-offset-4 hover:no-underline"
+            >
+              {t.myBookings}
+            </Link>
+          </section>
+        )}
 
-      {user?.role === "customer" && (
-        <section className="flex flex-col gap-2 rounded-xl border p-4">
-          <h2 className="font-semibold">{t.nextBooking}</h2>
-          {next && !next.ok ? (
-            <p role="alert">{it.booking.errors.listLoad}</p>
-          ) : next?.booking && shop ? (
-            <p>
-              <span className="font-medium">{next.booking.serviceName}</span> · {next.booking.barberName}
-              <br />
-              <span className="first-letter:uppercase">
-                {formatDateTime(next.booking.startsAt, shop.timezone)}
-              </span>
-            </p>
-          ) : (
-            <p className="opacity-70">{t.noBooking}</p>
-          )}
-          <Link href={MY_BOOKINGS_PATH} className="inline-flex h-11 items-center text-sm font-medium underline">
-            {t.myBookings}
-          </Link>
-        </section>
-      )}
+        <Link
+          href={BOOK_PATH}
+          className="flex h-14 items-center justify-center border border-ink text-base font-medium transition-colors hover:bg-ink hover:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          {t.book}
+        </Link>
+
+        {opening && <WeeklyHours hours={opening.hours} today={isoWeekday(localDateOf(now, timezone))} />}
+
+        {(shop?.address || tel) && (
+          <section className="flex flex-col gap-3">
+            <h2 className="font-display text-2xl">{t.whereTitle}</h2>
+            {shop?.address && <address className="not-italic">{shop.address}</address>}
+            {tel && shop?.phone && (
+              <a
+                href={tel}
+                className="inline-flex h-11 w-fit items-center gap-3 border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface"
+              >
+                {t.call}
+                <span className="font-normal tabular-nums">{shop.phone}</span>
+              </a>
+            )}
+          </section>
+        )}
+      </div>
     </main>
+  );
+}
+
+/** Orari della settimana, da lunedì: le fasce unite del negozio o "Chiuso"; oggi in grassetto. */
+function WeeklyHours({ hours, today }: { hours: OpeningHours[]; today: number }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="font-display text-2xl">{t.hoursTitle}</h2>
+      <dl className="flex flex-col">
+        {t.weekdays.map((label, index) => {
+          const weekday = index + 1;
+          const bands = hours.filter((band) => band.weekday === weekday);
+          const isToday = weekday === today;
+          return (
+            <div
+              key={label}
+              className={`flex justify-between gap-4 border-b border-line py-2 ${isToday ? "font-semibold" : ""}`}
+            >
+              <dt>
+                {label}
+                {isToday && <span className="sr-only"> ({t.today})</span>}
+              </dt>
+              <dd className="text-right tabular-nums">
+                {bands.length === 0 ? (
+                  <span className="text-muted-foreground">{t.closedDay}</span>
+                ) : (
+                  bands.map((band) => (
+                    <span key={band.start} className="ml-4 inline-block">
+                      {band.start}–{band.end}
+                    </span>
+                  ))
+                )}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </section>
   );
 }

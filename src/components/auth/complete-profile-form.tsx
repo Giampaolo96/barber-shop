@@ -64,12 +64,12 @@ export function CompleteProfileForm({
         {t.submit}
       </Button>
       {state.status === "invalid" && (
-        <p role="alert" className="text-destructive">
+        <p role="alert" className="border-l-2 border-destructive pl-3 text-destructive">
           {t.invalid}
         </p>
       )}
       {state.status === "error" && (
-        <p role="alert" className="text-destructive">
+        <p role="alert" className="border-l-2 border-destructive pl-3 text-destructive">
           {t.error}
         </p>
       )}

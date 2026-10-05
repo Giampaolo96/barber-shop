@@ -33,7 +33,7 @@ export default async function BarberTimeOffPage({ params }: { params: Promise<{ 
       <Link href={`/admin/barbieri/${id}`} className="text-sm underline">
         {it.admin.barbers.editTitle}
       </Link>
-      <h1 className="text-2xl font-semibold">
+      <h1 className="font-display text-4xl leading-tight">
         {fillText(it.admin.barbers.timeOffTitle, { name: barberResult.data.display_name })}
       </h1>
       <h2 className="text-lg font-semibold">{it.admin.period.newTitle}</h2>

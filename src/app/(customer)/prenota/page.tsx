@@ -13,7 +13,7 @@ export default async function ChooseServicePage() {
   const t = it.booking;
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-4">
+    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-6">
       <StepHeader step={1} title={t.service.title} backHref="/" />
       {access !== "ok" ? (
         <AccessNotice access={access} phone={shop.phone} retryHref={BOOK_PATH} />
@@ -26,10 +26,10 @@ export default async function ChooseServicePage() {
 
 async function ServiceList() {
   const services = await getBookableServices();
-  if (services.length === 0) return <p className="opacity-70">{it.booking.service.empty}</p>;
+  if (services.length === 0) return <p className="text-muted-foreground">{it.booking.service.empty}</p>;
 
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className="flex flex-col [&>li+li]:-mt-px">
       {services.map((service) => {
         // Con un solo barbiere abilitato il passo del barbiere si salta.
         const href =
@@ -42,12 +42,12 @@ async function ServiceList() {
               <span className="flex flex-1 flex-col">
                 <span className="font-medium">{service.name}</span>
                 {service.description && (
-                  <span className="text-sm opacity-70">{service.description}</span>
+                  <span className="text-sm text-muted-foreground">{service.description}</span>
                 )}
               </span>
               <span className="flex flex-col items-end text-sm">
                 <span className="font-medium">{formatCents(service.priceCents)}</span>
-                <span className="opacity-70">
+                <span className="text-muted-foreground">
                   {it.booking.duration.replace("{count}", String(service.durationMin))}
                 </span>
               </span>

@@ -79,9 +79,9 @@ export default async function BookingDetailPage({
       <Link href={calendarHref({ date })} className="text-sm underline underline-offset-4">
         {t.detail.backToCalendar}
       </Link>
-      <h1 className="text-2xl font-semibold">{t.detail.title}</h1>
+      <h1 className="font-display text-4xl leading-tight">{t.detail.title}</h1>
       {created && (
-        <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">
+        <p role="status" className="text-sm font-medium">
           {t.detail.created}
         </p>
       )}
@@ -104,7 +104,7 @@ export default async function BookingDetailPage({
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">{t.detail.statusTitle}</h2>
         {transitions.length === 0 ? (
-          <p className="text-sm opacity-70">{t.detail.noTransitions}</p>
+          <p className="text-sm text-muted-foreground">{t.detail.noTransitions}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {transitions.map((status) => (

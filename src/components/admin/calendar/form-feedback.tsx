@@ -11,14 +11,14 @@ import { CALENDAR_ERROR_TEXT, WARNING_TEXT } from "./messages";
 export function CalendarFormFeedback({ state, pending }: { state: CalendarFormState; pending: boolean }) {
   if (state.status === "saved") {
     return (
-      <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">
+      <p role="status" className="text-sm font-medium">
         {it.admin.common.saved}
       </p>
     );
   }
   if (state.status === "warnings" && state.warnings) {
     return (
-      <div role="alert" className="flex flex-col gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+      <div role="alert" className="flex flex-col gap-2 border border-ink bg-surface p-3 text-sm">
         <p className="font-medium">{it.admin.calendar.form.warningsIntro}</p>
         <ul className="list-disc pl-5">
           {state.warnings.map((code) => (
@@ -36,7 +36,7 @@ export function CalendarFormFeedback({ state, pending }: { state: CalendarFormSt
   }
   const message = CALENDAR_ERROR_TEXT[state.status];
   return message ? (
-    <p role="alert" className="text-sm text-destructive">
+    <p role="alert" className="border-l-2 border-destructive pl-3 text-sm text-destructive">
       {message}
     </p>
   ) : null;

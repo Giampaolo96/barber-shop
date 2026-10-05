@@ -16,8 +16,8 @@ export default async function AdminSectionPage({
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">{section.label}</h1>
-      <p className="text-sm opacity-70">{it.admin.comingSoon}</p>
+      <h1 className="font-display text-4xl leading-tight">{section.label}</h1>
+      <p className="text-sm text-muted-foreground">{it.admin.comingSoon}</p>
     </>
   );
 }

@@ -5,14 +5,14 @@ import { countText } from "@/lib/admin/text";
 export function FormStatus({ status }: { status: string }) {
   if (status === "saved") {
     return (
-      <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">
+      <p role="status" className="text-sm font-medium">
         {it.admin.common.saved}
       </p>
     );
   }
   if (status === "invalid" || status === "error") {
     return (
-      <p role="alert" className="text-sm text-destructive">
+      <p role="alert" className="border-l-2 border-destructive pl-3 text-sm text-destructive">
         {status === "invalid" ? it.admin.common.invalid : it.admin.common.error}
       </p>
     );
@@ -23,7 +23,7 @@ export function FormStatus({ status }: { status: string }) {
 /** Avviso non bloccante (es. prenotazioni coinvolte da una disattivazione). */
 export function FormWarning({ children }: { children: string }) {
   return (
-    <p role="alert" className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+    <p role="alert" className="border border-ink bg-surface p-3 text-sm">
       {children}
     </p>
   );

@@ -1,12 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { it } from "@/i18n/it";
+import { getShopInfo } from "@/lib/booking/queries";
+import { fontVariables } from "@/themes/active";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: it.shop.name,
-  description: it.meta.description,
-};
+/** Titolo dal nome del negozio nelle impostazioni (it.shop.name è solo il segnaposto). */
+export async function generateMetadata(): Promise<Metadata> {
+  const shop = await getShopInfo();
+  return { title: shop?.name ?? it.shop.name, description: it.meta.description };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -15,7 +18,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="it" className="h-full font-sans antialiased">
+    <html lang="it" className={`${fontVariables} h-full font-sans antialiased`}>
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );

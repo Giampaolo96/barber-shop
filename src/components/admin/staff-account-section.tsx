@@ -13,6 +13,7 @@ import {
 } from "@/lib/admin/staff-accounts";
 import type { StaffAccountState, StaffActionState } from "@/lib/admin/staff-accounts";
 import { fillText } from "@/lib/admin/text";
+import { selectClass } from "@/components/ui/field";
 
 export type LinkedAccount = { profileId: string; fullName: string; isBlocked: boolean; isSelf: boolean };
 export type StaffOption = { profileId: string; fullName: string };
@@ -66,7 +67,7 @@ export function StaffAccountSection({
     <section className="flex max-w-lg flex-col gap-4">
       <h2 className="text-xl font-semibold">{t.title}</h2>
       {created.status === "created" && (
-        <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">
+        <p role="status" className="text-sm font-medium">
           {t.created}
         </p>
       )}
@@ -98,7 +99,7 @@ export function StaffAccountSection({
         </div>
       ) : (
         <>
-          <p className="text-sm opacity-70">{t.none}</p>
+          <p className="text-sm text-muted-foreground">{t.none}</p>
           <form action={createAction} noValidate className="flex flex-col gap-4">
             <input type="hidden" name="barberId" value={barberId} />
             <div className="flex flex-col gap-2">
@@ -133,7 +134,7 @@ export function StaffAccountSection({
                 <select
                   id="linkProfile"
                   name="profileId"
-                  className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                  className={selectClass}
                 >
                   {staffWithoutCard.map((option) => (
                     <option key={option.profileId} value={option.profileId}>
@@ -151,12 +152,12 @@ export function StaffAccountSection({
       )}
 
       {accountMessage && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="border-l-2 border-destructive pl-3 text-sm text-destructive">
           {accountMessage}
         </p>
       )}
       {actionMessage && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="border-l-2 border-destructive pl-3 text-sm text-destructive">
           {actionMessage}
         </p>
       )}

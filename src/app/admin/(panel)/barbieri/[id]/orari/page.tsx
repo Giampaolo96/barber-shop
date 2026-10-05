@@ -30,7 +30,7 @@ export default async function BarberHoursPage({ params }: { params: Promise<{ id
       <Link href={`/admin/barbieri/${id}`} className="text-sm underline">
         {it.admin.barbers.editTitle}
       </Link>
-      <h1 className="text-2xl font-semibold">
+      <h1 className="font-display text-4xl leading-tight">
         {fillText(it.admin.barbers.hoursTitle, { name: barberResult.data.display_name })}
       </h1>
       <HoursEditor

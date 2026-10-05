@@ -38,24 +38,24 @@ export default async function BookingSummaryPage({
   const timeHref = service ? timeStepUrl(service.id, barberId) : BOOK_PATH;
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-4">
+    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-6">
       <StepHeader step={4} title={t.title} backHref={timeHref} />
       {!params.success || !service || !barberName ? (
         <RestartNotice />
       ) : (
         <>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border p-4">
-            <dt className="opacity-70">{t.service}</dt>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 border border-ink p-5">
+            <dt className="text-muted-foreground">{t.service}</dt>
             <dd className="font-medium">{service.name}</dd>
-            <dt className="opacity-70">{t.barber}</dt>
+            <dt className="text-muted-foreground">{t.barber}</dt>
             <dd className="font-medium">{barberName}</dd>
-            <dt className="opacity-70">{t.when}</dt>
-            <dd className="font-medium first-letter:uppercase">
+            <dt className="text-muted-foreground">{t.when}</dt>
+            <dd className="font-display text-2xl leading-tight first-letter:uppercase">
               {formatDateTime(params.data.inizio, shop.timezone)}
             </dd>
-            <dt className="opacity-70">{t.price}</dt>
+            <dt className="text-muted-foreground">{t.price}</dt>
             <dd className="font-medium">
-              {formatCents(service.priceCents)} ·{" "}
+              {formatCents(service.priceCents)},{" "}
               {it.booking.duration.replace("{count}", String(service.durationMin))}
             </dd>
           </dl>

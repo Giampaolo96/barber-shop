@@ -13,3 +13,6 @@ out/
 *.tsbuildinfo
 next-env.d.ts
 supabase/.branches/
+
+# Screenshot e snapshot di Playwright MCP
+/.playwright-mcp/

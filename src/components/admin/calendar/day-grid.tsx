@@ -39,13 +39,17 @@ export function DayGridView({
           gridTemplateRows: `auto repeat(${grid.rows.length}, ${ROW_HEIGHT})`,
         }}
       >
-        <div className="text-xs font-medium opacity-70" style={{ gridColumn: 1, gridRow: 1 }}>
+        <div className="text-xs font-medium text-muted-foreground" style={{ gridColumn: 1, gridRow: 1 }}>
           {t.timeColumn}
         </div>
         {grid.rows.map((row, index) => (
           <div
             key={row.toISOString()}
-            className="border-t pt-0.5 text-xs tabular-nums opacity-70"
+            className={cn(
+              "border-t pt-0.5 text-xs tabular-nums",
+              // Le ore intere guidano la lettura; i quarti d'ora restano in secondo piano.
+              time(row).endsWith(":00") ? "border-ink/30 text-ink" : "border-line/60 text-ink-disabled",
+            )}
             style={{ gridColumn: 1, gridRow: index + 2 }}
           >
             {time(row)}
@@ -74,14 +78,15 @@ export function DayGridView({
               const period = column.periods.find((candidate) => covers(candidate, row));
               const cellClass = cn(
                 "border-t",
-                !working && "bg-muted/60",
-                period && "bg-amber-500/15",
+                time(row).endsWith(":00") ? "border-ink/30" : "border-line/60",
+                !working && "bg-disabled",
+                period && "bg-hatch",
               );
               if (busy[index] || !column.isActive) {
                 return (
                   <div
                     key={`${column.barberId}-${index}`}
-                    className={cn(cellClass, busy[index] && "bg-muted")}
+                    className={cn(cellClass, busy[index] && "bg-disabled")}
                     title={busy[index] ? t.bufferBlock : t.inactiveBarberNoBooking}
                     style={{ gridColumn, gridRow: index + 2 }}
                   />
@@ -94,7 +99,7 @@ export function DayGridView({
                   href={newBookingPath({ barberId: column.barberId, date, time: time(row) })}
                   aria-label={label}
                   title={label}
-                  className={cn(cellClass, "block hover:bg-primary/10 focus-visible:bg-primary/10")}
+                  className={cn(cellClass, "block hover:bg-disabled focus-visible:bg-disabled")}
                   style={{ gridColumn, gridRow: index + 2 }}
                 />
               );
@@ -105,11 +110,11 @@ export function DayGridView({
               return (
                 <div
                   key={`${column.barberId}-period-${index}`}
-                  className="pointer-events-none z-0 self-start px-1 text-xs opacity-80"
+                  className="pointer-events-none z-0 self-start bg-surface px-1 text-xs text-muted-foreground"
                   style={{ gridColumn, gridRow: `${position.row + 2} / span ${position.span}` }}
                 >
                   {period.kind === "closure" ? t.closureBlock : t.timeOffBlock}
-                  {period.reason ? ` · ${period.reason}` : ""}
+                  {period.reason ? `, ${period.reason}` : ""}
                 </div>
               );
             }),
@@ -122,11 +127,11 @@ export function DayGridView({
                   key={booking.id}
                   href={bookingDetailPath(booking.id)}
                   className={cn(
-                    "z-10 m-px flex flex-col overflow-hidden rounded-md border px-2 py-1 text-xs",
-                    booking.status === "confirmed" && "border-primary/40 bg-primary/10",
-                    booking.status === "completed" && "bg-emerald-500/15",
-                    booking.status === "no_show" && "bg-destructive/15",
-                    cancelled && "bg-background line-through opacity-60",
+                    "z-10 m-px flex flex-col overflow-hidden rounded-md border bg-surface px-2 py-1 text-xs",
+                    booking.status === "confirmed" && "border-ink",
+                    booking.status === "completed" && "border-line text-muted-foreground",
+                    booking.status === "no_show" && "border-destructive text-destructive",
+                    cancelled && "border-dashed border-line text-ink-disabled line-through",
                   )}
                   style={{ gridColumn, gridRow: `${position.row + 2} / span ${position.span}` }}
                 >
@@ -135,7 +140,7 @@ export function DayGridView({
                   </span>
                   <span>
                     {booking.serviceName}
-                    {booking.status === "confirmed" ? "" : ` · ${t.statusLabels[booking.status]}`}
+                    {booking.status === "confirmed" ? "" : `, ${t.statusLabels[booking.status]}`}
                   </span>
                 </Link>
               );

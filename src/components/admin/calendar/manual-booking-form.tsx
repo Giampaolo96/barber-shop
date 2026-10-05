@@ -10,6 +10,7 @@ import { CALENDAR_LIMITS } from "@/lib/calendar/schemas";
 import { CustomerPicker } from "./customer-picker";
 import { type Option, SlotFields } from "./fields";
 import { CalendarFormFeedback } from "./form-feedback";
+import { textareaClass } from "@/components/ui/field";
 
 const t = it.admin.calendar.form;
 const initialState: CalendarFormState = { status: "idle" };
@@ -90,7 +91,7 @@ export function ManualBookingForm({
           maxLength={CALENDAR_LIMITS.staffNote}
           rows={3}
           defaultValue={values.staffNote ?? ""}
-          className="rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm"
+          className={textareaClass}
         />
       </div>
       <Button type="submit" disabled={pending} className="self-start">

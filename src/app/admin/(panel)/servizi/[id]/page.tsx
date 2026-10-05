@@ -25,7 +25,7 @@ export default async function EditServicePage({ params }: { params: Promise<{ id
       <Link href="/admin/servizi" className="text-sm underline">
         {it.admin.common.backToList}
       </Link>
-      <h1 className="text-2xl font-semibold">{it.admin.services.editTitle}</h1>
+      <h1 className="font-display text-4xl leading-tight">{it.admin.services.editTitle}</h1>
       <ServiceForm
         values={{
           id: service.id,

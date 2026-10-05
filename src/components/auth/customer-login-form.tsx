@@ -36,7 +36,7 @@ export function CustomerLoginForm({ next = "/" }: { next?: string }) {
       </Button>
       {state.status === "sent" && <p role="status">{t.linkSent}</p>}
       {state.status === "invalid" && (
-        <p role="alert" className="text-destructive">
+        <p role="alert" className="border-l-2 border-destructive pl-3 text-destructive">
           {t.invalidEmail}
         </p>
       )}

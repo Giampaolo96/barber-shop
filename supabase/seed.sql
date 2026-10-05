@@ -5,9 +5,9 @@
 -- creerebbe in produzione un admin con password nota.
 
 -- Impostazioni negozio (SPEC §3.1): la riga con i default la crea la migrazione
--- 20261003090000_shop_settings_default_row; qui solo i recapiti demo. -----------
+-- 20261003090000_shop_settings_default_row; qui nome e recapiti demo. -----------
 update public.shop_settings
-   set address = 'Via Roma 1, 00100 Roma', phone = '+39 06 1234567';
+   set name = 'Mosca Barber Shop', address = 'Via Roma 1, 00100 Roma', phone = '+39 06 1234567';
 
 -- Utenti demo, uno per ruolo (SPEC §2) -----------------------------------------
 insert into auth.users (

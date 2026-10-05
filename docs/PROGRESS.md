@@ -11,6 +11,7 @@
 | 6 | completata | 2026-10-05 | Vedi "Fetta 6" sotto |
 | 6b | completata | 2026-10-05 | Vedi "Fetta 6b" sotto |
 | 7 | da fare | | |
+| 8a | completata | 2026-10-06 | Vedi "Fetta 8a" sotto (identità visiva, prima della 8) |
 | 8 | da fare | | |
 | 9 | da fare | | |
 
@@ -502,3 +503,58 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
   Nessuna asserzione cambiata.
 - `playwright.config.ts`: in locale `workers: "25%"` (4 su 16 core logici); in CI resta il default. Il default di Playwright è già il 50% dei core, cioè gli 8 worker con cui la suite falliva: per questo è stato scelto il 25% invece del 50% proposto come esempio.
 - Verifica: 66 email per `cliente@demo.local` e 62 per `admin@demo.local` (la ricerca ne restituisce 50). Playwright 79/79 con 4 worker, warm-up completo.
+
+## Fetta 8a – Identità visiva (tema "Mosca")
+
+**Stato**: completata, review chiusa (un giro, nessun bloccante; 11 migliorie da decidere, sotto). Da fare: commit della fetta, `db push` della migrazione `20261006090000` su Supabase cloud, CI.
+
+**Fatto**
+- Design system a token:
+  - `src/styles/tokens.css`: nomi semantici e mappa verso shadcn e Tailwind, nessun valore;
+  - `src/themes/mosca/`: valori (`theme.css`), font (`fonts.ts`, Bodoni Moda e Hanken Grotesk con `next/font`), marmo, mosca, `index.ts`;
+  - `src/themes/active.ts`: unico punto in cui si sceglie il tema, e importa il CSS del tema.
+- Primitive sui token (`button`, `input`, `label`, `src/components/ui/field.ts` per `select` e `textarea`): raggio 0, bordo di 1px, 44px, focus a contorno pieno, disabilitato con i suoi colori.
+- Home: testata in marmo con la mosca in volo (scia di un giro, ferma con `prefers-reduced-motion`), nome dalle impostazioni (prima parola in grande, resto in corsivo), stato di apertura, blocco nero con la prossima prenotazione, "Prenota", orari della settimana, indirizzo e "Chiama".
+- Flusso: intestazione dei passi in Bodoni, scelte a bordo nero, caselle dei giorni (scelto nero, senza orari tratteggiati), orari raggruppati per ora con i minuti (un salto di ore fa da divisore), mosca sullo slot toccato durante il caricamento (`useLinkStatus`), riepilogo e Le mie prenotazioni coerenti.
+- Admin con gli stessi token, senza marmo né mosca:
+  - calendario con ore intere in evidenza, stati con bordi (confermata nera, no-show rossa con stato scritto, cancellata tratteggiata) e tratteggio per assenze e chiusure;
+  - menu orizzontale su mobile.
+- Testata clienti e titolo della pagina con il nome da `shop_settings`; sulla home la testata non ripete il nome.
+- Migrazione `20261006090000_shop_opening_hours.sql`: `shop_opening_hours()` (unione delle fasce dei barbieri attivi) e `shop_closures_today()` (solo inizio e fine, giorno locale, `[inizio, fine)`), definer, eseguibili da anon e authenticated. Seed con "Mosca Barber Shop".
+- `src/lib/shop/`: `openingStatus` (pura), `splitShopName`, `getOpeningData`. `getShopInfo` con `cache()` di React.
+- Documentazione: `docs/DESIGN.md` (principi, token, marmo e mosca, cosa NON fare, nuovo tema), richiamato da CLAUDE.md; SPEC §5.1 (orari e stato di apertura) e §11 (riga 8a).
+- `.mcp.json` (Playwright MCP, solo Windows per `cmd /c`); `.playwright-mcp/` in `.gitignore`.
+- Test (commit `f5d0643`):
+  - Vitest: `tests/acceptance/shop-opening.test.ts` (25), `tests/acceptance/theme.test.ts` (16);
+  - pgTAP: `supabase/tests/24_shop_opening_hours.test.sql` (15);
+  - e2e: `tests/e2e/theme.spec.ts` (3).
+
+**Esiti**: lint ok, typecheck ok, Vitest 1261/1261, pgTAP 1081/1081, Playwright 82/82 (dev, 4 worker, con `SUPABASE_SERVICE_ROLE_KEY`). Verifica visiva con Playwright MCP a 390 e 1280px di home, flusso e calendario admin. Sulla build di produzione i valori del tema prevalgono: `--background` #fff, raggio 0, testata #171717, font del tema.
+
+**Decisioni**
+- Il pulsante resta "Prenota".
+- Un tocco sull'orario porta al riepilogo, senza barra "Continua". Lo slot mostra ":15"; nome accessibile (`aria-label`) e innerText restano "HH:MM", con l'ora nel testo a `font-size: 0` dentro un solo span (gli e2e lo leggono).
+- Orari del negozio = unione delle fasce dei barbieri attivi, meno le chiusure di oggi (due funzioni, nessun dato del singolo barbiere né motivo).
+- Rosso `#A4161A` solo per errori e azioni distruttive. Gli errori hanno sempre testo esplicito e un filetto a sinistra.
+- Il CSS del tema si importa da `src/themes/active.ts`. Foto dei barbieri quadrate e in scala di grigi, iniziale in Bodoni se manca la foto.
+- 09 e 10: le due funzioni pubbliche aggiunte all'elenco delle eccezioni per anon (approvato dall'utente).
+
+**Problemi trovati durante l'implementazione**
+- Il nome accessibile dello slot con l'ora in `sr-only` diventava "17 :00", e l'innerText con il link flex "22
+:30". Corretto senza toccare i test.
+- Il dev server avviato a mano senza `SUPABASE_SERVICE_ROLE_KEY` fa fallire gli e2e degli account staff ("A server error occurred"). Per gli e2e conviene lasciare che lo avvii Playwright.
+- Fermando `npm run dev`/`start` da Claude Code su Windows resta in ascolto il processo figlio di Next sulla porta 3000: va terminato a mano.
+
+**Migliorie dalla review** (non applicate: decide l'utente)
+1. Focus quasi invisibile su fondo nero (link "Le mie prenotazioni" nel blocco nero): outline `--ring` = nero.
+2. Focus non esplicito su giorni, orari, scelte, "Indietro" e link della testata: si affidano al contorno del browser, a differenza delle primitive.
+3. Giorni senza orari: `aria-disabled`/`aria-label` su `span` (ruolo generico) non vengono letti. Meglio un testo `sr-only` ("nessun orario libero").
+4. Variante `secondary` di Button con bordo `--line` (1,4:1), contraria a DESIGN.md; oggi non è usata.
+5. Timezone di riserva `"Europe/Rome"` scritta a mano nella home quando `shop` è null.
+6. `openingStatus` lancia un'eccezione su un orario non valido (es. `24:00` scritto direttamente in `working_hours`, che lo ammette): la home si romperebbe.
+7. `shop_closures_today` non è testata nei giorni del cambio d'ora (usa `now()` reale).
+8. Il testo sul marmo usa `--marble-vein`: per altri temi servirebbe un token `--ink-on-marble`.
+9. `.mcp.json` con `@playwright/mcp@latest`: versione da fissare.
+10. `dayParts` e `formatLongDate` senza test unitari.
+11. `generateMetadata` nel root layout legge le impostazioni con i cookie: tutte le route diventano dinamiche.
+

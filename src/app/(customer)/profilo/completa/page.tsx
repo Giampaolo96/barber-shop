@@ -26,8 +26,8 @@ export default async function CompleteProfilePage({
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-4 p-6">
-      <h1 className="text-2xl font-semibold">{t.title}</h1>
-      <p className="text-sm opacity-70">{t.intro}</p>
+      <h1 className="font-display text-4xl leading-tight">{t.title}</h1>
+      <p className="text-sm text-muted-foreground">{t.intro}</p>
       <CompleteProfileForm
         fullName={profile?.full_name ?? ""}
         phone={profile?.phone ?? ""}

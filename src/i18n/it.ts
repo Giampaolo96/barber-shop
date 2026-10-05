@@ -12,6 +12,17 @@ export const it = {
     nextBooking: "Prossima prenotazione",
     noBooking: "Non hai prenotazioni in programma.",
     myBookings: "Le mie prenotazioni",
+    withBarber: "{service} con {barber}",
+    openNow: "Aperto fino alle {time}",
+    opensAt: "Apre alle {time}",
+    closedToday: "Oggi chiuso",
+    hoursTitle: "Orari",
+    closedDay: "Chiuso",
+    today: "oggi",
+    whereTitle: "Dove siamo",
+    call: "Chiama",
+    /** Giorni ISO: indice 0 = lunedì … 6 = domenica. */
+    weekdays: ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"],
   },
   nav: {
     login: "Accedi",

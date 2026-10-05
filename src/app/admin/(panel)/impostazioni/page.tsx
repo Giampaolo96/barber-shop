@@ -18,8 +18,8 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">{it.admin.nav.settings}</h1>
-      <p className="text-sm opacity-70">{it.admin.settings.intro}</p>
+      <h1 className="font-display text-4xl leading-tight">{it.admin.nav.settings}</h1>
+      <p className="text-sm text-muted-foreground">{it.admin.settings.intro}</p>
       <SettingsForm
         granularityOptions={SLOT_GRANULARITY_OPTIONS}
         limits={SETTINGS_LIMITS}

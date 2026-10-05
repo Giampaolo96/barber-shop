@@ -37,9 +37,9 @@ export default async function NewManualBookingPage({
       <Link href={calendarHref({ date: query.date })} className="text-sm underline underline-offset-4">
         {it.admin.calendar.detail.backToCalendar}
       </Link>
-      <h1 className="text-2xl font-semibold">{t.form.title}</h1>
+      <h1 className="font-display text-4xl leading-tight">{t.form.title}</h1>
       {requestedUnavailable && (
-        <p role="alert" className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+        <p role="alert" className="border border-ink bg-surface p-3 text-sm">
           {t.requestedBarberUnavailable}
         </p>
       )}

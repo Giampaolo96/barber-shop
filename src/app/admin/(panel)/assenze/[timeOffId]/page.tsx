@@ -29,7 +29,7 @@ export default async function EditTimeOffPage({ params }: { params: Promise<{ ti
       <Link href="/admin/assenze" className="text-sm underline">
         {it.admin.common.backToList}
       </Link>
-      <h1 className="text-2xl font-semibold">{it.admin.period.editTitle}</h1>
+      <h1 className="font-display text-4xl leading-tight">{it.admin.period.editTitle}</h1>
       <PeriodForm kind="timeOff" values={periodFormValues(row, tz)} />
     </>
   );

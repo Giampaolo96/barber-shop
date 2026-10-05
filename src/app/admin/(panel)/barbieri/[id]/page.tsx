@@ -41,7 +41,7 @@ export default async function BarberCardPage({ params }: { params: Promise<{ id:
       <Link href="/admin/barbieri" className="text-sm underline">
         {it.admin.common.backToList}
       </Link>
-      <h1 className="text-2xl font-semibold">{it.admin.barbers.editTitle}</h1>
+      <h1 className="font-display text-4xl leading-tight">{it.admin.barbers.editTitle}</h1>
       <div className="flex flex-wrap gap-2">
         <Link href={`/admin/barbieri/${id}/orari`} className={link}>
           {it.admin.barbers.hours}

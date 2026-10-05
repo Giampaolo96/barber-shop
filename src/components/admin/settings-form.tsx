@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { it } from "@/i18n/it";
 import { saveSettings } from "@/lib/admin/settings-actions";
 import type { SettingsState } from "@/lib/admin/settings-actions";
+import { selectClass } from "@/components/ui/field";
 
 export type SettingsValues = {
   name: string;
@@ -60,7 +61,7 @@ export function SettingsForm({
           id="slotGranularityMin"
           name="slotGranularityMin"
           defaultValue={String(values.slotGranularityMin)}
-          className="h-8 w-32 rounded-lg border border-input bg-transparent px-2.5 text-sm"
+          className={`${selectClass} w-32`}
         >
           {granularityOptions.map((option) => (
             <option key={option} value={String(option)}>
@@ -84,7 +85,7 @@ export function SettingsForm({
           aria-describedby="privacyPolicyVersionNote"
           className="bg-muted"
         />
-        <p id="privacyPolicyVersionNote" className="text-sm opacity-70">
+        <p id="privacyPolicyVersionNote" className="text-sm text-muted-foreground">
           {t.privacyPolicyVersionNote}
         </p>
       </div>

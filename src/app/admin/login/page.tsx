@@ -11,7 +11,7 @@ export default async function StaffLoginPage({
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-4 p-6">
-      <h1 className="text-2xl font-semibold">{it.auth.staffLogin.title}</h1>
+      <h1 className="font-display text-4xl leading-tight">{it.auth.staffLogin.title}</h1>
       <StaffLoginForm disabled={motivo === DISABLED_REASON} />
     </main>
   );

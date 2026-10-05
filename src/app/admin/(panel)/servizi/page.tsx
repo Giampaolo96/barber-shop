@@ -23,13 +23,13 @@ export default async function ServicesPage() {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">{it.admin.nav.services}</h1>
+        <h1 className="font-display text-4xl leading-tight">{it.admin.nav.services}</h1>
         <Link href="/admin/servizi/nuovo" className={buttonVariants()}>
           {t.new}
         </Link>
       </div>
       {services.length === 0 ? (
-        <p className="text-sm opacity-70">{it.admin.common.empty}</p>
+        <p className="text-sm text-muted-foreground">{it.admin.common.empty}</p>
       ) : (
         <table className="w-full text-left text-sm">
           <thead>

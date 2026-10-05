@@ -1,0 +1,49 @@
+/*
+ * Tema "Mosca" (docs/DESIGN.md): bianco e nero, nessun colore d'accento. Qui solo i valori; i
+ * nomi semantici e la mappa verso Tailwind e shadcn sono in src/styles/tokens.css.
+ */
+:root {
+  --surface: #ffffff;
+  --ink: #000000;
+  --surface-marble: #171717;
+  --marble-vein: #ffffff;
+  --ink-muted: #5c5c5c;
+  --line: #dadada;
+  --surface-disabled: #f2f2f2;
+  --ink-disabled: #8f8f8f;
+  /* Solo errori e azioni distruttive, mai decorativo. */
+  --danger: #a4161a;
+  --radius: 0rem;
+}
+
+/* Volo della mosca in home: posata a fine percorso; l'animazione solo senza riduzione del movimento. */
+.fly-flight {
+  offset-distance: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fly-flight {
+    animation: fly-flight 2.4s cubic-bezier(0.45, 0.05, 0.3, 1) 0.3s both;
+  }
+  .fly-pending {
+    animation: fly-pending 0.5s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes fly-pending {
+  from {
+    transform: rotate(-8deg);
+  }
+  to {
+    transform: rotate(8deg);
+  }
+}
+
+@keyframes fly-flight {
+  from {
+    offset-distance: 0%;
+  }
+  to {
+    offset-distance: 100%;
+  }
+}

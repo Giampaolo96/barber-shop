@@ -17,11 +17,11 @@ export function AccessNotice({
 }) {
   if (access === "blocked") return <BlockedNotice phone={phone} />;
   return (
-    <div role="alert" className="flex flex-col gap-3 rounded-xl border p-4">
+    <div role="alert" className="flex flex-col gap-3 border border-ink p-4">
       <p>{it.booking.errors.profileLoad}</p>
       <Link
         href={retryHref}
-        className="inline-flex h-11 w-fit items-center rounded-lg border px-4 text-sm font-medium"
+        className="inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface"
       >
         {it.booking.errors.retry}
       </Link>

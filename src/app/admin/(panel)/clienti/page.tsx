@@ -35,7 +35,7 @@ export default async function CustomersPage({
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">{it.admin.nav.customers}</h1>
+      <h1 className="font-display text-4xl leading-tight">{it.admin.nav.customers}</h1>
       <form action={CUSTOMERS_PATH} method="get" role="search" className="flex flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1">
           <Label htmlFor="customerQuery">{t.searchLabel}</Label>
@@ -51,7 +51,7 @@ export default async function CustomersPage({
 
       {customers.length === 0 ? (
         <div className="flex flex-col gap-2">
-          <p className="text-sm opacity-70">{t.empty}</p>
+          <p className="text-sm text-muted-foreground">{t.empty}</p>
           {page > 1 && (
             <Link href={customersPath({ q })} className="text-sm underline underline-offset-4">
               {t.firstPage}
@@ -60,7 +60,7 @@ export default async function CustomersPage({
         </div>
       ) : (
         <>
-          <p className="text-sm opacity-70">{fillText(t.total, { count: total })}</p>
+          <p className="text-sm text-muted-foreground">{fillText(t.total, { count: total })}</p>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>

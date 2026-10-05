@@ -521,6 +521,21 @@ export type Database = {
         }[];
       };
       set_working_hours: { Args: { p_barber_id: string; p_hours: Json }; Returns: undefined };
+      shop_closures_today: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          ends_at: string;
+          starts_at: string;
+        }[];
+      };
+      shop_opening_hours: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          end_time: string;
+          start_time: string;
+          weekday: number;
+        }[];
+      };
       timemultirange: { Args: Record<PropertyKey, never>; Returns: unknown };
     };
     Enums: {

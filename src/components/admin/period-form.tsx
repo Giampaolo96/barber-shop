@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { it } from "@/i18n/it";
 import { saveClosure, saveTimeOff } from "@/lib/admin/period-actions";
 import type { PeriodFormState } from "@/lib/admin/period-actions";
+import { selectClass } from "@/components/ui/field";
 
 /** Valori iniziali in ora locale del negozio (`YYYY-MM-DD`, `YYYY-MM-DDTHH:mm`). */
 export type PeriodFormValues = {
@@ -68,7 +69,7 @@ export function PeriodForm({
             name="barberId"
             required
             defaultValue={barberId ?? barbers[0]?.id}
-            className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm"
+            className={selectClass}
           >
             {barbers.map((barber) => (
               <option key={barber.id} value={barber.id}>

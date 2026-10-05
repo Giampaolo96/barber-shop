@@ -24,7 +24,7 @@ export default async function ChooseBarberPage({
   if (service && barbers.length === 1) redirect(timeStepUrl(service.id, barbers[0].id));
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-4">
+    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-6">
       <StepHeader step={2} title={t.title} backHref={BOOK_PATH} />
       {access !== "ok" ? (
         <AccessNotice
@@ -35,12 +35,12 @@ export default async function ChooseBarberPage({
       ) : !service || barbers.length === 0 ? (
         <RestartNotice />
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col [&>li+li]:-mt-px">
           <li>
             <Link href={timeStepUrl(service.id, ANY_BARBER)} className={choiceClass}>
               <span className="flex flex-col">
                 <span className="font-medium">{t.any}</span>
-                <span className="text-sm opacity-70">{t.anyHint}</span>
+                <span className="text-sm text-muted-foreground">{t.anyHint}</span>
               </span>
             </Link>
           </li>
@@ -55,14 +55,19 @@ export default async function ChooseBarberPage({
                     alt=""
                     width={48}
                     height={48}
-                    className="size-12 rounded-full object-cover"
+                    className="size-12 object-cover grayscale"
                   />
                 ) : (
-                  <span aria-hidden className="size-12 rounded-full bg-muted" />
+                  <span
+                    aria-hidden
+                    className="flex size-12 shrink-0 items-center justify-center bg-disabled font-display text-2xl"
+                  >
+                    {barber.name.charAt(0)}
+                  </span>
                 )}
                 <span className="flex flex-col">
                   <span className="font-medium">{barber.name}</span>
-                  {barber.bio && <span className="text-sm opacity-70">{barber.bio}</span>}
+                  {barber.bio && <span className="text-sm text-muted-foreground">{barber.bio}</span>}
                 </span>
               </Link>
             </li>

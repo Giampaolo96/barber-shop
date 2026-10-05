@@ -8,6 +8,7 @@ import { it } from "@/i18n/it";
 import { createBooking, type BookingActionState } from "@/lib/booking/actions";
 import { bookingErrorText } from "@/lib/booking/errors";
 import { NOTES_MAX_LENGTH } from "@/lib/booking/schemas";
+import { textareaClass } from "@/components/ui/field";
 
 /** Errori per cui ha senso tornare alla scelta dell'orario. */
 const SLOT_ERRORS = new Set([
@@ -52,20 +53,20 @@ export function ConfirmBookingForm({
           name="notes"
           rows={3}
           maxLength={NOTES_MAX_LENGTH}
-          className="rounded-lg border bg-transparent px-3 py-2 text-base"
+          className={textareaClass}
         />
       </div>
       {state.status === "error" && (
-        <div role="alert" className="flex flex-col gap-2 text-destructive">
+        <div role="alert" className="flex flex-col gap-2 border-l-2 border-destructive pl-3 text-destructive">
           <p>{bookingErrorText(state.code)}</p>
           {SLOT_ERRORS.has(state.code) && (
-            <Link href={changeTimeHref} className="inline-flex h-11 items-center font-medium underline">
+            <Link href={changeTimeHref} className="inline-flex h-11 items-center font-medium text-ink underline underline-offset-4">
               {t.changeTime}
             </Link>
           )}
         </div>
       )}
-      <Button type="submit" disabled={pending} className="h-12 text-base">
+      <Button type="submit" disabled={pending} className="h-14 text-base">
         {t.confirm}
       </Button>
     </form>

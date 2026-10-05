@@ -54,7 +54,7 @@ export function PeriodTable({
   /** Se presente, l'elenco mostra la colonna del barbiere (vista dell'admin). */
   barberNames?: Record<string, string>;
 }) {
-  if (rows.length === 0) return <p className="text-sm opacity-70">{it.admin.common.empty}</p>;
+  if (rows.length === 0) return <p className="text-sm text-muted-foreground">{it.admin.common.empty}</p>;
 
   return (
     <table className="w-full text-left text-sm">

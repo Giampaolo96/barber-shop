@@ -33,12 +33,12 @@ export function StaffLoginForm({ disabled }: { disabled: boolean }) {
         {t.submit}
       </Button>
       {state.status === "invalid" && (
-        <p role="alert" className="text-destructive">
+        <p role="alert" className="border-l-2 border-destructive pl-3 text-destructive">
           {t.invalidCredentials}
         </p>
       )}
       {state.status === "disabled" && (
-        <p role="alert" className="text-destructive">
+        <p role="alert" className="border-l-2 border-destructive pl-3 text-destructive">
           {t.accountDisabled}
         </p>
       )}

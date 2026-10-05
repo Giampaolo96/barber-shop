@@ -26,7 +26,7 @@ export function CancelBookingButton({ bookingId }: { bookingId: string }) {
         {t.cancel}
       </Button>
       {state.status === "error" && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="border-l-2 border-destructive pl-3 text-sm text-destructive">
           {bookingErrorText(state.code)}
         </p>
       )}

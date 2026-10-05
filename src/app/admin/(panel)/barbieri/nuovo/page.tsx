@@ -20,7 +20,7 @@ export default async function NewBarberPage() {
       <Link href="/admin/barbieri" className="text-sm underline">
         {it.admin.common.backToList}
       </Link>
-      <h1 className="text-2xl font-semibold">{it.admin.barbers.newTitle}</h1>
+      <h1 className="font-display text-4xl leading-tight">{it.admin.barbers.newTitle}</h1>
       <BarberForm
         values={{ id: null, displayName: "", photoUrl: "", bio: "", isActive: true, serviceIds: [] }}
         services={services.map((service) => ({ id: service.id, name: service.name, isActive: service.is_active }))}

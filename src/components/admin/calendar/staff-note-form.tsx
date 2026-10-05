@@ -8,6 +8,7 @@ import { it } from "@/i18n/it";
 import { type CalendarRowState, saveStaffNote } from "@/lib/calendar/actions";
 import { CALENDAR_LIMITS } from "@/lib/calendar/schemas";
 import { CALENDAR_ERROR_TEXT } from "./messages";
+import { textareaClass } from "@/components/ui/field";
 
 const initialState: CalendarRowState = { status: "idle" };
 
@@ -26,14 +27,14 @@ export function StaffNoteForm({ bookingId, note }: { bookingId: string; note: st
         maxLength={CALENDAR_LIMITS.staffNote}
         rows={3}
         defaultValue={note ?? ""}
-        className="rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm"
+        className={textareaClass}
       />
       <Button type="submit" variant="outline" disabled={pending} className="self-start">
         {it.admin.common.save}
       </Button>
       {state.status === "saved" && <FormStatus status="saved" />}
       {error && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="border-l-2 border-destructive pl-3 text-sm text-destructive">
           {error}
         </p>
       )}

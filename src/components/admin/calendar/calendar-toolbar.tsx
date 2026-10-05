@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const t = it.admin.calendar;
 const linkClass =
-  "inline-flex min-h-11 items-center rounded-lg border px-3 text-sm font-medium hover:bg-muted";
+  "inline-flex min-h-11 items-center border border-ink px-3 text-sm font-medium hover:bg-disabled";
 
 /** Navigazione per data, scelta della vista e (admin, vista settimana) del barbiere. */
 export function CalendarToolbar({
@@ -49,7 +49,7 @@ export function CalendarToolbar({
         >
           →
         </Link>
-        <h1 className="ml-2 text-xl font-semibold first-letter:uppercase">{title}</h1>
+        <h1 className="ml-2 font-display text-3xl first-letter:uppercase">{title}</h1>
       </div>
       <nav aria-label={t.viewLabel} className="flex flex-wrap gap-2">
         {(["giorno", "settimana"] as const).map((view) => (
@@ -57,7 +57,7 @@ export function CalendarToolbar({
             key={view}
             href={calendarHref({ ...keep, view, barberId: view === "settimana" ? weekBarberId : null, date: query.date })}
             aria-current={query.view === view ? "page" : undefined}
-            className={cn(linkClass, query.view === view && "bg-muted")}
+            className={cn(linkClass, query.view === view && "border-ink bg-ink text-surface")}
           >
             {view === "giorno" ? t.dayView : t.weekView}
           </Link>
@@ -70,7 +70,7 @@ export function CalendarToolbar({
               key={barber.id}
               href={calendarHref({ ...keep, barberId: barber.id, date: query.date })}
               aria-current={barber.id === weekBarberId ? "page" : undefined}
-              className={cn(linkClass, barber.id === weekBarberId && "bg-muted")}
+              className={cn(linkClass, barber.id === weekBarberId && "border-ink bg-ink text-surface")}
             >
               {barber.displayName}
             </Link>

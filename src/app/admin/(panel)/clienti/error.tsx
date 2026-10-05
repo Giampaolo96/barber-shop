@@ -8,7 +8,7 @@ import { it } from "@/i18n/it";
 export default function CustomersError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <div className="flex flex-col gap-3">
-      <p role="alert" className="text-sm text-destructive">
+      <p role="alert" className="border-l-2 border-destructive pl-3 text-sm text-destructive">
         {it.admin.calendar.pageError}
       </p>
       <Button type="button" variant="outline" onClick={reset} className="self-start">

@@ -34,8 +34,8 @@ export function WeekView({
               {formatDayLabel(day.date)}
             </Link>
           </h2>
-          {!day.working && <p className="text-xs opacity-70">{t.dayOff}</p>}
-          {day.bookings.length === 0 && <p className="text-xs opacity-70">{t.noBookings}</p>}
+          {!day.working && <p className="text-xs text-muted-foreground">{t.dayOff}</p>}
+          {day.bookings.length === 0 && <p className="text-xs text-muted-foreground">{t.noBookings}</p>}
           <ul className="flex flex-col gap-1">
             {day.bookings.map((booking) => (
               <li key={booking.id}>
@@ -43,7 +43,7 @@ export function WeekView({
                   href={bookingDetailPath(booking.id)}
                   className={cn(
                     "flex flex-col rounded-md border px-2 py-1 text-xs hover:bg-primary/10",
-                    booking.status.startsWith("cancelled") && "line-through opacity-60",
+                    booking.status.startsWith("cancelled") && "text-ink-disabled line-through",
                   )}
                 >
                   <span className="font-medium">
@@ -51,7 +51,7 @@ export function WeekView({
                   </span>
                   <span>
                     {booking.serviceName}
-                    {booking.status === "confirmed" ? "" : ` · ${t.statusLabels[booking.status]}`}
+                    {booking.status === "confirmed" ? "" : `, ${t.statusLabels[booking.status]}`}
                   </span>
                 </Link>
               </li>
@@ -65,7 +65,7 @@ export function WeekView({
               {t.newBooking}
             </Link>
           ) : (
-            <p className="mt-auto text-xs opacity-70">{t.inactiveBarberNoBooking}</p>
+            <p className="mt-auto text-xs text-muted-foreground">{t.inactiveBarberNoBooking}</p>
           )}
         </section>
       ))}

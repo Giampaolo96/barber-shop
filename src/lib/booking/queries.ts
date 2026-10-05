@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 
 // Letture per il flusso di prenotazione e "Le mie prenotazioni", con il client della richiesta:
 // la RLS limita il catalogo alle voci attive e le prenotazioni a quelle del cliente.
@@ -37,7 +38,8 @@ export type MyBooking = {
   barberName: string;
 };
 
-export async function getShopInfo(): Promise<ShopInfo | null> {
+/** Impostazioni del negozio, lette una volta per richiesta (layout e pagina). */
+export const getShopInfo = cache(async (): Promise<ShopInfo | null> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("shop_settings")
@@ -54,7 +56,7 @@ export async function getShopInfo(): Promise<ShopInfo | null> {
     cancelLimitMin: data.cancel_limit_min,
     noShowBlockThreshold: data.no_show_block_threshold,
   };
-}
+});
 
 /** Servizi attivi con almeno un barbiere attivo abilitato, nell'ordine del catalogo. */
 export async function getBookableServices(): Promise<BookableService[]> {

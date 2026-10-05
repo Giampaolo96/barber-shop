@@ -81,3 +81,4 @@ Non lasciare suite di test lunghe (es. `test:e2e`) in background a fine turno: l
 - Tabelle al plurale in snake_case (`bookings`, `working_hours`); enum Postgres per gli stati.
 - Componenti React: server components di default, `"use client"` solo dove serve interattività.
 - UI cliente: mobile first, tap target ≥ 44px, max 4 schermate nel flusso di prenotazione.
+- Stile e temi: leggi `docs/DESIGN.md` prima di toccare l'interfaccia. Solo classi dei token (nessun colore letterale fuori da `src/themes/`), il tema si sceglie in `src/themes/active.ts`.

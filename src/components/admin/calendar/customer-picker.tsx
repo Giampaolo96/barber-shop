@@ -50,29 +50,29 @@ export function CustomerPicker({ initial }: { initial: { id: string; label: stri
         aria-describedby="customerSearchHint"
         aria-busy={searching}
       />
-      <p id="customerSearchHint" className="text-xs opacity-70">
+      <p id="customerSearchHint" className="text-xs text-muted-foreground">
         {t.customerSearchHint}
       </p>
       {searching && (
-        <p role="status" className="text-sm opacity-70">
+        <p role="status" className="text-sm text-muted-foreground">
           {t.searching}
         </p>
       )}
       {result && !result.ok && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="border-l-2 border-destructive pl-3 text-sm text-destructive">
           {t.searchError}
         </p>
       )}
       {result?.ok && result.matches.length === 0 && <p className="text-sm">{t.noCustomers}</p>}
       {result?.ok && result.blockStatusUnknown && result.matches.length > 0 && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="border-l-2 border-destructive pl-3 text-sm text-destructive">
           {t.customerBlockUnknown}
         </p>
       )}
       {result?.ok && result.matches.length > 0 && (
         <ul className="flex flex-col gap-1">
           {result.matches.map((match) => {
-            const label = [match.fullName, match.phone].filter(Boolean).join(" · ");
+            const label = [match.fullName, match.phone].filter(Boolean).join(", ");
             return (
               <li key={match.id} className="flex items-center justify-between gap-2 text-sm">
                 <span>

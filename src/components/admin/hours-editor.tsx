@@ -41,7 +41,7 @@ export function HoursEditor({ barberId, initialSlots }: { barberId: string; init
         return (
           <fieldset key={weekday} className="flex flex-col gap-2 rounded-lg border p-3">
             <legend className="px-1 text-sm font-medium">{t.weekdays[weekday]}</legend>
-            {daySlots.length === 0 && <p className="text-sm opacity-70">{t.closed}</p>}
+            {daySlots.length === 0 && <p className="text-sm text-muted-foreground">{t.closed}</p>}
             {daySlots.map((slot) => (
               <div key={slot.key} className="flex flex-wrap items-center gap-2">
                 <label htmlFor={`start-${slot.key}`} className="text-sm">
@@ -79,7 +79,7 @@ export function HoursEditor({ barberId, initialSlots }: { barberId: string; init
         {it.admin.common.save}
       </Button>
       {state.status === "overlap" ? (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="border-l-2 border-destructive pl-3 text-sm text-destructive">
           {t.overlap}
         </p>
       ) : (

@@ -58,7 +58,7 @@ export function EditBookingForm({
         services={services}
         values={{ barberId: values.barberId, serviceId: values.serviceId, date: values.date, time: values.time }}
       />
-      <p className="text-xs opacity-70">{t.serviceChangeHint}</p>
+      <p className="text-xs text-muted-foreground">{t.serviceChangeHint}</p>
       <div className="flex flex-wrap gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="edit-durationMin">{t.durationLabel}</Label>

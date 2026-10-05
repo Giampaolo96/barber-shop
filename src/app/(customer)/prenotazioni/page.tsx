@@ -7,6 +7,7 @@ import { MY_BOOKINGS_PATH } from "@/lib/booking/paths";
 import { getMyBookings, type MyBooking } from "@/lib/booking/queries";
 import { canCancel, splitBookings } from "@/lib/booking/rules";
 import { formatCents } from "@/lib/domain/money";
+import { fillText } from "@/lib/admin/text";
 
 // "Le mie prenotazioni" (SPEC §5.3): future e passate; cancellazione fino a cancel_limit_min prima,
 // poi "Chiama il negozio".
@@ -24,30 +25,30 @@ export default async function MyBookingsPage({
   const tel = telHref(shop.phone);
 
   const item = (booking: MyBooking, actions: React.ReactNode) => (
-    <li key={booking.id} className="flex flex-col gap-2 rounded-xl border p-4">
-      <p>
-        <span className="font-medium">{booking.serviceName}</span> · {booking.barberName}
+    <li key={booking.id} className="flex flex-col gap-2 border border-line p-4">
+      <p className="font-display text-2xl leading-tight first-letter:uppercase">
+        {formatDateTime(booking.startsAt, shop.timezone)}
       </p>
-      <p className="first-letter:uppercase">{formatDateTime(booking.startsAt, shop.timezone)}</p>
-      <p className="text-sm opacity-70">
-        {formatCents(booking.priceCents)} · {t.status[booking.status as keyof typeof t.status] ?? booking.status}
+      <p>{fillText(it.home.withBarber, { service: booking.serviceName, barber: booking.barberName })}</p>
+      <p className="text-sm text-muted-foreground">
+        {formatCents(booking.priceCents)}, {t.status[booking.status as keyof typeof t.status] ?? booking.status}
       </p>
       {actions}
     </li>
   );
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-4">
-      <h1 className="text-2xl font-semibold">{t.title}</h1>
-      {esito === "confermata" && <p role="status" className="rounded-xl border p-3">{t.confirmed}</p>}
-      {esito === "cancellata" && <p role="status" className="rounded-xl border p-3">{t.cancelled}</p>}
+    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-6">
+      <h1 className="font-display text-4xl leading-tight">{t.title}</h1>
+      {esito === "confermata" && <p role="status" className="bg-ink p-4 text-surface">{t.confirmed}</p>}
+      {esito === "cancellata" && <p role="status" className="border border-ink p-4">{t.cancelled}</p>}
 
       {bookings === null && (
-        <div role="alert" className="flex flex-col gap-3 rounded-xl border p-4">
+        <div role="alert" className="flex flex-col gap-3 border-l-2 border-destructive p-4">
           <p>{it.booking.errors.listLoad}</p>
           <Link
             href={MY_BOOKINGS_PATH}
-            className="inline-flex h-11 w-fit items-center rounded-lg border px-4 text-sm font-medium"
+            className="inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface"
           >
             {it.booking.errors.retry}
           </Link>
@@ -57,9 +58,9 @@ export default async function MyBookingsPage({
       {bookings !== null && (
         <>
           <section className="flex flex-col gap-2">
-            <h2 className="font-semibold">{t.upcoming}</h2>
+            <h2 className="font-display text-2xl">{t.upcoming}</h2>
             {upcoming.length === 0 ? (
-              <p className="opacity-70">{t.none}</p>
+              <p className="text-muted-foreground">{t.none}</p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {upcoming.map((booking) =>
@@ -69,9 +70,9 @@ export default async function MyBookingsPage({
                       <CancelBookingButton bookingId={booking.id} />
                     ) : (
                       <div className="flex flex-col gap-1">
-                        <p className="text-sm opacity-70">{t.tooLateHint}</p>
+                        <p className="text-sm text-muted-foreground">{t.tooLateHint}</p>
                         {tel && (
-                          <a href={tel} className="inline-flex h-11 w-fit items-center rounded-lg border px-4 text-sm font-medium">
+                          <a href={tel} className="inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface">
                             {t.callShop}
                           </a>
                         )}
@@ -84,9 +85,9 @@ export default async function MyBookingsPage({
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="font-semibold">{t.past}</h2>
+            <h2 className="font-display text-2xl">{t.past}</h2>
             {past.length === 0 ? (
-              <p className="opacity-70">{t.none}</p>
+              <p className="text-muted-foreground">{t.none}</p>
             ) : (
               <ul className="flex flex-col gap-2">{past.map((booking) => item(booking, null))}</ul>
             )}
