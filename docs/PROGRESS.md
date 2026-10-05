@@ -424,4 +424,10 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 - Lo stesso succede sul commit della fetta (`6dad6ec`, senza queste migliorie). Causa: dalla fetta 6 `/admin` è il calendario, che in dev si compila al primo accesso mentre i primi test fanno login in parallelo.
 - Su build di produzione (`npm run build && npm run start`) `admin-periods` passa sempre (2 giri; suite in 35 s invece di 1,3 min). In quei giri falliscono solo i 3 test degli account staff: lì il server avviato a mano non vedeva `SUPABASE_SERVICE_ROLE_KEY`, che è un problema dell'ambiente locale. In dev con la chiave passano.
 
-**Problema aperto (test, da decidere con l'utente)**: rendere stabili in dev gli e2e che fanno login sotto carico. Ipotesi: un riscaldamento di `/admin` nel `globalSetup` di Playwright, oppure un timeout più lungo in `expectPath` dopo il login. Sono modifiche ai test: servono l'ok dell'utente. La CI usa la build di produzione con `retries: 1`.
+**E2E in dev stabilizzati** (decisione dell'utente, commit "test: warm-up pagine per e2e in dev")
+- `tests/e2e/global-setup.ts` (`globalSetup` di Playwright), solo quando non si usa la build di produzione (`CI` non impostato). Carica una volta:
+  - `/admin/login`;
+  - le pagine dell'area staff, con l'admin demo;
+  - `/accedi` e le pagine del flusso cliente, con il cliente demo e il magic link via Mailpit.
+- Nessuna asserzione cambiata. Se il warm-up fallisce stampa solo un avviso.
+- Verificato con 3 giri completi in dev: 76/76 ogni volta.

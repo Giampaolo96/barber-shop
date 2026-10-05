@@ -6,6 +6,8 @@ const baseURL = `http://localhost:${port}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  // Solo in sviluppo: carica una volta le pagine principali prima dei test (compilazione on-demand).
+  globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
