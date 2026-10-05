@@ -26,7 +26,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         </nav>
         <LogoutButton />
       </aside>
-      <main className="flex flex-1 flex-col gap-2 p-6">{children}</main>
+      {/* min-w-0: il contenuto largo (calendario) scorre nel proprio contenitore, non allarga la pagina. */}
+      <main className="flex min-w-0 flex-1 flex-col gap-2 p-6">{children}</main>
     </div>
   );
 }

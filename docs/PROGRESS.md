@@ -8,7 +8,8 @@
 | 3 | completata | 2026-10-03 | Vedi "Fetta 3" sotto |
 | 4 | completata | 2026-10-04 | Vedi "Fetta 4" sotto |
 | 5 | completata | 2026-10-04 | Vedi "Fetta 5" sotto |
-| 6 | da fare | | |
+| 6 | completata | 2026-10-05 | Vedi "Fetta 6" sotto |
+| 6b | da fare | | Clienti (SPEC §6.7), spostata dalla fetta 6 |
 | 7 | da fare | | |
 | 8 | da fare | | |
 | 9 | da fare | | |
@@ -336,3 +337,73 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 **Esiti dopo la review**: lint ok, typecheck ok, Vitest 1020/1020, pgTAP 955/955, Playwright 72/72.
 
 **Stabilizzato dopo la review** (approvato dall'utente, commit "test: stabilizza e2e barbieri (fetta 3)"): `admin-barbers.spec.ts` ("crea un barbiere...") leggeva `barber_services` appena compariva la scheda, prima che i servizi fossero salvati (creazione non atomica, fetta 3 miglioria rimandata 6). Ora attende il redirect alla scheda, che arriva solo dopo il salvataggio dei servizi; asserzioni invariate. Verificato con `--repeat-each=10` (50/50).
+
+## Fetta 6 – Calendario admin + prenotazioni manuali + cambi stato
+
+**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie elencate sotto, non applicate). 2 migrazioni da applicare a Supabase cloud (`db push`). CI da verificare dopo il push.
+
+**Fatto**
+- Migrazioni:
+  - `20261005090000_bookings_customer_no_overlap.sql`: vincolo di esclusione per cliente su `[starts_at, ends_at)`, solo `confirmed` con `customer_id`;
+  - `20261005090100_barber_cancel_by_customer.sql`: il barbiere può fare `confirmed → cancelled_by_customer`.
+- `src/lib/calendar/`:
+  - puri: `grid`, `transitions`, `warnings`, `errors`, `edit`, `view`;
+  - server: `queries`, `page-data`, `actions` (`createManualBooking`, `updateBooking` solo admin, `changeBookingStatus`, `saveStaffNote`, `searchCustomers`), `schemas`, `paths`.
+- Pagine:
+  - `/admin`: calendario, con vista giorno e vista settimana;
+  - `/admin/calendario/nuova`;
+  - `/admin/calendario/[id]`: dettaglio, stato, nota interna, modifica dell'admin;
+  - `/admin/calendario` rimanda a `/admin`.
+- Componenti in `src/components/admin/calendar/`, testi in `it.admin.calendar`.
+- Altre modifiche:
+  - `src/lib/db/database.ts`: in insert su `bookings` i campi calcolati dal trigger sono facoltativi;
+  - `phoneSchema` esportato da `src/lib/auth/schemas.ts`;
+  - `<main>` di `/admin` con `min-w-0`.
+- Documentazione: `docs/adr/006-calendario-e-prenotazioni-manuali.md`; ADR 001 (transizioni del barbiere, vincolo sul cliente); SPEC §2, §3.7.5, §3.7.6, §6.1–6.3, §11 (nuova fetta 6b).
+- Test (commit `116ed61`):
+  - Vitest: `tests/acceptance/calendar-{logic,schemas,access,edit}.test.ts` (131 casi);
+  - pgTAP: `supabase/tests/21_staff_calendar.test.sql` (35);
+  - e2e: `tests/e2e/admin-calendar.spec.ts` (4).
+
+**Esiti**: lint ok, typecheck ok, Vitest 1151/1151, pgTAP 990/990, Playwright 76/76 (con `SUPABASE_SERVICE_ROLE_KEY` nell'ambiente).
+
+**Decisioni** (dettaglio nell'ADR 006)
+- Clienti (§6.7) nella nuova fetta 6b.
+- Regola 6 come vincolo del DB su tutti i percorsi; gli ospiti sono esclusi.
+- Il barbiere può segnare "Disdetta dal cliente" (`cancelled_by_customer`).
+- Avvisi (fuori fascia, assenza, chiusura, passato) con "Conferma comunque":
+  - ricalcolati a ogni invio;
+  - si salva se quelli attuali sono un sottoinsieme di quelli confermati (variante dell'utente);
+  - la conferma non deroga mai alle sovrapposizioni.
+- Modifica dell'admin:
+  - cambiando servizio, durata e prezzo si ricopiano dal nuovo servizio;
+  - gli avvisi valgono solo se cambiano orario, barbiere o fine di una `confirmed`.
+- Griglia:
+  - estesa alle prenotazioni del giorno, righe in tempo reale nei cambi d'ora;
+  - cancellate nascoste, con conteggio e `?cancellate=1`.
+- Vista settimana: un barbiere alla volta. Per l'admin il predefinito è la propria scheda se attiva, poi il primo attivo per nome.
+- Transizioni dell'admin: quelle del barbiere più "Ripristina confermata" dagli stati finali. Nessuna eliminazione dall'interfaccia. Orario con passo di 5 minuti; ospite con telefono in E.164.
+
+**Correzioni ai test di accettazione** (approvate dall'utente, nel commit `116ed61`)
+- `04_rls_barber`: il barbiere ora può fare `cancelled_by_customer` (decisione 3).
+- `09_security_hardening` e `19_online_booking`: dati di prova che violavano il nuovo vincolo sul cliente; bordi e asserzioni invariati.
+
+**Problemi trovati dagli e2e durante l'implementazione**
+- Dopo gli avvisi il reset di React riportava i `<select>` alla scelta del primo rendering, e "Conferma comunque" inviava un altro servizio. Ora i moduli si rimontano (`key`) con i valori inviati.
+- Con molti barbieri (quelli creati dagli altri e2e in parallelo) la griglia allargava `<main>`, e i link delle colonne a destra non erano cliccabili (`<main> intercepts pointer events`). Corretto con `min-w-0` sul `<main>` del layout di `/admin`.
+
+**Da fare nelle prossime fette**
+- Fetta 6b (Clienti): elenco con ricerca, storico, contatore no-show, blocco/sblocco. Va deciso come l'admin toglie un blocco automatico per no-show: oggi il contatore segue solo le prenotazioni.
+- Produzione: `db push` delle 2 migrazioni. Prima verificare che nel cloud nessun cliente abbia due `confirmed` sovrapposte, altrimenti la creazione del vincolo fallisce.
+
+**Migliorie della review** (non applicate: decide l'utente)
+1. `updateBooking` e `createManualBooking` non verificano che servizio (in modifica) e barbiere siano attivi: i moduli li escludono, un POST costruito a mano no.
+2. Cambio d'ora: un orario della seconda occorrenza delle 02:xx, salvato dalla modifica senza cambiarlo, torna sulla prima. Un orario inesistente (02:30 del 28/03) viene spostato senza avviso. Proposta: riusare `starts_at` se data e ora non cambiano.
+3. Una prenotazione con minuti non multipli di 5 (seed o import) non si modifica più nemmeno nel solo prezzo (passo di 5 minuti). Stessa correzione del punto 2.
+4. `src/lib/booking/errors.ts`: il `23P01` del vincolo sul cliente dentro `create_online_booking` diventa "Orario appena occupato" invece di "sovrapposizione del cliente".
+5. Dettaglio e nuova prenotazione non intercettano gli errori di lettura: manca un `error.tsx` sotto `src/app/admin/(panel)/`.
+6. `changeBookingStatus`: un cambio concorrente restituisce un `error` generico e l'azione non ha try/catch. `saveStaffNote`: cancellare la nota di una prenotazione non visibile risponde "salvato".
+7. Settimana di un barbiere disattivato (`?barbiere=`): il link "Nuova prenotazione" porta in silenzio al primo barbiere attivo.
+8. Le righe nel buffer dopo una prenotazione restano cliccabili; il DB poi rifiuta con "barbiere occupato".
+9. Ricerca clienti senza indicatore di caricamento; un errore della RPC appare come "Nessun cliente trovato".
+10. `src/i18n/it.ts` in CRLF nella copia di lavoro (git normalizza al commit).

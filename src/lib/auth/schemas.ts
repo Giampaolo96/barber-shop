@@ -4,7 +4,7 @@ import { z } from "zod";
 const email = z.string().trim().max(254).pipe(z.email());
 
 /** Telefono normalizzato in E.164, con l'Italia come paese predefinito. */
-const phone = z
+export const phoneSchema = z
   .string()
   .trim()
   .regex(/^[+\d][\d\s()./-]*$/)
@@ -34,7 +34,7 @@ export const staffLoginSchema = z.object({
 // mai dal client (le chiavi sconosciute vengono scartate).
 export const completeProfileSchema = z.object({
   fullName: z.string().trim().min(1).max(100),
-  phone,
+  phone: phoneSchema,
   privacyConsent: z.literal(true),
   marketingConsent: z.boolean().default(false),
 });

@@ -20,7 +20,7 @@ Un solo negozio (single-tenant). Il multi-negozio è fuori scope ma il modello d
 | Ruolo | Chi è | Cosa può fare |
 |---|---|---|
 | `customer` | Cliente registrato | Vede servizi e disponibilità, prenota, vede/cancella le proprie prenotazioni, gestisce il proprio profilo |
-| `barber` | Dipendente | Vede il proprio calendario, crea prenotazioni manuali per sé, segna completata / no-show, gestisce le proprie assenze (senza approvazione dell'admin) |
+| `barber` | Dipendente | Vede il proprio calendario, crea prenotazioni manuali per sé, segna completata / no-show / cancellata (dal cliente o dal negozio), gestisce le proprie assenze (senza approvazione dell'admin) |
 | `admin` | Titolare | Tutto: servizi, barbieri, orari, chiusure, tutte le prenotazioni, clienti, impostazioni, statistiche |
 
 Un utente ha un solo ruolo. Un admin può essere anche barbiere: lo è quando esiste una riga `barbers` collegata al suo profilo (`barbers.profile_id`), senza flag dedicato.
@@ -79,8 +79,8 @@ confirmed ──► completed
 2. Una prenotazione online deve cadere interamente dentro una fascia di lavoro, fuori da assenze e chiusure, rispettando anticipo minimo e orizzonte massimo.
 3. Il barbiere scelto deve essere abilitato al servizio.
 4. Il cliente vede solo le proprie prenotazioni; non deve mai poter dedurre dati di altri clienti.
-5. Le prenotazioni manuali dello staff possono derogare alle regole 2 (es. fuori orario), mai alla 1.
-6. Un cliente non può avere due prenotazioni `confirmed` sovrapposte (su `[inizio, fine)`, senza buffer), nemmeno con barbieri diversi.
+5. Le prenotazioni manuali dello staff possono derogare alle regole 2 (es. fuori orario), mai alla 1 né alla 6. La deroga richiede una conferma esplicita degli avvisi (fuori fascia, assenza, chiusura, orario passato), ricalcolati dal server a ogni invio (ADR 006).
+6. Un cliente non può avere due prenotazioni `confirmed` sovrapposte (su `[inizio, fine)`, senza buffer), nemmeno con barbieri diversi → vincolo di esclusione su `customer_id`, valido per tutti i percorsi (online, manuali, spostamenti, ripristino); le prenotazioni intestate a un ospite senza account sono escluse.
 
 ---
 
@@ -116,9 +116,9 @@ Il calcolo avviene lato server (funzione Postgres `security definer` o server ac
 
 ## 6. Funzionalità – lato admin (web)
 
-1. **Calendario giornaliero** con una colonna per barbiere, vista settimanale, navigazione per data; click su slot vuoto → nuova prenotazione manuale; click su prenotazione → dettaglio e cambio stato.
-2. **Prenotazione manuale**: ricerca cliente esistente o inserimento rapido nome + telefono.
-3. **Spostamento prenotazione** (cambio orario/barbiere) con verifica sovrapposizioni.
+1. **Calendario giornaliero** con una colonna per barbiere, vista settimanale, navigazione per data; click su slot vuoto → nuova prenotazione manuale; click su prenotazione → dettaglio e cambio stato. Il barbiere vede solo la propria colonna; la vista settimanale mostra un barbiere alla volta (per l'admin la propria scheda se è anche barbiere, altrimenti il primo barbiere attivo per nome). La griglia copre fasce di lavoro e prenotazioni del giorno; le cancellate sono nascoste, con un conteggio e un link per mostrarle.
+2. **Prenotazione manuale**: ricerca cliente esistente o inserimento rapido nome + telefono (E.164); nota interna dello staff facoltativa. Fuori fascia, in assenza, in chiusura o nel passato serve "Conferma comunque" (§3.7.5).
+3. **Spostamento prenotazione** (cambio orario/barbiere, servizio, durata, prezzo; solo admin) con verifica sovrapposizioni. Cambiando servizio durata e prezzo si ricopiano dal nuovo servizio. Gli avvisi valgono solo se cambiano orario, barbiere o fine di una prenotazione `confirmed`.
 4. **Servizi**: CRUD, ordinamento, attivazione.
 5. **Barbieri**: CRUD, servizi abilitati, orari settimanali, assenze. Vista delle assenze (`/admin/assenze`): l'admin vede quelle di tutti i barbieri, prima le future, con filtro per barbiere (parte dalla propria scheda se è anche barbiere) e ne inserisce scegliendo il barbiere; il barbiere vede e gestisce solo le proprie.
 6. **Chiusure negozio**.
@@ -165,6 +165,7 @@ Pagamenti e caparre online, più servizi in una prenotazione, lista d'attesa, pr
 | 4 | Motore disponibilità | Test unitari sui casi limite verdi (sez. 12) |
 | 5 | Flusso prenotazione cliente + "Le mie prenotazioni" | Prenotazione e cancellazione end-to-end con Playwright |
 | 6 | Calendario admin + prenotazioni manuali + cambi stato | Staff gestisce una giornata intera |
+| 6b | Admin: clienti (§6.7: elenco, storico, no-show, blocco/sblocco) | L'admin trova un cliente, ne vede lo storico e lo blocca o sblocca |
 | 7 | Notifiche email e promemoria | Email ricevute in ambiente di test |
 | 8 | PWA (manifest, icone, installazione) + rifinitura UI | Installabile su iOS e Android |
 | 9 | Statistiche, privacy, eliminazione account | Pronto per il primo uso reale |

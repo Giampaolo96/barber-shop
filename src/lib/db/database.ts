@@ -1,16 +1,32 @@
 // Tipi del database usati dai client: quelli generati (types.ts, da non modificare a mano) con le
 // correzioni che il generatore non sa esprimere. availability_inputs: p_barber_id null =
 // qualsiasi barbiere, barber_id null sulle chiusure. create_online_booking: p_barber_id null =
-// "Nessuna preferenza", p_notes facoltativa.
+// "Nessuna preferenza", p_notes facoltativa. bookings: in insert i campi che calcola il trigger
+// bookings_before_write (ADR 001) sono facoltativi, così il codice non passa valori segnaposto.
 import type { Database as Generated } from "./types";
 
 type PublicSchema = Generated["public"];
 type Functions = PublicSchema["Functions"];
 type AvailabilityInputs = Functions["availability_inputs"];
 type CreateOnlineBooking = Functions["create_online_booking"];
+type Tables = PublicSchema["Tables"];
+type Bookings = Tables["bookings"];
+type ComputedBookingColumns =
+  | "ends_at"
+  | "duration_min"
+  | "price_cents"
+  | "buffer_min"
+  | "blocked_until"
+  | "status_changed_at";
 
 export type Database = Omit<Generated, "public"> & {
-  public: Omit<PublicSchema, "Functions"> & {
+  public: Omit<PublicSchema, "Functions" | "Tables"> & {
+    Tables: Omit<Tables, "bookings"> & {
+      bookings: Omit<Bookings, "Insert"> & {
+        Insert: Omit<Bookings["Insert"], ComputedBookingColumns> &
+          Partial<Pick<Bookings["Insert"], ComputedBookingColumns>>;
+      };
+    };
     Functions: Omit<Functions, "availability_inputs" | "create_online_booking"> & {
       availability_inputs: {
         Args: Omit<AvailabilityInputs["Args"], "p_barber_id"> & { p_barber_id: string | null };

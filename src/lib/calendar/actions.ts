@@ -1,0 +1,303 @@
+"use server";
+
+// Server action del calendario dello staff (SPEC §6.1–6.3). Ogni azione ricontrolla il ruolo e
+// valida l'input con Zod; le regole di dominio le applica comunque il database (RLS, trigger e
+// vincoli di esclusione). Le manuali e gli spostamenti possono derogare a fasce, assenze e
+// chiusure solo dopo la conferma degli avvisi, ricalcolati a ogni invio (decisioni fetta 6).
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { getOwnBarberId } from "@/lib/admin/queries";
+import { requireRole } from "@/lib/auth/current-user";
+import { createClient } from "@/lib/db/server";
+import { localDateTimeToUtc } from "@/lib/domain/local-time";
+import { bookingUpdateValues, editNeedsWarnings } from "./edit";
+import { type CalendarErrorCode, calendarErrorCode } from "./errors";
+import { bookingDetailPath, CREATED_PARAM } from "./paths";
+import { getCalendarSettings, slotWarnings } from "./queries";
+import {
+  bookingStatusSchema,
+  customerQuerySchema,
+  manualBookingSchema,
+  staffNoteSchema,
+  updateBookingSchema,
+} from "./schemas";
+import { allowedTransitions } from "./transitions";
+import { decideWarnings, type WarningCode } from "./warnings";
+
+export type CalendarFormState = {
+  status: "idle" | "saved" | "invalid" | "warnings" | CalendarErrorCode;
+  /** Avvisi da confermare (status "warnings"). */
+  warnings?: WarningCode[];
+  /** Valori inviati, per ripresentare il modulo dopo avvisi o errori. */
+  values?: Record<string, string>;
+};
+
+export type CalendarRowState = { status: "idle" | "saved" | "invalid" | CalendarErrorCode };
+
+export type CustomerMatch = { id: string; fullName: string; phone: string | null };
+
+const MINUTE = 60_000;
+const CALENDAR_AREA = "/admin";
+
+/** Campi testuali del modulo (le conferme degli avvisi viaggiano a parte). */
+const formValues = (formData: FormData): Record<string, string> => {
+  const values: Record<string, string> = {};
+  for (const [key, value] of formData) {
+    if (typeof value === "string" && !key.startsWith("$") && key !== "confirm" && key !== "shownWarnings") {
+      values[key] = value;
+    }
+  }
+  return values;
+};
+
+/** Avvisi confermati: quelli mostrati, solo se l'utente ha premuto "Conferma comunque". */
+const confirmedWarnings = (formData: FormData): FormDataEntryValue[] =>
+  formData.get("confirm") === "1" ? formData.getAll("shownWarnings") : [];
+
+const text = (formData: FormData, key: string): string | undefined => {
+  const value = formData.get(key);
+  return typeof value === "string" ? value : undefined;
+};
+
+export async function createManualBooking(
+  _previous: CalendarFormState,
+  formData: FormData,
+): Promise<CalendarFormState> {
+  const user = await requireRole(["barber", "admin"]);
+  const values = formValues(formData);
+  const parsed = manualBookingSchema.safeParse({
+    barberId: text(formData, "barberId"),
+    serviceId: text(formData, "serviceId"),
+    date: text(formData, "date"),
+    time: text(formData, "time"),
+    customerKind: text(formData, "customerKind"),
+    customerId: text(formData, "customerId") || undefined,
+    guestName: text(formData, "guestName"),
+    guestPhone: text(formData, "guestPhone"),
+    staffNote: text(formData, "staffNote"),
+    confirmedWarnings: confirmedWarnings(formData),
+  });
+  if (!parsed.success) return { status: "invalid", values };
+  const input = parsed.data;
+
+  const supabase = await createClient();
+  let bookingId: string;
+  try {
+    // Il barbiere crea solo per sé (SPEC §2); la RLS lo impone comunque.
+    if (user.role !== "admin" && (await getOwnBarberId(supabase)) !== input.barberId) {
+      return { status: "forbidden", values };
+    }
+
+    const { data: service } = await supabase
+      .from("services")
+      .select("duration_min, is_active")
+      .eq("id", input.serviceId)
+      .maybeSingle();
+    // Un servizio disattivato non è più prenotabile (SPEC §3.2).
+    if (!service?.is_active) return { status: "invalid", values };
+
+    const { timezone } = await getCalendarSettings(supabase);
+    const startsAt = localDateTimeToUtc(input.date, input.time, timezone);
+    const endsAt = new Date(startsAt.getTime() + service.duration_min * MINUTE);
+    const current = await slotWarnings(supabase, {
+      barberId: input.barberId,
+      startsAt,
+      endsAt,
+      timezone,
+      now: new Date(),
+    });
+    const decision = decideWarnings(current, input.confirmedWarnings);
+    if (!decision.save) return { status: "warnings", warnings: decision.warnings, values };
+
+    const customer =
+      input.customerKind === "registered"
+        ? { customer_id: input.customerId }
+        : { guest_name: input.guestName, guest_phone: input.guestPhone };
+    const { data: created, error } = await supabase
+      .from("bookings")
+      .insert({
+        ...customer,
+        barber_id: input.barberId,
+        service_id: input.serviceId,
+        starts_at: startsAt.toISOString(),
+        status: "confirmed",
+        source: "manual",
+      })
+      .select("id")
+      .single();
+    if (error || !created) return { status: error ? calendarErrorCode(error) : "error", values };
+    bookingId = created.id;
+
+    if (input.staffNote) {
+      // La prenotazione esiste già: se la nota non si salva, lo staff la reinserisce dal dettaglio.
+      const { error: noteError } = await supabase
+        .from("booking_staff_notes")
+        .insert({ booking_id: bookingId, note: input.staffNote });
+      if (noteError) console.error("createManualBooking: nota staff non salvata", noteError.code);
+    }
+  } catch (error) {
+    console.error("createManualBooking", error);
+    return { status: "error", values };
+  }
+
+  revalidatePath(CALENDAR_AREA, "layout");
+  redirect(`${bookingDetailPath(bookingId)}?${CREATED_PARAM}=1`);
+}
+
+/** Spostamento e modifica (SPEC §6.3): solo l'admin. */
+export async function updateBooking(
+  _previous: CalendarFormState,
+  formData: FormData,
+): Promise<CalendarFormState> {
+  await requireRole(["admin"]);
+  const values = formValues(formData);
+  const parsed = updateBookingSchema.safeParse({
+    id: text(formData, "id"),
+    barberId: text(formData, "barberId"),
+    serviceId: text(formData, "serviceId"),
+    date: text(formData, "date"),
+    time: text(formData, "time"),
+    durationMin: text(formData, "durationMin"),
+    price: text(formData, "price"),
+    confirmedWarnings: confirmedWarnings(formData),
+  });
+  if (!parsed.success) return { status: "invalid", values };
+  const input = parsed.data;
+
+  const supabase = await createClient();
+  try {
+    const { data: existing } = await supabase
+      .from("bookings")
+      .select("status, barber_id, service_id, starts_at, ends_at")
+      .eq("id", input.id)
+      .maybeSingle();
+    if (!existing) return { status: "forbidden", values };
+
+    // Cambiando servizio la durata la ricopia il database dal nuovo servizio.
+    let durationMin = input.durationMin;
+    if (input.serviceId !== existing.service_id) {
+      const { data: service } = await supabase
+        .from("services")
+        .select("duration_min")
+        .eq("id", input.serviceId)
+        .maybeSingle();
+      if (!service) return { status: "invalid", values };
+      durationMin = service.duration_min;
+    }
+
+    const { timezone } = await getCalendarSettings(supabase);
+    const startsAt = localDateTimeToUtc(input.date, input.time, timezone);
+    const next = {
+      barberId: input.barberId,
+      startsAt,
+      endsAt: new Date(startsAt.getTime() + durationMin * MINUTE),
+    };
+    const before = {
+      status: existing.status,
+      barberId: existing.barber_id,
+      startsAt: new Date(existing.starts_at),
+      endsAt: new Date(existing.ends_at),
+    };
+    if (editNeedsWarnings(before, next)) {
+      const current = await slotWarnings(supabase, { ...next, timezone, now: new Date() });
+      const decision = decideWarnings(current, input.confirmedWarnings);
+      if (!decision.save) return { status: "warnings", warnings: decision.warnings, values };
+    }
+
+    const { data: updated, error } = await supabase
+      .from("bookings")
+      .update(bookingUpdateValues({ serviceId: existing.service_id }, { ...input, startsAt }))
+      .eq("id", input.id)
+      .select("id");
+    if (error) return { status: calendarErrorCode(error), values };
+    if (updated.length !== 1) return { status: "forbidden", values };
+  } catch (error) {
+    console.error("updateBooking", error);
+    return { status: "error", values };
+  }
+
+  revalidatePath(CALENDAR_AREA, "layout");
+  // Senza valori: il modulo riparte dai dati salvati (durata e prezzo ricopiati compresi).
+  return { status: "saved" };
+}
+
+/** Cambio di stato (SPEC §3.6): le transizioni ammesse per ruolo le ricontrolla anche il database. */
+export async function changeBookingStatus(
+  _previous: CalendarRowState,
+  formData: FormData,
+): Promise<CalendarRowState> {
+  const user = await requireRole(["barber", "admin"]);
+  const parsed = bookingStatusSchema.safeParse({
+    id: text(formData, "id"),
+    status: text(formData, "status"),
+  });
+  if (!parsed.success) return { status: "invalid" };
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("bookings")
+    .select("status, starts_at")
+    .eq("id", parsed.data.id)
+    .maybeSingle();
+  if (!existing) return { status: "forbidden" };
+
+  const allowed = allowedTransitions({
+    role: user.role === "admin" ? "admin" : "barber",
+    status: existing.status,
+    startsAt: new Date(existing.starts_at),
+    now: new Date(),
+  });
+  if (!allowed.includes(parsed.data.status)) return { status: "forbidden" };
+
+  // Solo se lo stato è ancora quello letto: due cambi concorrenti non si sovrascrivono.
+  const { data: updated, error } = await supabase
+    .from("bookings")
+    .update({ status: parsed.data.status })
+    .eq("id", parsed.data.id)
+    .eq("status", existing.status)
+    .select("id");
+  if (error) return { status: calendarErrorCode(error) };
+  if (updated.length !== 1) return { status: "error" };
+
+  revalidatePath(CALENDAR_AREA, "layout");
+  return { status: "saved" };
+}
+
+/** Nota interna dello staff (SPEC §3.6): vuota la elimina. */
+export async function saveStaffNote(
+  _previous: CalendarRowState,
+  formData: FormData,
+): Promise<CalendarRowState> {
+  await requireRole(["barber", "admin"]);
+  const parsed = staffNoteSchema.safeParse({
+    bookingId: text(formData, "bookingId"),
+    note: text(formData, "note"),
+  });
+  if (!parsed.success) return { status: "invalid" };
+
+  const supabase = await createClient();
+  const { bookingId, note } = parsed.data;
+  const { error } =
+    note === null
+      ? await supabase.from("booking_staff_notes").delete().eq("booking_id", bookingId)
+      : await supabase.from("booking_staff_notes").upsert({ booking_id: bookingId, note });
+  if (error) return { status: calendarErrorCode(error) };
+
+  revalidatePath(bookingDetailPath(bookingId));
+  return { status: "saved" };
+}
+
+/** Ricerca cliente per la prenotazione manuale (SPEC §6.2), tramite search_customers (ADR 001). */
+export async function searchCustomers(query: string): Promise<CustomerMatch[]> {
+  await requireRole(["barber", "admin"]);
+  const parsed = customerQuerySchema.safeParse(query);
+  if (!parsed.success) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("search_customers", { q: parsed.data });
+  if (error) {
+    console.error("searchCustomers", error.code);
+    return [];
+  }
+  return data.map((row) => ({ id: row.id, fullName: row.full_name ?? "", phone: row.phone }));
+}
