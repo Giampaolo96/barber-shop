@@ -14,8 +14,8 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 
 // Percorso relativo voluto: non dipende dalla risoluzione dell'alias `@/*` in Playwright.
 import { it } from '../../src/i18n/it';
+import { type MailpitMessage, newestEmailId, waitForNewEmail } from './mailpit';
 
-const MAILPIT_URL = 'http://127.0.0.1:54324';
 const DEMO_PASSWORD = 'demo1234';
 const ADMIN_EMAIL = 'admin@demo.local';
 const BARBER_EMAIL = 'barber@demo.local';
@@ -90,38 +90,6 @@ const uniqueEmail = (label: string): string => {
   return `e2e-${label}-${Date.now()}-${emailCounter}-${random}@qa.test`;
 };
 
-type MailpitSummary = { ID: string; Created: string };
-type MailpitMessage = { HTML: string; Text: string; Subject: string };
-
-/** Corpo dell'ultima email arrivata a `to` (dopo le prime `skip`), letto da Mailpit. */
-const latestEmail = async (request: APIRequestContext, to: string, skip = 0): Promise<MailpitMessage> => {
-  let messages: MailpitSummary[] = [];
-  await expect
-    .poll(
-      async () => {
-        const response = await request.get(`${MAILPIT_URL}/api/v1/search`, {
-          params: { query: `to:"${to}"` },
-        });
-        expect(response.ok(), 'Mailpit non raggiungibile su http://127.0.0.1:54324').toBe(true);
-        messages = ((await response.json()) as { messages: MailpitSummary[] }).messages;
-        return messages.length;
-      },
-      { message: `nessuna email arrivata a ${to}`, timeout: 10_000 },
-    )
-    .toBeGreaterThan(skip);
-  const newest = [...messages].sort((a, b) => b.Created.localeCompare(a.Created))[0];
-  expect(newest).toBeDefined();
-  const response = await request.get(`${MAILPIT_URL}/api/v1/message/${newest?.ID}`);
-  expect(response.ok()).toBe(true);
-  return (await response.json()) as MailpitMessage;
-};
-
-const countEmails = async (request: APIRequestContext, to: string): Promise<number> => {
-  const response = await request.get(`${MAILPIT_URL}/api/v1/search`, { params: { query: `to:"${to}"` } });
-  expect(response.ok(), 'Mailpit non raggiungibile su http://127.0.0.1:54324').toBe(true);
-  return ((await response.json()) as { messages: MailpitSummary[] }).messages.length;
-};
-
 /** Link di accesso contenuto nell'email: deve puntare alla nostra route /auth/confirm con token_hash. */
 const confirmLink = (message: MailpitMessage): URL => {
   const hrefs = [...message.HTML.matchAll(/href="([^"]+)"/g)].map((match) =>
@@ -154,12 +122,12 @@ const expectPath = async (page: Page, pathname: string): Promise<void> => {
 // ---------------------------------------------------------------------------
 /** Chiede il magic link da /accedi e restituisce il link ricevuto via email. */
 const requestMagicLink = async (page: Page, email: string): Promise<URL> => {
-  const before = await countEmails(page.request, email);
+  const before = await newestEmailId(page.request, email);
   await page.goto('/accedi');
   await page.getByLabel(s('auth.customerLogin.emailLabel')).fill(email);
   await page.getByRole('button', { name: s('auth.customerLogin.submit') }).click();
   await expect(page.getByText(s('auth.customerLogin.linkSent'))).toBeVisible();
-  return confirmLink(await latestEmail(page.request, email, before));
+  return confirmLink(await waitForNewEmail(page.request, email, before));
 };
 
 const fillCompleteProfile = async (
@@ -442,13 +410,13 @@ test.describe('Cliente con magic link (SPEC §5.5, §8, §2)', () => {
     };
 
     // Aggiunta di sicurezza 4: la risposta su /accedi è la stessa di sempre
-    const before = await countEmails(page.request, ADMIN_EMAIL);
+    const before = await newestEmailId(page.request, ADMIN_EMAIL);
     const forStaff = await answerFor(ADMIN_EMAIL);
     const forUnknown = await answerFor(uniqueEmail('non-staff'));
     expect(forStaff).toBe(forUnknown);
 
     // Aprendo il link e confermando non si ottiene una sessione staff
-    const link = confirmLink(await latestEmail(page.request, ADMIN_EMAIL, before));
+    const link = confirmLink(await waitForNewEmail(page.request, ADMIN_EMAIL, before));
     await openAndConfirm(page, link);
     await expectPath(page, '/admin/login');
     await expect(adminNavLink(page, 'admin.nav.calendar')).toHaveCount(0);
@@ -539,7 +507,7 @@ test.describe('Cliente con magic link (SPEC §5.5, §8, §2)', () => {
     });
     expect(response.ok(), `registrazione via API fallita: ${response.status()}`).toBe(true);
 
-    const link = confirmLink(await latestEmail(page.request, email));
+    const link = confirmLink(await waitForNewEmail(page.request, email, null));
     await openAndConfirm(page, link);
     await expectPath(page, '/profilo/completa');
 
@@ -608,7 +576,7 @@ const createBarberAccount = async (
   expect(userId, 'id del nuovo utente').not.toBe('');
 
   if (signupBody.access_token === undefined) {
-    const message = await latestEmail(request, email);
+    const message = await waitForNewEmail(request, email, null);
     const body = `${message.HTML.replace(/&amp;/g, '&')}\n${message.Text}`;
     const tokenHash = /[?&](?:token_hash|token)=([A-Za-z0-9_-]+)/.exec(body)?.[1];
     const type = /[?&]type=([a-z_]+)/.exec(body)?.[1];

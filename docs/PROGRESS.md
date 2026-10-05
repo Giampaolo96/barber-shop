@@ -494,7 +494,11 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 - Playwright con `--workers=3`: 79/79.
 - Con i worker predefiniti 1–20 test falliscono al login dello staff (redirect a `/admin` oltre 5 s in dev). Nessun processo dell'app rimasto attivo, ma sulla macchina girano applicazioni pesanti (un gioco, Docker Desktop): è un problema di carico, non del codice.
 
-**Problemi aperti**
-- Lo stesso conteggio Mailpit limitato a 50 resta in `tests/e2e/auth.spec.ts`, `tests/e2e/review-fixes-fetta5.spec.ts` e `tests/e2e/global-setup.ts`, non modificati senza l'ok dell'utente. Con la casella piena il warm-up del cliente salta (solo un avviso) e i test di quei file possono fallire. Correzione proposta: la stessa di `booking.spec.ts`.
-- Gli e2e in dev con 8 worker sono sensibili al carico della macchina; valutare `workers` più bassi in locale o la build di produzione.
-
+**Helper Mailpit condiviso e worker locali** (richiesta dell'utente, commit "test: helper Mailpit condiviso e worker locali")
+- `tests/e2e/mailpit.ts` (`newestEmailId`, `waitForNewEmail`, `confirmHref`): usato da `auth.spec.ts`, `booking.spec.ts`, `review-fixes-fetta5.spec.ts` e `global-setup.ts`. Funziona così:
+  - prima di richiedere l'email legge l'id del messaggio più recente per quel destinatario;
+  - attende un messaggio più recente con un id diverso;
+  - non conta i risultati, quindi il limite di 50 della ricerca Mailpit non conta più.
+  Nessuna asserzione cambiata.
+- `playwright.config.ts`: in locale `workers: "25%"` (4 su 16 core logici); in CI resta il default. Il default di Playwright è già il 50% dei core, cioè gli 8 worker con cui la suite falliva: per questo è stato scelto il 25% invece del 50% proposto come esempio.
+- Verifica: 66 email per `cliente@demo.local` e 62 per `admin@demo.local` (la ricerca ne restituisce 50). Playwright 79/79 con 4 worker, warm-up completo.

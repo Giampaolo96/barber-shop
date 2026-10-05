@@ -9,6 +9,9 @@ export default defineConfig({
   // Solo in sviluppo: carica una volta le pagine principali prima dei test (compilazione on-demand).
   globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: true,
+  // In locale un quarto dei core: con il default di Playwright (metà dei core) il dev server e lo
+  // stack Supabase locale si saturano e i login dello staff superano i timeout. In CI resta il default.
+  workers: isCI ? undefined : "25%",
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
   reporter: isCI ? [["github"], ["html", { open: "never" }]] : "list",

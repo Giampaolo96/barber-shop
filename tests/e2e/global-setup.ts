@@ -9,8 +9,8 @@
 import { chromium, type BrowserContext, type FullConfig, type Page } from '@playwright/test';
 
 import { ADMIN_EMAIL, CUSTOMER_EMAIL, DEMO_PASSWORD, SEED, s } from './admin-helpers';
+import { confirmHref, newestEmailId, waitForNewEmail } from './mailpit';
 
-const MAILPIT_URL = 'http://127.0.0.1:54324';
 /** Una compilazione a freddo può superare i timeout predefiniti. */
 const COMPILE_TIMEOUT = 120_000;
 
@@ -58,36 +58,15 @@ const warmUpAdmin = async (context: BrowserContext): Promise<void> => {
   for (const path of ADMIN_PAGES) await visit(page, path);
 };
 
-type MailpitSummary = { ID: string; Created: string };
-
-const confirmLinks = async (page: Page): Promise<MailpitSummary[]> => {
-  const response = await page.request.get(`${MAILPIT_URL}/api/v1/search`, {
-    params: { query: `to:"${CUSTOMER_EMAIL}"` },
-  });
-  return ((await response.json()) as { messages: MailpitSummary[] }).messages;
-};
-
 /** Login del cliente demo con il magic link (Mailpit), come negli e2e del flusso cliente. */
 const warmUpCustomer = async (context: BrowserContext): Promise<void> => {
   const page = await context.newPage();
   await visit(page, '/accedi');
-  const before = (await confirmLinks(page)).length;
+  const before = await newestEmailId(page.request, CUSTOMER_EMAIL);
   await page.getByLabel(s('auth.customerLogin.emailLabel')).fill(CUSTOMER_EMAIL);
   await page.getByRole('button', { name: s('auth.customerLogin.submit') }).click();
 
-  let messages: MailpitSummary[] = [];
-  for (let attempt = 0; attempt < 40 && messages.length <= before; attempt++) {
-    await page.waitForTimeout(250);
-    messages = await confirmLinks(page);
-  }
-  const newest = [...messages].sort((a, b) => b.Created.localeCompare(a.Created))[0];
-  if (!newest || messages.length <= before) throw new Error('nessuna email di accesso per il cliente demo');
-  const message = (await (await page.request.get(`${MAILPIT_URL}/api/v1/message/${newest.ID}`)).json()) as {
-    HTML: string;
-  };
-  const href = [...message.HTML.matchAll(/href="([^"]+)"/g)]
-    .map((match) => (match[1] ?? '').replace(/&amp;/g, '&'))
-    .find((link) => link.includes('/auth/confirm?'));
+  const href = confirmHref(await waitForNewEmail(page.request, CUSTOMER_EMAIL, before));
   if (!href) throw new Error("link /auth/confirm non trovato nell'email");
 
   const url = new URL(href);

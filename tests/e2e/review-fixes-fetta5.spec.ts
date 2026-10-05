@@ -5,32 +5,18 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { expectPath, s, uniqueEmail } from './admin-helpers';
-
-const MAILPIT_URL = 'http://127.0.0.1:54324';
-type MailpitSummary = { ID: string; Created: string };
+import { confirmHref, newestEmailId, waitForNewEmail } from './mailpit';
 
 /** Nuovo cliente: magic link da /accedi, conferma, arrivo su /profilo/completa. */
 const signUp = async (page: Page, label: string): Promise<void> => {
   const email = uniqueEmail(label);
+  const before = await newestEmailId(page.request, email);
   await page.goto('/accedi');
   await page.getByLabel(s('auth.customerLogin.emailLabel')).fill(email);
   await page.getByRole('button', { name: s('auth.customerLogin.submit') }).click();
   await expect(page.getByText(s('auth.customerLogin.linkSent'))).toBeVisible();
 
-  let messages: MailpitSummary[] = [];
-  await expect
-    .poll(async () => {
-      const response = await page.request.get(`${MAILPIT_URL}/api/v1/search`, { params: { query: `to:"${email}"` } });
-      messages = ((await response.json()) as { messages: MailpitSummary[] }).messages;
-      return messages.length;
-    })
-    .toBeGreaterThan(0);
-  const message = (await (await page.request.get(`${MAILPIT_URL}/api/v1/message/${messages[0]?.ID}`)).json()) as {
-    HTML: string;
-  };
-  const href = [...message.HTML.matchAll(/href="([^"]+)"/g)]
-    .map((m) => (m[1] ?? '').replace(/&amp;/g, '&'))
-    .find((h) => h.includes('/auth/confirm?'));
+  const href = confirmHref(await waitForNewEmail(page.request, email, before));
   const url = new URL(href ?? 'http://invalid.invalid');
   await page.goto(`${url.pathname}${url.search}`);
   await page.locator('main form').getByRole('button', { name: s('auth.confirmLink.submit') }).click();
