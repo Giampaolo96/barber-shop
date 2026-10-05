@@ -686,9 +686,6 @@ insert into public.bookings (id, customer_id, barber_id, service_id, starts_at, 
   -- esattamente al limite: now() = starts_at - cancel_limit_min
   ('bc000000-0000-4000-8000-000000001901', 'a5000000-0000-4000-8000-000000001910', 'eb000000-0000-4000-8000-000000001903',
    'e5000000-0000-4000-8000-000000001902', now() + interval '120 minutes', 'confirmed', 'online'),
-  -- un minuto oltre il limite
-  ('bc000000-0000-4000-8000-000000001902', 'a5000000-0000-4000-8000-000000001910', 'eb000000-0000-4000-8000-000000001904',
-   'e5000000-0000-4000-8000-000000001902', now() + interval '119 minutes', 'confirmed', 'online'),
   ('bc000000-0000-4000-8000-000000001903', 'a5000000-0000-4000-8000-000000001910', 'eb000000-0000-4000-8000-000000001904',
    'e5000000-0000-4000-8000-000000001902', now() + interval '1 day', 'cancelled_by_shop', 'online'),
   ('bc000000-0000-4000-8000-000000001904', 'a5000000-0000-4000-8000-000000001910', 'eb000000-0000-4000-8000-000000001904',
@@ -698,10 +695,20 @@ insert into public.bookings (id, customer_id, barber_id, service_id, starts_at, 
    'e5000000-0000-4000-8000-000000001902', now() + interval '2 days', 'confirmed', 'online');
 
 select pg_temp.act_as('a5000000-0000-4000-8000-000000001910');
-select throws_ok($q$ select public.cancel_own_booking('bc000000-0000-4000-8000-000000001902') $q$,
-  'P0001', 'too_late', 'SPEC §12: un minuto oltre cancel_limit_min → too_late');
 select lives_ok($q$ select public.cancel_own_booking('bc000000-0000-4000-8000-000000001901') $q$,
   'SPEC §12: esattamente al limite di cancel_limit_min → cancellazione ammessa');
+
+-- Fetta 6 (regola 6, SPEC §3.7.6): la 1902 si sovrappone alla 1901 dello stesso cliente, quindi si
+-- inserisce dopo la cancellazione della 1901 (prima le due confirmed coesistevano).
+select pg_temp.act_as_postgres();
+insert into public.bookings (id, customer_id, barber_id, service_id, starts_at, status, source) values
+  -- un minuto oltre il limite
+  ('bc000000-0000-4000-8000-000000001902', 'a5000000-0000-4000-8000-000000001910', 'eb000000-0000-4000-8000-000000001904',
+   'e5000000-0000-4000-8000-000000001902', now() + interval '119 minutes', 'confirmed', 'online');
+
+select pg_temp.act_as('a5000000-0000-4000-8000-000000001910');
+select throws_ok($q$ select public.cancel_own_booking('bc000000-0000-4000-8000-000000001902') $q$,
+  'P0001', 'too_late', 'SPEC §12: un minuto oltre cancel_limit_min → too_late');
 select throws_ok($q$ select public.cancel_own_booking('bc000000-0000-4000-8000-000000001903') $q$,
   'P0001', 'not_cancellable', 'SPEC §3.6: prenotazione non confirmed → not_cancellable');
 select throws_ok($q$ select public.cancel_own_booking('bc000000-0000-4000-8000-000000001905') $q$,

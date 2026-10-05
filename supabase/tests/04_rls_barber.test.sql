@@ -20,6 +20,22 @@ exception when others then
   return sqlstate;
 end $f$;
 
+-- Come outcome, ma annulla la scrittura riuscita (sottotransazione): verifica che sia ammessa
+-- senza cambiare i dati usati dai test successivi. Aggiunto con la fetta 6 (decisione 3).
+create function pg_temp.outcome_undone(q text) returns text language plpgsql as $f$
+declare n bigint;
+begin
+  begin
+    execute q;
+    get diagnostics n = row_count;
+    raise exception using errcode = 'QA001', message = 'rows:' || n;
+  exception when sqlstate 'QA001' then
+    return sqlerrm;
+  end;
+exception when others then
+  return sqlstate;
+end $f$;
+
 create function pg_temp.mk_user(uid uuid, mail text, r text, nm text, ph text)
 returns void language plpgsql as $f$
 begin
@@ -258,9 +274,11 @@ select matches(
 select matches(
   pg_temp.outcome($q$ update public.bookings set status = 'no_show' where id = 'b00c0000-0000-4000-8000-000000000405' $q$),
   '^(42501|P0001|23514)$', 'barber – SPEC §3.6: no_show rifiutato su una prenotazione futura');
-select matches(
-  pg_temp.outcome($q$ update public.bookings set status = 'cancelled_by_customer' where id = 'b00c0000-0000-4000-8000-000000000405' $q$),
-  '^(rows:0|42501|P0001|23514)$', 'barber – SPEC §3.6: non può impostare cancelled_by_customer');
+-- Fetta 6, decisione 3 approvata dall'utente: il barbiere può segnare cancelled_by_customer sulle
+-- proprie prenotazioni (prima era rifiutato). La scrittura viene annullata: 405 resta confirmed.
+select is(
+  pg_temp.outcome_undone($q$ update public.bookings set status = 'cancelled_by_customer' where id = 'b00c0000-0000-4000-8000-000000000405' $q$),
+  'rows:1', 'barber – fetta 6 (decisione 3): confirmed → cancelled_by_customer ammesso sulle proprie');
 select matches(
   pg_temp.outcome($q$ update public.bookings set status = 'confirmed' where id = 'b00c0000-0000-4000-8000-000000000401' $q$),
   '^(rows:0|42501|P0001|23514)$', 'barber – SPEC §3.6: completed → confirmed non ammesso (stato finale)');
