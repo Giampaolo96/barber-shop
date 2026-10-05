@@ -264,7 +264,11 @@ select is_empty(
            'public.current_barber_id()',
            -- fetta 4: input del motore di disponibilità, leggibile senza login (solo orari)
            'availability_inputs(uuid,uuid,timestamp with time zone,timestamp with time zone)',
-           'public.availability_inputs(uuid,uuid,timestamp with time zone,timestamp with time zone)')
+           'public.availability_inputs(uuid,uuid,timestamp with time zone,timestamp with time zone)',
+           -- fetta 8a: orari del negozio e chiusure di oggi per la home pubblica (nessun dato dei
+           -- barbieri né motivo delle chiusure)
+           'shop_opening_hours()', 'public.shop_opening_hours()',
+           'shop_closures_today()', 'public.shop_closures_today()')
          and p.proname not in ('timerange', 'timemultirange') $q$,
   'nessuna funzione di public eseguibile da PUBLIC o anon, salvo gli helper delle policy');
 select is(
