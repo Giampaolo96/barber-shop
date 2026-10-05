@@ -506,7 +506,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 
 ## Fetta 8a – Identità visiva (tema "Mosca")
 
-**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 1–10 applicate su richiesta dell'utente nel commit "fix: review fetta 8a", la 11 annotata). Da fare: `db push` delle 3 migrazioni `20261006*` su Supabase cloud, CI.
+**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 1–10 applicate su richiesta dell'utente nel commit "fix: review fetta 8a", la 11 annotata). Le 3 migrazioni `20261006*` sono applicate a Supabase cloud (`db push` dell'utente, 2026-10-06, senza errori). CI da verificare dopo il push di `89edf68`. In produzione il nome "Mosca Barber Shop" va impostato da Impostazioni (il seed vale solo in locale).
 
 **Fatto**
 - Design system a token:
@@ -569,4 +569,38 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 9. `.mcp.json`: `@playwright/mcp@0.0.83`.
 10. Test di `dayParts` e `formatLongDate` in `tests/acceptance/theme-review-fixes.test.ts`.
 11. Annotata, non applicata: `generateMetadata` nel root layout legge le impostazioni con i cookie, quindi tutte le route sono dinamiche (lo erano già quasi tutte per l'autenticazione). Da rivedere se servirà il rendering statico, ad esempio con un titolo letto senza sessione.
+
+## Ripiego del login con il template email predefinito (2026-10-06)
+
+**Motivo**: in produzione, senza SMTP proprio, Supabase usa il template predefinito. Il link torna all'app con `?code=` (PKCE), che non era gestito: il cliente tornava in home senza sessione.
+
+**Fatto**
+- `src/lib/auth/email-fallback.ts` (`emailLinkFallback`, logica pura): nel proxy `/?code=` e `/auth/confirm?code=` vanno a `/auth/callback`, mentre `error`/`error_code` portano a `/accedi?errore=link` (l'errore vince sul codice).
+- `src/app/auth/callback/route.ts`: scambio con `exchangeCodeForSession`, cookie in sospeso finché il ruolo non è verificato. Cliente: stessa destinazione del flusso principale. Staff: revoca della sola sessione nuova e `/admin/login`. Codice non valido: `/accedi?errore=link`.
+- `src/components/auth/email-link-error.tsx`, nel layout dell'area clienti: errori nel fragment → `/accedi?errore=link`.
+- Documentazione: ADR 002 (eccezione approvata a `requireRole` per il callback), `DEPLOY.md` §5, `GO-LIVE.md` §3.
+- Test di spec-qa (commit `c2d1248`): `tests/acceptance/auth-code-fallback.test.ts` (22), `tests/e2e/auth-code-fallback.spec.ts` (6).
+
+**Verifiche**
+- Il link predefinito si simula aprendo `/auth/v1/verify?token=<token_hash>` con il token letto da Mailpit. Per un indirizzo nuovo il tipo è `signup`, per uno esistente `magiclink`.
+- GoTrue mette l'errore di un link già usato sia nella query sia nel fragment.
+- Staff, sessione revocata solo per il link (verificata su `auth.sessions`):
+  - dopo il link dello staff il numero di sessioni del barbiere non cambia;
+  - con una sessione aperta con la password nello stesso browser, quella resta intatta (refresh token valido) e si resta su `/admin`.
+
+**Decisioni**: il barbiere demo è lo staff di prova, perché l'email dell'admin è usata da altri test in parallelo. Un `?code=` vuoto va comunque a `/auth/callback`, che lo rifiuta. Un cliente già loggato che apre un link scaduto finisce in home senza messaggio. Uno staff con una sessione aperta che apre il link resta su `/admin`.
+
+**Limiti** (finché manca l'SMTP): il link vale solo nel browser della richiesta e si consuma all'apertura (gli scanner della posta possono invalidarlo).
+**Test esistente modificato** (approvato dall'utente): `tests/acceptance/auth.test.ts`, "nessun route handler GET esegue signOut". Ha un'eccezione stretta solo per `src/app/auth/callback/route.ts`, dove un nuovo test verifica che ogni `signOut` usi `scope: "local"`.
+
+**Esiti**: lint ok, typecheck ok, Vitest 1292/1292, pgTAP 1090/1090, Playwright 88/88. Review: nessun bloccante (open redirect, login forzato e cookie verificati).
+
+**Migliorie dalla review** (non applicate: decide l'utente)
+1. Con `/auth/confirm?code=…&next=<origin>/?n=…` la destinazione si perde (il callback legge `n` solo dalla query). Oggi il ritorno è sempre `/?n=`: caso marginale.
+2. Ramo staff: l'errore di `signOut` (revoca fallita) non viene registrato.
+3. Limite da documentare: vale solo l'ultimo link richiesto da quel browser (un solo `code_verifier`).
+4. I cookie `…-flow-<id>-code-verifier` restano fino alla scadenza (vale anche per il flusso principale).
+5. Solo verificati a mano, senza e2e: staff con sessione già aperta che apre il link, pulizia del verifier, ramo senza profilo.
+6. Errore solo nel fragment su `/auth/confirm` non intercettato: oggi GoTrue lo mette anche nella query, quindi lo gestisce il proxy.
+7. Documentazione: GO-LIVE dice ancora "senza, il cliente torna sempre alla home"; in DEPLOY il punto "4bis." spezza l'elenco numerato.
 

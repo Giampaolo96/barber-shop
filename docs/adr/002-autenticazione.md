@@ -20,6 +20,13 @@ La SPEC §5.5 chiede il login dei clienti con magic link (e Google, rimandato) e
 - `decideAccess` (`src/lib/auth/access.ts`) è una funzione pura che decide `allow` o `redirect` da percorso, ruolo, blocco e completezza del profilo. La applica `src/proxy.ts` prima del rendering; ogni pagina di `/admin` (non solo il layout, che non si riesegue a ogni navigazione) e le server action ricontrollano con `requireRole`. La RLS resta la protezione dei dati.
 - Aree: `/admin/**` per lo staff (il barbiere solo `/admin` e `/admin/calendario`, ogni altra rotta è solo-admin per default); `/prenota/**`, `/prenotazioni/**` e `/profilo/**` sono pagine private del cliente. Lo staff non usa le pagine private del cliente e viene rimandato a `/admin`.
 - Il parametro `next` di `/auth/confirm` passa da `safeNextPath`: solo percorsi relativi interni.
+- **Ripiego per il template predefinito** (aggiunto il 2026-10-06, finché manca l'SMTP con il template personalizzato). Il link predefinito passa da `/auth/v1/verify` e torna all'app con `?code=` (PKCE). Il proxy (`emailLinkFallback`) rimanda `/?code=` e `/auth/confirm?code=` al route handler `GET /auth/callback`, che fa lo scambio con `exchangeCodeForSession`:
+  - tiene in sospeso i cookie della nuova sessione e legge il ruolo;
+  - cliente: applica i cookie e segue la stessa destinazione del flusso principale (`n` → `safeNextPath`, `/profilo/completa` se il profilo è incompleto);
+  - staff: `signOut({ scope: "local" })` sulla sola sessione nuova, nessun cookie, `/admin/login`; la sessione già aperta nel browser resta intatta;
+  - codice non valido e parametri `error`/`error_code`, nella query (proxy) o nel fragment (componente client nell'area clienti): `/accedi?errore=link`.
+
+  Eccezione approvata alla regola "ogni route handler chiama `requireRole`": è un callback di login e l'utente non è ancora autenticato; il ruolo si verifica dopo lo scambio, prima di dare la sessione al browser.
 - `is_blocked`: al cliente non impedisce il login (blocca la prenotazione, fetta 5). Lo staff bloccato non entra in `/admin`: al login vede "Account disabilitato" e viene disconnesso; a sessione già aperta il proxy lo rimanda a `/admin/login` e toglie i cookie di sessione dal browser.
 
 **Profilo e consensi**

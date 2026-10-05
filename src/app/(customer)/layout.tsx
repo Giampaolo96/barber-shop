@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { EmailLinkError } from "@/components/auth/email-link-error";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ShopBrandLink } from "@/components/shop-brand-link";
 import { it } from "@/i18n/it";
@@ -45,6 +46,7 @@ export default async function CustomerLayout({ children }: { children: ReactNode
           )}
         </div>
       </header>
+      <EmailLinkError />
       {children}
     </>
   );

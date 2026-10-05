@@ -28,6 +28,7 @@ I passi tecnici di dettaglio sono in `docs/DEPLOY.md`; qui c'è cosa deve esiste
 - [ ] **SMTP proprio** in *Authentication → SMTP Settings* con la chiave Resend per Supabase e il mittente del sottodominio di invio (`docs/DEPLOY.md` §5).
 - [ ] **Template** *Magic Link* e *Confirm signup* copiati da `supabase/templates/magic_link.html` e `confirmation.html`, con nome e recapiti del negozio.
   Il ritorno alla pagina di partenza dopo il login (es. nel mezzo di una prenotazione) dipende da questi template (parametro `next={{ .RedirectTo }}`), quindi dall'SMTP proprio: senza, il cliente torna sempre alla home.
+  Finché mancano SMTP e template, l'accesso funziona con il ripiego `/auth/callback` (template predefinito, `?code=`), con i limiti descritti in `docs/DEPLOY.md` §5 (link valido solo nel browser della richiesta, consumato all'apertura). Il ripiego serve solo fino a questo punto della checklist.
 - [ ] **Rate limit delle email** in *Authentication → Rate Limits*, tarati sul piano Resend; CAPTCHA pronto da attivare in caso di abusi (`docs/DEPLOY.md` §5).
 - [ ] **Valutazione del piano Pro**: nel piano gratuito i progetti inattivi vengono messi in pausa e i backup sono limitati. Per un negozio che lavora tutti i giorni servono backup giornalieri e nessuna pausa.
 - [ ] Migrazioni applicate (`npx supabase db push`), **senza seed**: gli utenti demo hanno una password nota.

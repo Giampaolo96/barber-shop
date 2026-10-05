@@ -9,6 +9,7 @@ import {
   decideAccess,
   isStaffRole,
 } from "@/lib/auth/access";
+import { emailLinkFallback } from "@/lib/auth/email-fallback";
 import { ACCESS_PROFILE_COLUMNS, toCurrentUser } from "@/lib/auth/profile";
 import type { CurrentUser } from "@/lib/auth/profile";
 import { supabaseEnv } from "@/lib/db/env";
@@ -17,6 +18,10 @@ import type { Database } from "@/lib/db/database";
 // Rinnova la sessione e applica le regole di accesso prima del rendering. È un primo
 // filtro: pagine e server action ricontrollano comunque il ruolo.
 export async function proxy(request: NextRequest) {
+  // Link del template email predefinito (?code= o errore): prima di tutto il resto.
+  const fallback = emailLinkFallback(request.nextUrl);
+  if (fallback) return NextResponse.redirect(new URL(fallback, request.url));
+
   let response = NextResponse.next({ request });
   const { url, anonKey } = supabaseEnv();
 

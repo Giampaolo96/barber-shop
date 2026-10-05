@@ -1199,13 +1199,27 @@ describe('Logout – aggiunta di sicurezza 6 (SPEC §8)', () => {
   const exportsGet = (code: string): boolean =>
     /export\s+(?:async\s+)?function\s+GET\b|export\s+const\s+GET\b|export\s*\{[^}]*\bGET\b/.test(code);
 
+  // Eccezione approvata dall'utente (ripiego del login con il template email predefinito, ADR 002):
+  // /auth/callback è un GET per forza (ci rimanda Supabase) e chiama signOut solo per revocare la
+  // sessione appena creata dal link di uno staff, i cui cookie non arrivano mai al browser: non
+  // disconnette chi apre il link. Non è raggiungibile da link interni precaricabili.
+  const EMAIL_CALLBACK_ROUTE = 'src/app/auth/callback/route.ts';
+
   // "Logout tramite server action / POST, mai link GET"
   test('nessun route handler che esporta GET esegue signOut', () => {
     const offending = routeHandlers().filter((file) => {
+      if (file === EMAIL_CALLBACK_ROUTE) return false;
       const code = readSource(file);
       return exportsGet(code) && /\bsignOut\s*\(/.test(code);
     });
     expect(offending).toEqual([]);
+  });
+
+  test('eccezione del callback email: ogni signOut revoca solo la sessione corrente (scope "local")', () => {
+    if (!routeHandlers().includes(EMAIL_CALLBACK_ROUTE)) return;
+    const code = readSource(EMAIL_CALLBACK_ROUTE);
+    const calls = [...code.matchAll(/\bsignOut\s*\(([^)]*)\)/g)].map((match) => match[1].replace(/\s+/g, ''));
+    expect(calls.every((args) => /^\{scope:["']local["'],?\}$/.test(args)), `chiamate: ${calls.join(' | ')}`).toBe(true);
   });
 
   test('pagine e layout non eseguono signOut durante il rendering (richiesta GET)', () => {
