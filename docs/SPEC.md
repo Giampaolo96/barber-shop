@@ -20,7 +20,7 @@ Un solo negozio (single-tenant). Il multi-negozio è fuori scope ma il modello d
 | Ruolo | Chi è | Cosa può fare |
 |---|---|---|
 | `customer` | Cliente registrato | Vede servizi e disponibilità, prenota, vede/cancella le proprie prenotazioni, gestisce il proprio profilo |
-| `barber` | Dipendente | Vede il proprio calendario, crea prenotazioni manuali per sé, segna completata / no-show / cancellata (dal cliente o dal negozio), gestisce le proprie assenze (senza approvazione dell'admin) |
+| `barber` | Dipendente | Vede il proprio calendario, crea prenotazioni manuali per sé, sposta l'orario delle proprie prenotazioni confermate non ancora iniziate (§6.3), segna completata / no-show / cancellata (dal cliente o dal negozio), gestisce le proprie assenze (senza approvazione dell'admin) |
 | `admin` | Titolare | Tutto: servizi, barbieri, orari, chiusure, tutte le prenotazioni, clienti, impostazioni, statistiche |
 
 Un utente ha un solo ruolo. Un admin può essere anche barbiere: lo è quando esiste una riga `barbers` collegata al suo profilo (`barbers.profile_id`), senza flag dedicato.
@@ -118,7 +118,7 @@ Il calcolo avviene lato server (funzione Postgres `security definer` o server ac
 
 1. **Calendario giornaliero** con una colonna per barbiere, vista settimanale, navigazione per data; click su slot vuoto → nuova prenotazione manuale; click su prenotazione → dettaglio e cambio stato. Il barbiere vede solo la propria colonna; la vista settimanale mostra un barbiere alla volta (per l'admin la propria scheda se è anche barbiere, altrimenti il primo barbiere attivo per nome). La griglia copre fasce di lavoro e prenotazioni del giorno; le cancellate sono nascoste, con un conteggio e un link per mostrarle.
 2. **Prenotazione manuale**: ricerca cliente esistente o inserimento rapido nome + telefono (E.164); nota interna dello staff facoltativa. Fuori fascia, in assenza, in chiusura o nel passato serve "Conferma comunque" (§3.7.5).
-3. **Spostamento prenotazione** (cambio orario/barbiere, servizio, durata, prezzo; solo admin) con verifica sovrapposizioni. Cambiando servizio durata e prezzo si ricopiano dal nuovo servizio. Gli avvisi valgono solo se cambiano orario, barbiere o fine di una prenotazione `confirmed`.
+3. **Spostamento prenotazione** (cambio orario/barbiere, servizio, durata, prezzo; solo admin) con verifica sovrapposizioni. Cambiando servizio durata e prezzo si ricopiano dal nuovo servizio. Gli avvisi valgono solo se cambiano orario, barbiere o fine di una prenotazione `confirmed`. **Trascinamento nella vista giorno** (ADR 008): si spostano solo le `confirmed` non ancora iniziate, agganciandosi alle righe della griglia; l'admin anche verso un'altra colonna (barbiere attivo), il barbiere solo le proprie e solo nell'orario. Durata e prezzo non cambiano. Gli avvisi aprono un dialogo con "Conferma comunque"; dopo il salvataggio "Annulla spostamento" resta disponibile per 8 secondi. Il barbiere ha anche il modulo "Sposta orario" nel dettaglio.
 4. **Servizi**: CRUD, ordinamento, attivazione.
 5. **Barbieri**: CRUD, servizi abilitati, orari settimanali, assenze. Vista delle assenze (`/admin/assenze`): l'admin vede quelle di tutti i barbieri, prima le future, con filtro per barbiere (parte dalla propria scheda se è anche barbiere) e ne inserisce scegliendo il barbiere; il barbiere vede e gestisce solo le proprie.
 6. **Chiusure negozio**.
@@ -166,6 +166,7 @@ Pagamenti e caparre online, più servizi in una prenotazione, lista d'attesa, pr
 | 5 | Flusso prenotazione cliente + "Le mie prenotazioni" | Prenotazione e cancellazione end-to-end con Playwright |
 | 6 | Calendario admin + prenotazioni manuali + cambi stato | Staff gestisce una giornata intera |
 | 6b | Admin: clienti (§6.7: elenco, storico, no-show, blocco/sblocco) | L'admin trova un cliente, ne vede lo storico e lo blocca o sblocca |
+| 6c | Spostamento con trascinamento sul calendario (§6.3, ADR 008) | Admin e barbiere spostano una prenotazione trascinandola, con avvisi e annullamento |
 | 7 | Notifiche email e promemoria | Email ricevute in ambiente di test |
 | 8a | Identità visiva: design system a token, tema "Mosca", restyling cliente e admin (`docs/DESIGN.md`) | Screenshot a 390 e 1280 px rivisti, test esistenti verdi senza cambiare le asserzioni |
 | 8 | PWA (manifest, icone, installazione) + rifinitura UI | Installabile su iOS e Android |

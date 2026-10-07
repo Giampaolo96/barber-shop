@@ -69,6 +69,31 @@ export const updateBookingSchema = z
   });
 export type UpdateBookingInput = z.infer<typeof updateBookingSchema>;
 
+/**
+ * Spostamento dal calendario (fetta 6c): istanti ISO con offset, la posizione attesa serve a
+ * rifiutare uno spostamento su dati cambiati nel frattempo. Durata e prezzo non passano mai.
+ */
+const instant = z.iso.datetime({ offset: true });
+export const moveBookingSchema = z.object({
+  id: z.uuid(),
+  barberId: z.uuid(),
+  startsAt: instant,
+  expectedBarberId: z.uuid(),
+  expectedStartsAt: instant,
+  confirmedWarnings,
+});
+export type MoveBookingInput = z.infer<typeof moveBookingSchema>;
+
+/** Modulo "Sposta orario" del dettaglio: data e ora locali, stesso barbiere (alternativa al trascinamento). */
+export const moveBookingFormSchema = z.object({
+  id: z.uuid(),
+  date,
+  time,
+  expectedBarberId: z.uuid(),
+  expectedStartsAt: instant,
+  confirmedWarnings,
+});
+
 export const bookingStatusSchema = z.object({ id: z.uuid(), status: z.enum(BOOKING_STATUSES) });
 
 export const staffNoteSchema = z.object({ bookingId: z.uuid(), note: optionalNote });

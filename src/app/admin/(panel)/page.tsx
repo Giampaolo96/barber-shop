@@ -119,7 +119,15 @@ export default async function AdminCalendarPage({ searchParams }: { searchParams
           {t.newBooking}
         </Link>
       )}
-      <DayGridView grid={day.grid} date={query.date} timezone={settings.timezone} columns={day.columns} />
+      <DayGridView
+        grid={day.grid}
+        date={query.date}
+        timezone={settings.timezone}
+        columns={day.columns}
+        role={user.role === "admin" ? "admin" : "barber"}
+        ownBarberId={data.ownBarberId}
+        now={new Date()}
+      />
     </div>
   );
 }

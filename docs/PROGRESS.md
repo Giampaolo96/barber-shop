@@ -10,6 +10,7 @@
 | 5 | completata | 2026-10-04 | Vedi "Fetta 5" sotto |
 | 6 | completata | 2026-10-05 | Vedi "Fetta 6" sotto |
 | 6b | completata | 2026-10-05 | Vedi "Fetta 6b" sotto |
+| 6c | completata (da committare) | 2026-10-07 | Vedi "Fetta 6c" sotto |
 | 7 | da fare | | |
 | 8a | completata | 2026-10-06 | Vedi "Fetta 8a" sotto (identità visiva, prima della 8) |
 | 8 | da fare | | |
@@ -503,6 +504,70 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
   Nessuna asserzione cambiata.
 - `playwright.config.ts`: in locale `workers: "25%"` (4 su 16 core logici); in CI resta il default. Il default di Playwright è già il 50% dei core, cioè gli 8 worker con cui la suite falliva: per questo è stato scelto il 25% invece del 50% proposto come esempio.
 - Verifica: 66 email per `cliente@demo.local` e 62 per `admin@demo.local` (la ricerca ne restituisce 50). Playwright 79/79 con 4 worker, warm-up completo.
+
+## Fetta 6c – Spostamento con trascinamento sul calendario
+
+**Stato**: implementazione completata e review chiusa (un giro, un bloccante corretto). Hash di partenza `b091929`, test di accettazione nel commit `fa5e268`; implementazione da committare. Migrazione `20261007090000` da applicare a Supabase cloud (`db push`).
+
+**Fatto**
+- Migrazione `20261007090000_barber_move_own_booking.sql`: `bookings_before_write` permette al barbiere di cambiare solo `starts_at` di una propria `confirmed` non iniziata, senza cambiare lo stato nello stesso update. Nessun cambio di schema (tipi invariati).
+- `src/lib/calendar/move.ts` (puro): `dropStart`, `canDrag`, `canDropOn`.
+- `src/lib/calendar/schemas.ts`: `moveBookingSchema`, `moveBookingFormSchema`.
+- `src/lib/calendar/actions.ts`: `moveBooking` (oggetto, esiti `saved` con `previousWarnings`, `warnings`, `stale`, `forbidden`, `inactive`, `invalid`, errori del DB) e `moveBookingFromForm` (modulo "Sposta orario" del dettaglio).
+- UI:
+  - `day-grid.tsx` diventa client con `@dnd-kit/core` (mouse 5 px, touch 250 ms), colonne con `data-barber-id`, schede trascinabili con `data-draggable="true"`;
+  - `use-booking-move.ts`: spostamento ottimistico, dialogo degli avvisi, "Annulla spostamento" per 8 s;
+  - `move-feedback.tsx` (regione `role="status"` e `AlertDialog`), `move-booking-form.tsx`, `src/components/ui/alert-dialog.tsx` (Radix, solo token);
+  - pagine: calendario (ruolo, scheda propria, `now`) e dettaglio (modulo per il barbiere sulle proprie confirmed future).
+- Testi in `it.admin.calendar.move`.
+- Documentazione: ADR 008; ADR 001 (regole del barbiere); SPEC §2, §6.3, §11 (riga 6c).
+- Test:
+  - accettazione (commit `fa5e268`): pgTAP `26_barber_move` (19), Vitest `calendar-move.test.ts` (43) e `calendar-move-db.test.ts` (21), e2e `admin-calendar-move.spec.ts` (3);
+  - regressione della review: `tests/acceptance/calendar-move-form-db.test.ts` (6).
+
+**Esiti**: lint ok, typecheck ok, Vitest 1366/1366, pgTAP 1109/1109, Playwright 91/91 (dev, con `SUPABASE_SERVICE_ROLE_KEY`, prima dei 6 test di regressione, che toccano solo Vitest).
+
+**Decisioni dell'utente in questa sessione**
+- "Annulla" nel dialogo degli avvisi, "Annulla spostamento" dopo il salvataggio.
+- `AlertDialog` (`role="alertdialog"`) invece di `Dialog`.
+- Una prenotazione non più `confirmed` → `stale`, non `forbidden`.
+- Nessun trascinamento del passato per nessuno (nemmeno l'admin che è anche barbiere).
+
+**Correzioni ai test** (approvate dall'utente)
+- Prima del commit `fa5e268`: e2e con `alertdialog`, test DB con `stale` atteso, test dei due testi "Annulla"/"Annulla spostamento".
+- Dopo il commit, per la nuova regola: `04_rls_barber` #55 (atteso `23P01`), `21_staff_calendar` #25 (`rows:1`) e #35 (posizione spostata, resto invariato).
+
+**Problemi trovati durante l'implementazione**
+- Windows riservava le porte 53748–54347 (Supabase usa 54321–54322): risolto dall'utente con `net stop winnat` / `net start winnat`.
+- Dopo il rilascio dnd-kit ferma la propagazione del click ma non l'azione predefinita: il link della scheda apriva il dettaglio. Ora un listener nativo in cattura annulla solo quel click.
+
+**Migliorie della review** (non applicate, decide l'utente)
+1. "Annulla spostamento" dopo uno spostamento nel passato fallisce con `forbidden` (la posizione di partenza dell'annullamento è passata). Non offrirlo, oppure ammettere l'annullamento dello spostamento appena fatto.
+2. Il barbiere può spostare una prenotazione nel passato e poi segnarla no-show (già possibile con una manuale nel passato): annotarlo nell'ADR 008 o vietargli le destinazioni passate.
+3. `moveBooking` tratta un errore di lettura come `forbidden`/`invalid` invece di `error` (stesso schema di `updateBooking`).
+4. Testi inutilizzati `move.dragHint` e `move.invalid`.
+5. `now` fisso al rendering: con la pagina aperta a lungo una prenotazione iniziata resta trascinabile (il server risponde `forbidden`).
+6. Riga vuota doppia in `day-grid.tsx`.
+7. "Annulla spostamento" alto 36 px: portarlo a 44 px per l'uso da tablet.
+8. Commento troppo lungo nel dettaglio.
+
+**Da fare**
+- Verifica manuale del touch su viewport iPhone (pressione prolungata, scorrimento, nessun menu del link né selezione del testo).
+- Fetta 7: notifica al cliente dello spostamento (anche da trascinamento e annullamento).
+
+**Decisioni approvate**
+- Admin: sposta qualunque `confirmed` non iniziata, anche tra colonne. Barbiere (non admin): solo le proprie `confirmed` non iniziate, solo nell'orario. Admin che è anche barbiere = admin.
+- Migrazione: `bookings_before_write` permette al barbiere di cambiare solo `starts_at` se `old.status = 'confirmed'`, stato invariato e `old.starts_at > now()`; tutto il resto resta vietato; RLS invariata; vincoli di esclusione validi. Test pgTAP.
+- Trascinabili solo le `confirmed` future; aggancio alle righe della griglia (`slot_granularity_min`, default 15); solo vista giorno; destinazione nel passato ammessa con avviso `past`.
+- Logica pura `src/lib/calendar/move.ts`: `dropStart(grid, bookingStartsAt, deltaRows)`, `canDrag(...)`, `canDropOn(...)`.
+- Server action `moveBooking(input)` (oggetto, non FormData; `moveBookingSchema`): `id`, `barberId`, `startsAt` ISO, `expectedBarberId`, `expectedStartsAt`, `confirmedWarnings`. Esiti `saved` (con `previousWarnings` della posizione originale), `warnings`, `invalid`, `stale`, `inactive`, `barber_busy`, `customer_busy`, `not_enabled`, `forbidden`, `error`. Nucleo comune con `updateBooking`; update filtrato su stato, barbiere e inizio attesi (concorrenza → `stale`). Durata e prezzo mai cambiati.
+- UI con `@dnd-kit/core`: mouse dopo 5 px, touch con pressione prolungata 250 ms (tolleranza 5 px); spostamento ottimistico; avvisi → dialogo "Conferma comunque"/"Annulla"; errore → scheda al suo posto con messaggio; dopo il salvataggio "Annulla" per 8 s.
+- Annulla: `moveBooking` all'indietro con `confirmedWarnings = previousWarnings`; se compare un avviso nuovo si mostra il dialogo (regola della fetta 6). Con test.
+- Esito annunciato anche in una regione aria-live (`role="status"`). Schede trascinabili con `-webkit-touch-callout: none` e `user-select: none`, `data-draggable="true"`; colonne con `data-barber-id`.
+- Alternativa accessibile: nel dettaglio, modulo "Sposta orario" (data + ora) per il barbiere sulle proprie `confirmed` future, stessa logica. Niente sensore da tastiera.
+- Testi in `it.admin.calendar.move`.
+- Verifica manuale del touch su viewport iPhone (pressione prolungata, scorrimento, nessun menu del link né selezione del testo).
+- Da annotare per la fetta 7: notifica al cliente dello spostamento (anche da trascinamento e annullamento).
 
 ## Fetta 8a – Identità visiva (tema "Mosca")
 

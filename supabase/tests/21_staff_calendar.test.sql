@@ -237,7 +237,7 @@ insert into public.bookings (id, guest_name, guest_phone, barber_id, service_id,
 select pg_temp.act_as('a6000000-0000-4000-8000-000000002102');
 select matches(pg_temp.outcome($q$ update public.bookings set starts_at = '2041-02-05 18:15+01'
                                where id = 'bd000000-0000-4000-8000-000000002111' $q$),
-  '^(rows:0|42501|P0001|23514)$', 'SPEC §6.3: il barbiere non sposta l''orario di una propria prenotazione');
+  '^rows:1$', 'fetta 6c (ADR 008): il barbiere sposta l''orario di una propria confirmed futura');
 select matches(pg_temp.outcome($q$ update public.bookings set barber_id = 'eb600000-0000-4000-8000-000000002102'
                                where id = 'bd000000-0000-4000-8000-000000002111' $q$),
   '^(rows:0|42501|P0001|23514)$', 'SPEC §6.3: il barbiere non riassegna una propria prenotazione a un altro barbiere');
@@ -293,9 +293,9 @@ select is(
 select is(
   (select row(barber_id, customer_id, starts_at, ends_at, price_cents, duration_min, status)::text
      from public.bookings where id = 'bd000000-0000-4000-8000-000000002111'),
-  row('eb600000-0000-4000-8000-000000002101'::uuid, null::uuid, '2041-02-05 18:00+01'::timestamptz,
-      '2041-02-05 18:30+01'::timestamptz, 2000, 30, 'confirmed'::public.booking_status)::text,
-  'SPEC §3.6 / §6.3: la prenotazione che il barbiere ha provato a modificare è invariata');
+  row('eb600000-0000-4000-8000-000000002101'::uuid, null::uuid, '2041-02-05 18:15+01'::timestamptz,
+      '2041-02-05 18:45+01'::timestamptz, 2000, 30, 'confirmed'::public.booking_status)::text,
+  'SPEC §3.6 / fetta 6c: spostata solo nell''orario; barbiere, cliente, prezzo, durata e stato invariati');
 
 select * from finish();
 rollback;

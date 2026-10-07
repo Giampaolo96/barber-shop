@@ -17,6 +17,7 @@
     "db:types": "supabase gen types typescript --local > src/lib/db/types.ts && oxfmt src/lib/db/types.ts"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
     "class-variance-authority": "^0.7.1",

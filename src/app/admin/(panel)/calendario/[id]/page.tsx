@@ -3,13 +3,16 @@ import { notFound } from "next/navigation";
 import { formatInTimeZone } from "date-fns-tz";
 import { CALENDAR_ERROR_TEXT } from "@/components/admin/calendar/messages";
 import { EditBookingForm } from "@/components/admin/calendar/edit-booking-form";
+import { MoveBookingForm } from "@/components/admin/calendar/move-booking-form";
 import { StaffNoteForm } from "@/components/admin/calendar/staff-note-form";
 import { RowAction } from "@/components/admin/row-action";
 import { it } from "@/i18n/it";
+import { getOwnBarberId } from "@/lib/admin/queries";
 import { idSchema } from "@/lib/admin/schemas";
 import { requireRole } from "@/lib/auth/current-user";
 import { formatDateTime, formatTime } from "@/lib/booking/format";
 import { changeBookingStatus } from "@/lib/calendar/actions";
+import { canDrag } from "@/lib/calendar/move";
 import { CREATED_PARAM } from "@/lib/calendar/paths";
 import { getBarbers, getBookingDetail, getCalendarSettings, getServices } from "@/lib/calendar/queries";
 import { allowedTransitions, type BookingStatus } from "@/lib/calendar/transitions";
@@ -30,7 +33,7 @@ const TRANSITION_LABEL: Record<BookingStatus, string> = {
 };
 
 // Dettaglio di una prenotazione (SPEC §6.1, §6.3): stato, nota interna e, solo per l'admin,
-// spostamento e modifica. Una prenotazione che la RLS non mostra all'utente è un 404.
+// spostamento e modifica; per il barbiere lo spostamento dell'orario delle proprie (fetta 6c). Una prenotazione che la RLS non mostra all'utente è un 404.
 export default async function BookingDetailPage({
   params,
   searchParams,
@@ -48,12 +51,23 @@ export default async function BookingDetailPage({
 
   const { timezone } = await getCalendarSettings(supabase);
   const isAdmin = user.role === "admin";
+  const now = new Date();
   const transitions = allowedTransitions({
     role: isAdmin ? "admin" : "barber",
     status: booking.status,
     startsAt: booking.startsAt,
-    now: new Date(),
+    now,
   });
+  // Il barbiere sposta l'orario delle proprie confirmed future (fetta 6c); l'admin ha la modifica.
+  const canMove =
+    !isAdmin &&
+    canDrag({
+      role: "barber",
+      status: booking.status,
+      startsAt: booking.startsAt,
+      now,
+      isOwn: (await getOwnBarberId(supabase)) === booking.barberId,
+    });
   const created = (await searchParams)[CREATED_PARAM] === "1";
   const date = localDateOf(booking.startsAt, timezone);
 
@@ -122,6 +136,16 @@ export default async function BookingDetailPage({
       </section>
 
       <StaffNoteForm bookingId={booking.id} note={booking.staffNote} />
+
+      {canMove && (
+        <MoveBookingForm
+          id={booking.id}
+          barberId={booking.barberId}
+          startsAt={booking.startsAt.toISOString()}
+          date={date}
+          time={formatInTimeZone(booking.startsAt, timezone, "HH:mm")}
+        />
+      )}
 
       {isAdmin && (
         <EditBookingForm

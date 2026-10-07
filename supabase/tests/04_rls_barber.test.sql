@@ -317,7 +317,7 @@ select matches(
   '^(rows:0|42501|P0001|23514)$', 'barber – SPEC §3.6: non modifica customer_id');
 select matches(
   pg_temp.outcome($q$ update public.bookings set starts_at = '2040-01-07 17:00+01' where id = 'b00c0000-0000-4000-8000-000000000405' $q$),
-  '^(rows:0|42501|P0001|23514)$', 'barber – SPEC §6.3: non modifica starts_at (lo spostamento è dell''admin)');
+  '^23P01$', 'barber – fetta 6c (ADR 008): può spostare starts_at, ma il vincolo di sovrapposizione resta valido');
 select matches(
   pg_temp.outcome($q$ update public.bookings set ends_at = '2040-01-07 12:45+01' where id = 'b00c0000-0000-4000-8000-000000000405' $q$),
   '^(rows:0|42501|P0001|23514)$', 'barber – SPEC §3.6: non modifica ends_at');

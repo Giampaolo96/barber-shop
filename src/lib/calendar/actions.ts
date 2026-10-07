@@ -13,12 +13,15 @@ import { createClient } from "@/lib/db/server";
 import { exactLocalDateTimeToUtc } from "@/lib/domain/local-time";
 import { bookingUpdateValues, editNeedsWarnings, unchangedStart, usesInactiveChoice } from "./edit";
 import { type CalendarErrorCode, calendarErrorCode } from "./errors";
+import { canDrag, canDropOn } from "./move";
 import { bookingDetailPath, CREATED_PARAM } from "./paths";
 import { getCalendarSettings, slotWarnings } from "./queries";
 import {
   bookingStatusSchema,
   customerQuerySchema,
   manualBookingSchema,
+  moveBookingFormSchema,
+  moveBookingSchema,
   staffNoteSchema,
   updateBookingSchema,
 } from "./schemas";
@@ -260,6 +263,157 @@ export async function updateBooking(
   revalidatePath(CALENDAR_AREA, "layout");
   // Senza valori: il modulo riparte dai dati salvati (durata e prezzo ricopiati compresi).
   return { status: "saved" };
+}
+
+/**
+ * Esito di uno spostamento. `previousWarnings` sono gli avvisi della posizione di partenza:
+ * l'"Annulla spostamento" li passa come già confermati (decisione fetta 6c).
+ */
+export type MoveResult =
+  | { status: "saved"; previousWarnings: WarningCode[] }
+  | { status: "warnings"; warnings: WarningCode[] }
+  | { status: "invalid" | "stale" | "inactive" | CalendarErrorCode };
+
+/**
+ * Spostamento dal calendario (SPEC §6.3, ADR 008): cambia solo barbiere e inizio, mai durata e
+ * prezzo. L'admin sposta qualunque confirmed non iniziata, anche tra colonne; il barbiere solo le
+ * proprie e solo nell'orario. Si salva solo se la prenotazione è ancora dove l'utente l'ha vista.
+ */
+export async function moveBooking(input: unknown): Promise<MoveResult> {
+  const user = await requireRole(["barber", "admin"]);
+  const parsed = moveBookingSchema.safeParse(input);
+  if (!parsed.success) return { status: "invalid" };
+  const move = parsed.data;
+  const role = user.role === "admin" ? "admin" : "barber";
+  const startsAt = new Date(move.startsAt);
+  const expectedStartsAt = new Date(move.expectedStartsAt);
+
+  try {
+    const supabase = await createClient();
+    const { data: existing } = await supabase
+      .from("bookings")
+      .select("status, barber_id, starts_at, ends_at, duration_min")
+      .eq("id", move.id)
+      .maybeSingle();
+    if (!existing) return { status: "forbidden" };
+
+    const before = {
+      status: existing.status,
+      barberId: existing.barber_id,
+      startsAt: new Date(existing.starts_at),
+      endsAt: new Date(existing.ends_at),
+    };
+    // Posizione o stato cambiati dopo che l'utente ha visto la scheda (decisione dell'utente:
+    // anche una prenotazione non più confirmed è "stale").
+    if (
+      before.barberId !== move.expectedBarberId ||
+      before.startsAt.getTime() !== expectedStartsAt.getTime() ||
+      before.status !== "confirmed"
+    ) {
+      return { status: "stale" };
+    }
+
+    const now = new Date();
+    const isOwn = role === "admin" || (await getOwnBarberId(supabase)) === before.barberId;
+    if (!canDrag({ role, status: before.status, startsAt: before.startsAt, now, isOwn })) {
+      return { status: "forbidden" };
+    }
+    if (move.barberId !== before.barberId) {
+      if (role !== "admin") return { status: "forbidden" };
+      const { data: target } = await supabase
+        .from("barbers")
+        .select("is_active")
+        .eq("id", move.barberId)
+        .maybeSingle();
+      if (!target) return { status: "invalid" };
+      const allowed = canDropOn({
+        role,
+        sourceBarberId: before.barberId,
+        targetBarberId: move.barberId,
+        targetActive: target.is_active,
+      });
+      if (!allowed) return { status: "inactive" };
+    }
+
+    const next = {
+      barberId: move.barberId,
+      startsAt,
+      endsAt: new Date(startsAt.getTime() + existing.duration_min * MINUTE),
+    };
+    const { timezone } = await getCalendarSettings(supabase);
+    const [current, previousWarnings] = await Promise.all([
+      editNeedsWarnings(before, next) ? slotWarnings(supabase, { ...next, timezone, now }) : [],
+      slotWarnings(supabase, { ...before, timezone, now }),
+    ]);
+    const decision = decideWarnings(current, move.confirmedWarnings);
+    if (!decision.save) return { status: "warnings", warnings: decision.warnings };
+
+    // Solo se è ancora confirmed e nella posizione letta: due spostamenti concorrenti non si
+    // sovrascrivono. Il barbiere non invia barber_id (il trigger gli consente solo starts_at).
+    const { data: updated, error } = await supabase
+      .from("bookings")
+      .update({
+        starts_at: startsAt.toISOString(),
+        ...(next.barberId === before.barberId ? {} : { barber_id: next.barberId }),
+      })
+      .eq("id", move.id)
+      .eq("status", "confirmed")
+      .eq("barber_id", before.barberId)
+      .eq("starts_at", before.startsAt.toISOString())
+      .select("id");
+    if (error) return { status: calendarErrorCode(error) };
+    if (updated.length !== 1) return { status: "stale" };
+
+    revalidatePath(CALENDAR_AREA, "layout");
+    return { status: "saved", previousWarnings };
+  } catch (error) {
+    console.error("moveBooking", error);
+    return { status: "error" };
+  }
+}
+
+/**
+ * Modulo "Sposta orario" del dettaglio (fetta 6c): alternativa accessibile al trascinamento, con
+ * la stessa logica di `moveBooking` e nella stessa colonna.
+ */
+export async function moveBookingFromForm(
+  _previous: CalendarFormState,
+  formData: FormData,
+): Promise<CalendarFormState> {
+  await requireRole(["barber", "admin"]);
+  const values = formValues(formData);
+  const parsed = moveBookingFormSchema.safeParse({
+    id: text(formData, "id"),
+    date: text(formData, "date"),
+    time: text(formData, "time"),
+    expectedBarberId: text(formData, "expectedBarberId"),
+    expectedStartsAt: text(formData, "expectedStartsAt"),
+    confirmedWarnings: confirmedWarnings(formData),
+  });
+  if (!parsed.success) return { status: "invalid", values };
+  const input = parsed.data;
+
+  let timezone: string;
+  try {
+    ({ timezone } = await getCalendarSettings(await createClient()));
+  } catch (error) {
+    console.error("moveBookingFromForm", error);
+    return { status: "error", values };
+  }
+  const startsAt = exactLocalDateTimeToUtc(input.date, input.time, timezone);
+  if (!startsAt) return { status: "invalid_time", values };
+
+  const result = await moveBooking({
+    id: input.id,
+    barberId: input.expectedBarberId,
+    startsAt: startsAt.toISOString(),
+    expectedBarberId: input.expectedBarberId,
+    expectedStartsAt: input.expectedStartsAt,
+    confirmedWarnings: input.confirmedWarnings,
+  });
+  if (result.status === "saved") return { status: "saved" };
+  if (result.status === "warnings") return { status: "warnings", warnings: result.warnings, values };
+  return { status: result.status, values };
 }
 
 /** Cambio di stato (SPEC §3.6): le transizioni ammesse per ruolo le ricontrolla anche il database. */

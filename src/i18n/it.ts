@@ -463,6 +463,20 @@ export const it = {
         cancelByShop: "Cancella (negozio)",
         restore: "Ripristina confermata",
       },
+      move: {
+        saved: "Prenotazione spostata.",
+        undo: "Annulla spostamento",
+        undone: "Spostamento annullato.",
+        saving: "Spostamento in corso…",
+        dialogTitle: "Confermi lo spostamento?",
+        cancel: "Annulla",
+        /** Nome accessibile della scheda trascinabile. */
+        dragHint: "Trascina per spostare",
+        formTitle: "Sposta orario",
+        submit: "Sposta",
+        invalid: "Spostamento non valido.",
+        error: "Non è stato possibile spostare la prenotazione. Riprova.",
+      },
     },
   },
 } as const;
