@@ -10,7 +10,7 @@
 | 5 | completata | 2026-10-04 | Vedi "Fetta 5" sotto |
 | 6 | completata | 2026-10-05 | Vedi "Fetta 6" sotto |
 | 6b | completata | 2026-10-05 | Vedi "Fetta 6b" sotto |
-| 6c | completata (da committare) | 2026-10-07 | Vedi "Fetta 6c" sotto |
+| 6c | completata | 2026-10-07 | Vedi "Fetta 6c" sotto |
 | 7 | da fare | | |
 | 8a | completata | 2026-10-06 | Vedi "Fetta 8a" sotto (identità visiva, prima della 8) |
 | 8 | da fare | | |
@@ -507,7 +507,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 
 ## Fetta 6c – Spostamento con trascinamento sul calendario
 
-**Stato**: implementazione completata e review chiusa (un giro, un bloccante corretto). Hash di partenza `b091929`, test di accettazione nel commit `fa5e268`; implementazione da committare. Migrazione `20261007090000` da applicare a Supabase cloud (`db push`).
+**Stato**: completata, review chiusa (un giro, un bloccante corretto; migliorie 1–8 applicate su richiesta dell'utente nel commit "fix: review fetta 6c"). Hash di partenza `b091929`, test di accettazione nel commit `fa5e268`. Migrazioni `20261007090000` e `20261007110000` da applicare a Supabase cloud (`db push`).
 
 **Fatto**
 - Migrazione `20261007090000_barber_move_own_booking.sql`: `bookings_before_write` permette al barbiere di cambiare solo `starts_at` di una propria `confirmed` non iniziata, senza cambiare lo stato nello stesso update. Nessun cambio di schema (tipi invariati).
@@ -541,7 +541,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 - Windows riservava le porte 53748–54347 (Supabase usa 54321–54322): risolto dall'utente con `net stop winnat` / `net start winnat`.
 - Dopo il rilascio dnd-kit ferma la propagazione del click ma non l'azione predefinita: il link della scheda apriva il dettaglio. Ora un listener nativo in cattura annulla solo quel click.
 
-**Migliorie della review** (non applicate, decide l'utente)
+**Migliorie della review** (applicate su richiesta dell'utente, sotto)
 1. "Annulla spostamento" dopo uno spostamento nel passato fallisce con `forbidden` (la posizione di partenza dell'annullamento è passata). Non offrirlo, oppure ammettere l'annullamento dello spostamento appena fatto.
 2. Il barbiere può spostare una prenotazione nel passato e poi segnarla no-show (già possibile con una manuale nel passato): annotarlo nell'ADR 008 o vietargli le destinazioni passate.
 3. `moveBooking` tratta un errore di lettura come `forbidden`/`invalid` invece di `error` (stesso schema di `updateBooking`).
@@ -550,6 +550,20 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 6. Riga vuota doppia in `day-grid.tsx`.
 7. "Annulla spostamento" alto 36 px: portarlo a 44 px per l'uso da tablet.
 8. Commento troppo lungo nel dettaglio.
+
+**Come sono state applicate le migliorie** (commit "fix: review fetta 6c")
+1–2. Decisione dell'utente che rivede il piano: nessuna destinazione nel passato, né trascinando né con "Sposta orario". Esito `past_target` ("Non si può spostare una prenotazione su un orario già passato.") prima degli avvisi e senza deroghe; il rilascio nel passato non chiama il server. Per il barbiere lo vieta anche il trigger (`new.starts_at > now()`, migrazione `20261007110000_barber_move_no_past_target.sql`). Per gli orari passati l'admin usa il modulo di modifica. Così "Annulla spostamento" non parte mai da una posizione passata, e il barbiere non può portare una prenotazione nel passato per segnarla no-show. Test adeguati con l'ok dell'utente: pgTAP `26_barber_move` (destinazione passata → `42501`), `calendar-move-db.test.ts` (admin e barbiere → `past_target`), `calendar-move-form-db.test.ts` (+1). ADR 008, ADR 001 e SPEC §6.3 aggiornati.
+3. `moveBooking`: un errore nella lettura della prenotazione, della scheda propria (`current_barber_id` letto con l'errore) o del barbiere di arrivo finisce nel catch → `error`.
+4. Rimossi `move.dragHint` e `move.invalid`.
+5. Le schede mostrano la trascinabilità con l'ora del server, ma quando si afferrano `canDrag` si ricontrolla con l'ora corrente: un appuntamento iniziato nel frattempo resta un link al dettaglio.
+6. Formattazione: riga vuota doppia in `day-grid.tsx`, commento del dettaglio a capo.
+7. "Annulla spostamento" con l'altezza predefinita dei pulsanti (44 px).
+- `day-grid.tsx`: il controllo della destinazione nel passato usa `Date.now()` con `eslint-disable-next-line react-hooks/purity` e un commento. È un falso positivo: `onDragEnd` la chiama solo dnd-kit al rilascio. `canGrab` è chiamata solo alla pressione sulla scheda e usa `new Date()` per `canDrag`; il lint non la segnala.
+
+**Esiti dopo le migliorie**: lint ok, typecheck ok, Vitest 1368/1368, pgTAP 1109/1109.
+- Playwright: 91/91 al secondo giro completo.
+- Al primo giro completo il caso "l'admin trascina … nella colonna di Mario" è fallito una volta: la scheda è finita nella colonna di Sara. Quel giro ne ha contati solo 88 (87 passati, 1 fallito).
+- Da sola la spec passa 12/12 (`--repeat-each=4`). Instabilità sotto carico, causa non accertata: da tenere d'occhio.
 
 **Da fare**
 - Verifica manuale del touch su viewport iPhone (pressione prolungata, scorrimento, nessun menu del link né selezione del testo).

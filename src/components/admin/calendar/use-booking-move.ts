@@ -111,5 +111,7 @@ export function useBookingMove<T>(base: T) {
     dialog,
     busy,
     move: (id: string, from: Position, to: Position) => void run({ id, from, to, confirmedWarnings: [] }, "move"),
+    /** Spostamento rifiutato prima di chiamare il server (es. verso il passato). */
+    reject: (text: string) => setNotice({ text }),
   };
 }

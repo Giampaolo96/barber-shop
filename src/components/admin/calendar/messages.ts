@@ -20,6 +20,7 @@ export const CALENDAR_ERROR_TEXT: Partial<Record<string, string>> = {
   inactive: t.errors.inactive,
   stale: t.errors.stale,
   invalid_time: t.errors.invalidTime,
+  past_target: t.move.pastTarget,
   invalid: it.admin.common.invalid,
   error: it.admin.common.error,
 };

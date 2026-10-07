@@ -10,7 +10,8 @@
 //   MoveResult =
 //     | { status: 'saved'; previousWarnings: WarningCode[] }
 //     | { status: 'warnings'; warnings: WarningCode[] }
-//     | { status: 'invalid' | 'stale' | 'inactive' | 'barber_busy' | 'customer_busy' | 'not_enabled' | 'forbidden' | 'error' }
+//     | { status: 'invalid' | 'stale' | 'inactive' | 'past_target' | 'barber_busy' | 'customer_busy' | 'not_enabled' | 'forbidden' | 'error' }
+//   past_target: destinazione nel passato, mai ammessa (review fetta 6c, decisione dell'utente).
 //   previousWarnings: avvisi della posizione ORIGINALE (barbiere e intervallo prima dello
 //   spostamento), calcolati dal server al momento dello spostamento; servono all'"Annulla", che
 //   richiama moveBooking all'indietro con expected* = posizione nuova e confirmedWarnings =
@@ -39,7 +40,7 @@ type MoveInput = {
 type MoveResult =
   | { status: 'saved'; previousWarnings: WarningCode[] }
   | { status: 'warnings'; warnings: WarningCode[] }
-  | { status: 'invalid' | 'stale' | 'inactive' | 'barber_busy' | 'customer_busy' | 'not_enabled' | 'forbidden' | 'error' };
+  | { status: 'invalid' | 'stale' | 'inactive' | 'past_target' | 'barber_busy' | 'customer_busy' | 'not_enabled' | 'forbidden' | 'error' };
 type ActionsModule = { moveBooking: (input: MoveInput) => Promise<MoveResult> };
 
 const load = async <T>(specifier: string): Promise<T> =>
@@ -355,16 +356,14 @@ describe('moveBooking: admin (decisioni 1 e 5)', () => {
     expect(position(await read(id))).toEqual([ctx.x1, ms(at(day(3), '20:00'))]);
   });
 
-  test('decisione 2: destinazione nel passato → avviso past (oltre agli altri), poi salvata con la conferma', async () => {
+  test('review fetta 6c (decisione dell\'utente): destinazione nel passato → past_target, anche con l\'avviso confermato', async () => {
     const id = await book({ barberId: ctx.x1, startsAt: at(day(4), '10:00') });
     actAs('admin');
     const pastStart = '2020-01-15T09:00:00.000Z'; // 10:00 a Roma, dentro la fascia
 
-    const first = await moveFrom(id, { barberId: ctx.x1, startsAt: pastStart });
-    expect(first).toEqual({ status: 'warnings', warnings: ['past'] });
-    const second = await moveFrom(id, { barberId: ctx.x1, startsAt: pastStart }, ['past']);
-    expect(second.status).toBe('saved');
-    expect(position(await read(id))).toEqual([ctx.x1, ms(pastStart)]);
+    expect(await moveFrom(id, { barberId: ctx.x1, startsAt: pastStart })).toEqual({ status: 'past_target' });
+    expect(await moveFrom(id, { barberId: ctx.x1, startsAt: pastStart }, ['past'])).toEqual({ status: 'past_target' });
+    expect(position(await read(id))).toEqual([ctx.x1, ms(at(day(4), '10:00'))]);
   });
 
   test('decisione 6: posizione originale fuori fascia → previousWarnings; l\'Annulla con quegli avvisi torna indietro', async () => {
@@ -553,6 +552,14 @@ describe('moveBooking: barbiere (decisioni 1 e 5)', () => {
     const result = await moveFrom(id, { barberId: ctx.x1, startsAt: at(day(20), '10:00') }, ['outside_hours', 'time_off', 'closure', 'past']);
     expect(result).toEqual({ status: 'forbidden' });
     expect(ms((await read(id)).starts_at)).toBe(ms(startedAt));
+  });
+
+  test('review fetta 6c (decisione dell\'utente): destinazione nel passato → past_target', async () => {
+    const id = await book({ barberId: ctx.x1, startsAt: at(day(23), '10:00') });
+    actAs('barber1');
+    const pastStart = '2020-01-15T09:00:00.000Z';
+    expect(await moveFrom(id, { barberId: ctx.x1, startsAt: pastStart }, ['past'])).toEqual({ status: 'past_target' });
+    expect(position(await read(id))).toEqual([ctx.x1, ms(at(day(23), '10:00'))]);
   });
 
   test('SPEC §3.7.1: sovrapposizione nella propria colonna → barber_busy', async () => {

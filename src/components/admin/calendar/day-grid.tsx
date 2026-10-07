@@ -76,11 +76,11 @@ export function DayGridView({
   columns: DayColumn[];
   role: StaffRole;
   ownBarberId: string | null;
-  /** Istante di riferimento del server per decidere cosa è trascinabile. */
+  /** Istante del server per mostrare cosa è trascinabile; alla presa si usa l'ora corrente. */
   now: Date;
 }) {
   const time = (instant: Date) => formatInTimeZone(instant, timezone, "HH:mm");
-  const { positions, notice, dialog, busy, move } = useBookingMove(columns);
+  const { positions, notice, dialog, busy, move, reject } = useBookingMove(columns);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(
@@ -90,9 +90,9 @@ export function DayGridView({
 
   const bookings = columns.flatMap((column) => column.bookings).map((booking) => placed(booking, positions[booking.id]));
   const activeById = new Map(columns.map((column) => [column.barberId, column.isActive]));
-  const draggable = (booking: CalendarBooking): boolean =>
+  const draggableAt = (booking: CalendarBooking, at: Date): boolean =>
     !busy &&
-    canDrag({ role, status: booking.status, startsAt: booking.startsAt, now, isOwn: booking.barberId === ownBarberId });
+    canDrag({ role, status: booking.status, startsAt: booking.startsAt, now: at, isOwn: booking.barberId === ownBarberId });
 
   const onDragEnd = ({ active, over, delta }: DragEndEvent) => {
     releaseClick();
@@ -110,9 +110,16 @@ export function DayGridView({
     const startsAt = dropStart(grid, booking.startsAt, Math.round(delta.y / rowHeight));
     if (!allowed || !startsAt) return;
     if (targetBarberId === booking.barberId && startsAt.getTime() === booking.startsAt.getTime()) return;
+    // Mai verso il passato (review fetta 6c): lo rifiuterebbe anche il server.
+    // Falso positivo di react-hooks/purity: onDragEnd è definita nel corpo del componente, ma la
+    // chiama solo dnd-kit al rilascio (gestore di evento), mai durante il rendering.
+    // eslint-disable-next-line react-hooks/purity
+    if (startsAt.getTime() <= Date.now()) {
+      reject(t.move.pastTarget);
+      return;
+    }
     move(booking.id, { barberId: booking.barberId, startsAt: booking.startsAt }, { barberId: targetBarberId, startsAt });
   };
-
 
   return (
     <DndContext
@@ -222,7 +229,8 @@ export function DayGridView({
                     key={booking.id}
                     booking={booking}
                     label={`${time(booking.startsAt)}–${time(booking.endsAt)} ${booking.customerName}`}
-                    draggable={draggable(booking)}
+                    draggable={draggableAt(booking, now)}
+                    canGrab={() => draggableAt(booking, new Date())}
                     style={{ gridColumn, gridRow: `${position.row + 2} / span ${position.span}` }}
                   />
                 );
@@ -252,20 +260,34 @@ function ColumnDropZone({ barberId, gridColumn }: { barberId: string; gridColumn
 /**
  * Scheda di una prenotazione. Se è trascinabile non usa gli attributi ARIA di dnd-kit (resta un
  * link verso il dettaglio, dove c'è anche il modulo per spostarla) e niente menu del link né
- * selezione del testo alla pressione prolungata su iOS.
+ * selezione del testo alla pressione prolungata su iOS. Quando la si afferra si ricontrolla con
+ * l'ora corrente (`canGrab`): con la pagina aperta a lungo l'appuntamento può essere iniziato.
  */
 function BookingCard({
   booking,
   label,
   draggable,
+  canGrab,
   style,
 }: {
   booking: CalendarBooking;
   label: string;
   draggable: boolean;
+  canGrab: () => boolean;
   style: React.CSSProperties;
 }) {
   const { setNodeRef, listeners, transform, isDragging } = useDraggable({ id: booking.id, disabled: !draggable });
+  const grabListeners =
+    draggable && listeners
+      ? Object.fromEntries(
+          Object.entries(listeners).map(([name, handler]) => [
+            name,
+            (event: React.SyntheticEvent) => {
+              if (canGrab()) handler(event);
+            },
+          ]),
+        )
+      : {};
   const cancelled = booking.status.startsWith("cancelled");
   return (
     <Link
@@ -273,7 +295,7 @@ function BookingCard({
       href={bookingDetailPath(booking.id)}
       draggable={false}
       data-draggable={draggable ? "true" : undefined}
-      {...(draggable ? listeners : {})}
+      {...grabListeners}
       className={cn(
         "z-10 m-px flex flex-col overflow-hidden rounded-md border bg-surface px-2 py-1 text-xs",
         booking.status === "confirmed" && "border-ink",

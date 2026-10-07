@@ -270,6 +270,15 @@ describe('moveBookingFromForm: barbiere (review fetta 6c, B1)', () => {
     expect(await startsAt(id)).toBe(ms(original));
   });
 
+  test('review fetta 6c (decisione dell\'utente): destinazione nel passato → past_target, anche confermando', async () => {
+    const original = at('2046-01-14', '10:00');
+    const id = await book(ctx.own, original);
+    const values = { id, date: '2020-01-15', time: '10:00', expectedBarberId: ctx.own, expectedStartsAt: original };
+    expect((await submit(values)).status).toBe('past_target');
+    expect((await submit(values, ['past'])).status).toBe('past_target');
+    expect(await startsAt(id)).toBe(ms(original));
+  });
+
   test('ora fuori dal passo di 5 minuti → invalid, nulla salvato', async () => {
     const original = at('2046-01-13', '10:00');
     const id = await book(ctx.own, original);

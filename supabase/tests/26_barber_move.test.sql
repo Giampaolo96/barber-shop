@@ -179,10 +179,10 @@ select is(pg_temp.outcome($q$ update public.bookings set starts_at = '2041-03-06
   '23P01:bookings_customer_no_overlap',
   'SPEC §3.7.6: lo spostamento del barbiere non sovrappone due appuntamenti dello stesso cliente');
 
--- Destinazione nel passato: conta solo che l'origine sia futura (decisione 2)
+-- Destinazione nel passato: vietata (review fetta 6c, decisione dell'utente che sostituisce la 2)
 select is(pg_temp.outcome($q$ update public.bookings set starts_at = '2024-01-09 10:00+01'
                                where id = 'bd6c0000-0000-4000-8000-000000002601' $q$),
-  'rows:1', 'decisione 2: una confirmed futura si può spostare anche su un orario passato');
+  '42501', 'review fetta 6c: il barbiere non sposta una confirmed futura su un orario passato');
 
 -- ===========================================================================
 -- 4. Admin invariato: sposta anche tra colonne (SPEC §6.3, decisione 1)

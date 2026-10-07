@@ -33,7 +33,8 @@ const TRANSITION_LABEL: Record<BookingStatus, string> = {
 };
 
 // Dettaglio di una prenotazione (SPEC §6.1, §6.3): stato, nota interna e, solo per l'admin,
-// spostamento e modifica; per il barbiere lo spostamento dell'orario delle proprie (fetta 6c). Una prenotazione che la RLS non mostra all'utente è un 404.
+// spostamento e modifica; per il barbiere lo spostamento dell'orario delle proprie (fetta 6c).
+// Una prenotazione che la RLS non mostra all'utente è un 404.
 export default async function BookingDetailPage({
   params,
   searchParams,

@@ -28,8 +28,11 @@ import {
 import { allowedTransitions } from "./transitions";
 import { decideWarnings, type WarningCode } from "./warnings";
 
-/** Esiti propri delle azioni: scelta disattivata, dato cambiato nel frattempo, ora inesistente. */
-type ActionErrorCode = "inactive" | "stale" | "invalid_time";
+/**
+ * Esiti propri delle azioni: scelta disattivata, dato cambiato nel frattempo, ora inesistente,
+ * spostamento verso il passato.
+ */
+type ActionErrorCode = "inactive" | "stale" | "invalid_time" | "past_target";
 
 export type CalendarFormState = {
   status: "idle" | "saved" | "invalid" | "warnings" | CalendarErrorCode | ActionErrorCode;
@@ -272,12 +275,13 @@ export async function updateBooking(
 export type MoveResult =
   | { status: "saved"; previousWarnings: WarningCode[] }
   | { status: "warnings"; warnings: WarningCode[] }
-  | { status: "invalid" | "stale" | "inactive" | CalendarErrorCode };
+  | { status: "invalid" | "stale" | "inactive" | "past_target" | CalendarErrorCode };
 
 /**
  * Spostamento dal calendario (SPEC §6.3, ADR 008): cambia solo barbiere e inizio, mai durata e
  * prezzo. L'admin sposta qualunque confirmed non iniziata, anche tra colonne; il barbiere solo le
- * proprie e solo nell'orario. Si salva solo se la prenotazione è ancora dove l'utente l'ha vista.
+ * proprie e solo nell'orario. Mai verso il passato: per quello l'admin usa la modifica. Si salva
+ * solo se la prenotazione è ancora dove l'utente l'ha vista.
  */
 export async function moveBooking(input: unknown): Promise<MoveResult> {
   const user = await requireRole(["barber", "admin"]);
@@ -290,11 +294,13 @@ export async function moveBooking(input: unknown): Promise<MoveResult> {
 
   try {
     const supabase = await createClient();
-    const { data: existing } = await supabase
+    const { data: existing, error: readError } = await supabase
       .from("bookings")
       .select("status, barber_id, starts_at, ends_at, duration_min")
       .eq("id", move.id)
       .maybeSingle();
+    // Un errore di lettura non è un permesso mancante (review fetta 6c): finisce nel catch.
+    if (readError) throw readError;
     if (!existing) return { status: "forbidden" };
 
     const before = {
@@ -314,17 +320,24 @@ export async function moveBooking(input: unknown): Promise<MoveResult> {
     }
 
     const now = new Date();
-    const isOwn = role === "admin" || (await getOwnBarberId(supabase)) === before.barberId;
+    let isOwn = role === "admin";
+    if (!isOwn) {
+      const { data: ownBarberId, error: ownError } = await supabase.rpc("current_barber_id");
+      if (ownError) throw ownError;
+      isOwn = ownBarberId === before.barberId;
+    }
     if (!canDrag({ role, status: before.status, startsAt: before.startsAt, now, isOwn })) {
       return { status: "forbidden" };
     }
+    if (startsAt.getTime() <= now.getTime()) return { status: "past_target" };
     if (move.barberId !== before.barberId) {
       if (role !== "admin") return { status: "forbidden" };
-      const { data: target } = await supabase
+      const { data: target, error: targetError } = await supabase
         .from("barbers")
         .select("is_active")
         .eq("id", move.barberId)
         .maybeSingle();
+      if (targetError) throw targetError;
       if (!target) return { status: "invalid" };
       const allowed = canDropOn({
         role,

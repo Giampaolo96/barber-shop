@@ -34,7 +34,7 @@ export function MoveFeedback({
           {notice?.text}
         </p>
         {notice?.undo && (
-          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={notice.undo}>
+          <Button type="button" variant="outline" disabled={busy} onClick={notice.undo}>
             {t.move.undo}
           </Button>
         )}
