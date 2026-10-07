@@ -27,6 +27,10 @@ Con la fetta 6 lo spostamento (SPEC §6.3) passava solo dal modulo di modifica d
 
 **Interfaccia**
 - `@dnd-kit/core` nella sola vista giorno. Mouse dopo 5 px; al tocco pressione prolungata di 250 ms (tolleranza 5 px). Cosa è trascinabile si mostra con l'ora del server e si ricontrolla con l'ora corrente quando si afferra la scheda. Un rilascio nel passato non chiama il server e mostra il messaggio. Le schede trascinabili non mostrano il menu del link né selezionano il testo (`-webkit-touch-callout: none`, `user-select: none`).
+- Rilascio sulla colonna sotto il puntatore (`pointerWithin`), senza ripiego su `rectIntersection`: fuori dalle colonne la prenotazione resta nella propria, che è più sicuro.
+- Durante il trascinamento la destinazione è sempre visibile: la colonna di arrivo ha un contorno pieno e la scheda trascinata mostra barbiere e orario di arrivo ("Mario, 10:30"). Anteprima e rilascio usano la stessa funzione pura (`dropTarget`) sugli stessi dati di dnd-kit, che tengono conto dello scorrimento: quello che si vede è quello che si salva, anche durante l'autoscroll.
+- Autoscroll solo vicino ai bordi estremi (5% in orizzontale, 20% in verticale): serve a raggiungere le colonne fuori schermo, ma non fa scorrere la griglia sotto un puntatore fermo su una colonna visibile (causa di un e2e instabile con molti barbieri).
+- Si trascina una copia della scheda (`DragOverlay`), mentre l'originale resta al suo posto tratteggiata. Spostare l'originale con un `transform` dentro il contenitore che scorre ne allargava l'area: l'autoscroll verso destra non finiva mai.
 - Aggancio alle righe della griglia (`slot_granularity_min`): lo scarto si conta in righe reali, quindi nei giorni del cambio d'ora l'ora ripetuta resta raggiungibile e quella saltata non esiste.
 - Spostamento ottimistico: la scheda va subito al nuovo posto e torna indietro se il server rifiuta, con il messaggio dell'errore.
 - Avvisi in un `AlertDialog` (`role="alertdialog"`) con "Annulla" e "Conferma comunque".

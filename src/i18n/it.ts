@@ -470,6 +470,8 @@ export const it = {
         saving: "Spostamento in corso…",
         dialogTitle: "Confermi lo spostamento?",
         cancel: "Annulla",
+        /** Destinazione mostrata sulla scheda durante il trascinamento. */
+        dropPreview: "{barber}, {time}",
         formTitle: "Sposta orario",
         submit: "Sposta",
         pastTarget: "Non si può spostare una prenotazione su un orario già passato.",

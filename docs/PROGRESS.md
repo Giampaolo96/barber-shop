@@ -563,7 +563,26 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 **Esiti dopo le migliorie**: lint ok, typecheck ok, Vitest 1368/1368, pgTAP 1109/1109.
 - Playwright: 91/91 al secondo giro completo.
 - Al primo giro completo il caso "l'admin trascina … nella colonna di Mario" è fallito una volta: la scheda è finita nella colonna di Sara. Quel giro ne ha contati solo 88 (87 passati, 1 fallito).
-- Da sola la spec passa 12/12 (`--repeat-each=4`). Instabilità sotto carico, causa non accertata: da tenere d'occhio.
+- Da sola la spec passa 12/12 (`--repeat-each=4`). La causa è stata poi trovata e corretta (sezione successiva).
+
+**Indagine sull'e2e instabile e correzioni** (2026-10-07, commit "fix: autoscroll e destinazione visibile nel trascinamento")
+- **Cosa è successo**
+  - **Causa:** l'autoscroll di dnd-kit. I barbieri creati dagli altri e2e (`E2E …`) vengono prima di Luca in ordine alfabetico, quindi con la suite completa la griglia è più larga della finestra e Mario finisce vicino al bordo destro. Trascinando lì, l'autoscroll (soglia predefinita del 20%) faceva scorrere la griglia sotto il puntatore fermo, e al rilascio sotto c'era Sara.
+  - **Riproduzione:** con 6 barbieri `E2E` attivi in più, il test falliva 3 volte su 3; con l'autoscroll disattivato, lo stesso scenario passava 3 volte su 3. La collision detection era già `pointerWithin`.
+  - **88 test invece di 91:** il progetto `admin-settings` (3 test) dipende da `mobile-chromium`, e Playwright non lo esegue se lì fallisce un test. Il riepilogo "3 did not run" c'era, ma il filtro con cui leggevo l'output lo scartava.
+  - **Secondo problema, trovato con l'e2e di regressione:** la scheda originale si spostava con un `transform` dentro il contenitore che scorre e ne allargava l'area, quindi l'autoscroll verso destra non finiva mai.
+- **Decisioni dell'utente:** autoscroll limitato ai bordi estremi; destinazione sempre visibile durante il trascinamento; niente ripiego su `rectIntersection`; reporter che fa fallire un giro con test non eseguiti.
+- **Correzioni**
+  - Autoscroll solo vicino ai bordi estremi: `threshold` 5% in orizzontale, 20% in verticale.
+  - Durante il trascinamento la colonna di arrivo ha un contorno pieno (`data-drop-target`). La copia trascinata (`DragOverlay`) mostra barbiere e orario di arrivo, ad esempio "Mario, 10:30" (`data-drop-preview`, testo `it.admin.calendar.move.dropPreview`).
+  - Anteprima e rilascio usano la stessa funzione pura `dropTarget` in `move.ts`. Test: `tests/acceptance/calendar-drop-target.test.ts` (4).
+  - La scheda originale resta al suo posto, tratteggiata: si trascina la copia.
+  - e2e "colonna di Mario" (con l'ok dell'utente): `dragTo` con `centerTarget` porta al centro la colonna di destinazione prima di trascinare.
+  - Nuovo e2e di regressione `tests/e2e/admin-calendar-move-autoscroll.spec.ts`, con 6 colonne extra: dopo l'autoscroll la prenotazione finisce nella colonna indicata durante il trascinamento.
+  - `cleanup` (`admin-helpers.ts`): se l'eliminazione dei barbieri fallisce li disattiva, per non lasciare colonne in più agli altri test. Tutti gli e2e che creano barbieri li puliscono già nel `finally`; dopo le suite il DB contiene solo Luca, Mario e Sara.
+  - Reporter `tests/e2e/run-summary-reporter.ts` (in locale e in CI). A fine giro stampa "eseguiti X su N" e fa fallire il giro se ci sono test non eseguiti senza uno skip esplicito, o se non è stato eseguito nessun test (es. server web non partito). Verificato con un test fallito apposta: elenca i 3 test di `admin-settings` non eseguiti.
+- **Esiti:** lint ok, typecheck ok, Vitest 1372/1372, pgTAP 1109/1109, Playwright 92/92 ("eseguiti 92 su 92").
+- **Sotto carico:** lo scenario che prima falliva (6 colonne extra) ora passa 4/4. Ho poi lanciato la suite completa in contemporanea con i due spec del trascinamento ripetuti 3 volte: il trascinamento è passato 12/12 nella ripetizione e in tutti i test della suite. Nella suite sono falliti solo i 3 test degli account staff, perché il dev server avviato a mano non aveva `SUPABASE_SERVICE_ROLE_KEY` (problema d'ambiente già noto).
 
 **Da fare**
 - Verifica manuale del touch su viewport iPhone (pressione prolungata, scorrimento, nessun menu del link né selezione del testo).

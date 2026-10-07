@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   DndContext,
   type DragEndEvent,
+  type DragMoveEvent,
+  DragOverlay,
+  type DragStartEvent,
   MouseSensor,
   pointerWithin,
   TouchSensor,
@@ -16,7 +19,7 @@ import {
 import { formatInTimeZone } from "date-fns-tz";
 import { it } from "@/i18n/it";
 import { blockPosition, busyRows, type DayGrid, type Interval } from "@/lib/calendar/grid";
-import { canDrag, canDropOn, dropStart } from "@/lib/calendar/move";
+import { canDrag, dropTarget } from "@/lib/calendar/move";
 import { bookingDetailPath, newBookingPath } from "@/lib/calendar/paths";
 import type { DayColumn } from "@/lib/calendar/page-data";
 import type { CalendarBooking } from "@/lib/calendar/queries";
@@ -27,6 +30,15 @@ import { type Position, useBookingMove } from "./use-booking-move";
 
 const t = it.admin.calendar;
 const ROW_HEIGHT = "2.25rem";
+/**
+ * Autoscroll solo vicino ai bordi estremi (5% in orizzontale): serve a raggiungere le colonne
+ * fuori schermo, ma non deve far scorrere la griglia sotto un puntatore fermo su una colonna
+ * visibile. L'anteprima della destinazione segue comunque lo scorrimento.
+ */
+const AUTO_SCROLL = { threshold: { x: 0.05, y: 0.2 } };
+
+/** Destinazione mostrata durante il trascinamento. */
+type DropPreview = { bookingId: string; barberId: string; startsAt: Date };
 
 /**
  * Il rilascio di un trascinamento genera anche un click sulla scheda, che è un link al dettaglio.
@@ -82,6 +94,8 @@ export function DayGridView({
   const time = (instant: Date) => formatInTimeZone(instant, timezone, "HH:mm");
   const { positions, notice, dialog, busy, move, reject } = useBookingMove(columns);
   const gridRef = useRef<HTMLDivElement>(null);
+  const [preview, setPreview] = useState<DropPreview | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
@@ -94,40 +108,83 @@ export function DayGridView({
     !busy &&
     canDrag({ role, status: booking.status, startsAt: booking.startsAt, now: at, isOwn: booking.barberId === ownBarberId });
 
-  const onDragEnd = ({ active, over, delta }: DragEndEvent) => {
-    releaseClick();
+  const barberName = new Map(columns.map((column) => [column.barberId, column.barberName]));
+
+  /**
+   * Destinazione dell'evento di trascinamento, con la stessa funzione per l'anteprima e per il
+   * rilascio: `delta` di dnd-kit tiene conto dello scorrimento, anche dell'autoscroll.
+   */
+  const targetOf = ({ active, over, delta }: DragMoveEvent | DragEndEvent) => {
     const booking = bookings.find((candidate) => candidate.id === active.id);
     const rowHeight = gridRef.current?.querySelector("[data-grid-row]")?.getBoundingClientRect().height;
-    if (!booking || !rowHeight) return;
-
-    const targetBarberId = typeof over?.id === "string" ? over.id : booking.barberId;
-    const allowed = canDropOn({
+    if (!booking || !rowHeight) return null;
+    const target = dropTarget({
+      grid,
       role,
-      sourceBarberId: booking.barberId,
-      targetBarberId,
-      targetActive: activeById.get(targetBarberId) ?? false,
+      booking,
+      overBarberId: typeof over?.id === "string" ? over.id : null,
+      deltaRows: Math.round(delta.y / rowHeight),
+      isActive: (barberId) => activeById.get(barberId) ?? false,
+      // Falso positivo di react-hooks/purity: targetOf la chiamano solo i gestori di dnd-kit
+      // (movimento e rilascio), mai il rendering. Lo spostamento verso il passato non è ammesso.
+      // eslint-disable-next-line react-hooks/purity
+      now: new Date(Date.now()),
     });
-    const startsAt = dropStart(grid, booking.startsAt, Math.round(delta.y / rowHeight));
-    if (!allowed || !startsAt) return;
-    if (targetBarberId === booking.barberId && startsAt.getTime() === booking.startsAt.getTime()) return;
-    // Mai verso il passato (review fetta 6c): lo rifiuterebbe anche il server.
-    // Falso positivo di react-hooks/purity: onDragEnd è definita nel corpo del componente, ma la
-    // chiama solo dnd-kit al rilascio (gestore di evento), mai durante il rendering.
-    // eslint-disable-next-line react-hooks/purity
-    if (startsAt.getTime() <= Date.now()) {
+    return { booking, target };
+  };
+
+  const onDragStart = (event: DragStartEvent) => {
+    blockClick();
+    setActiveId(String(event.active.id));
+  };
+
+  const onDragMove = (event: DragMoveEvent) => {
+    const result = targetOf(event);
+    setPreview(
+      result?.target.kind === "move"
+        ? { bookingId: result.booking.id, barberId: result.target.barberId, startsAt: result.target.startsAt }
+        : null,
+    );
+  };
+
+  const onDragEnd = (event: DragEndEvent) => {
+    releaseClick();
+    setPreview(null);
+    setActiveId(null);
+    const result = targetOf(event);
+    if (!result || result.target.kind === "none") return;
+    if (result.target.kind === "past") {
       reject(t.move.pastTarget);
       return;
     }
-    move(booking.id, { barberId: booking.barberId, startsAt: booking.startsAt }, { barberId: targetBarberId, startsAt });
+    const { booking, target } = result;
+    move(
+      booking.id,
+      { barberId: booking.barberId, startsAt: booking.startsAt },
+      { barberId: target.barberId, startsAt: target.startsAt },
+    );
   };
+
+  const onDragCancel = () => {
+    releaseClick();
+    setPreview(null);
+    setActiveId(null);
+  };
+
+  const labelOf = (booking: CalendarBooking) =>
+    `${time(booking.startsAt)}–${time(booking.endsAt)} ${booking.customerName}`;
+  const dragged = bookings.find((booking) => booking.id === activeId);
 
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={pointerWithin}
-      onDragStart={blockClick}
+      autoScroll={AUTO_SCROLL}
+      onDragStart={onDragStart}
+      onDragMove={onDragMove}
+      onDragOver={onDragMove}
       onDragEnd={onDragEnd}
-      onDragCancel={releaseClick}
+      onDragCancel={onDragCancel}
     >
       <MoveFeedback notice={notice} dialog={dialog} busy={busy} />
       <div className="overflow-x-auto">
@@ -175,7 +232,12 @@ export function DayGridView({
               >
                 {column.barberName}
               </h2>,
-              <ColumnDropZone key={`${column.barberId}-drop`} barberId={column.barberId} gridColumn={gridColumn} />,
+              <ColumnDropZone
+                key={`${column.barberId}-drop`}
+                barberId={column.barberId}
+                gridColumn={gridColumn}
+                highlighted={preview?.barberId === column.barberId}
+              />,
               ...grid.rows.map((row, index) => {
                 const working = column.bands.some((band) => covers(band, row));
                 const period = column.periods.find((candidate) => covers(candidate, row));
@@ -228,7 +290,7 @@ export function DayGridView({
                   <BookingCard
                     key={booking.id}
                     booking={booking}
-                    label={`${time(booking.startsAt)}–${time(booking.endsAt)} ${booking.customerName}`}
+                    label={labelOf(booking)}
                     draggable={draggableAt(booking, now)}
                     canGrab={() => draggableAt(booking, new Date())}
                     style={{ gridColumn, gridRow: `${position.row + 2} / span ${position.span}` }}
@@ -239,19 +301,48 @@ export function DayGridView({
           })}
         </div>
       </div>
+      {/* La copia trascinata sta fuori dal contenitore che scorre: spostare la scheda originale
+          con un transform allargherebbe la griglia e l'autoscroll non finirebbe mai. */}
+      <DragOverlay dropAnimation={null}>
+        {dragged ? (
+          <DraggedCard
+            label={labelOf(dragged)}
+            serviceName={dragged.serviceName}
+            preview={
+              preview?.bookingId === dragged.id
+                ? t.move.dropPreview
+                    .replace("{barber}", barberName.get(preview.barberId) ?? "")
+                    .replace("{time}", time(preview.startsAt))
+                : null
+            }
+          />
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }
 
-/** Area della colonna su cui si rilascia una scheda; non intercetta i click sulle righe. */
-function ColumnDropZone({ barberId, gridColumn }: { barberId: string; gridColumn: number }) {
+/**
+ * Area della colonna su cui si rilascia una scheda; non intercetta i click sulle righe. Durante il
+ * trascinamento la colonna di arrivo ha un contorno pieno (`data-drop-target`).
+ */
+function ColumnDropZone({
+  barberId,
+  gridColumn,
+  highlighted,
+}: {
+  barberId: string;
+  gridColumn: number;
+  highlighted: boolean;
+}) {
   const { setNodeRef } = useDroppable({ id: barberId });
   return (
     <div
       ref={setNodeRef}
       data-barber-id={barberId}
+      data-drop-target={highlighted ? "true" : undefined}
       aria-hidden
-      className="pointer-events-none"
+      className={cn("pointer-events-none", highlighted && "z-[5] outline-2 -outline-offset-2 outline-ink")}
       style={{ gridColumn, gridRow: "2 / -1" }}
     />
   );
@@ -276,7 +367,7 @@ function BookingCard({
   canGrab: () => boolean;
   style: React.CSSProperties;
 }) {
-  const { setNodeRef, listeners, transform, isDragging } = useDraggable({ id: booking.id, disabled: !draggable });
+  const { setNodeRef, listeners, isDragging } = useDraggable({ id: booking.id, disabled: !draggable });
   const grabListeners =
     draggable && listeners
       ? Object.fromEntries(
@@ -303,12 +394,10 @@ function BookingCard({
         booking.status === "no_show" && "border-destructive text-destructive",
         cancelled && "border-dashed border-line text-ink-disabled line-through",
         draggable && "cursor-grab touch-manipulation select-none [-webkit-touch-callout:none]",
-        isDragging && "z-20 cursor-grabbing",
+        // Durante il trascinamento resta al suo posto, tratteggiata: si muove la copia.
+        isDragging && "border-dashed",
       )}
-      style={{
-        ...style,
-        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-      }}
+      style={style}
     >
       <span className="font-medium">{label}</span>
       <span>
@@ -316,5 +405,23 @@ function BookingCard({
         {booking.status === "confirmed" ? "" : `, ${t.statusLabels[booking.status]}`}
       </span>
     </Link>
+  );
+}
+
+/**
+ * Copia della scheda che segue il puntatore, con barbiere e orario di arrivo (es. "Mario, 10:30"):
+ * si aggiornano anche durante l'autoscroll, con la stessa funzione usata al rilascio.
+ */
+function DraggedCard({ label, serviceName, preview }: { label: string; serviceName: string; preview: string | null }) {
+  return (
+    <div className="flex h-full cursor-grabbing flex-col overflow-hidden rounded-md border border-ink bg-surface px-2 py-1 text-xs select-none">
+      {preview && (
+        <span data-drop-preview className="self-start bg-ink px-1 font-medium text-surface">
+          {preview}
+        </span>
+      )}
+      <span className="font-medium">{label}</span>
+      <span>{serviceName}</span>
+    </div>
   );
 }

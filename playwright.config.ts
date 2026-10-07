@@ -14,7 +14,11 @@ export default defineConfig({
   workers: isCI ? undefined : "25%",
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
-  reporter: isCI ? [["github"], ["html", { open: "never" }]] : "list",
+  // Il riepilogo fa fallire il giro se un test non è stato eseguito senza uno skip esplicito (ad
+  // esempio admin-settings, che non parte se fallisce un test di mobile-chromium).
+  reporter: isCI
+    ? [["github"], ["html", { open: "never" }], ["./tests/e2e/run-summary-reporter.ts"]]
+    : [["list"], ["./tests/e2e/run-summary-reporter.ts"]],
   use: {
     baseURL,
     trace: "on-first-retry",

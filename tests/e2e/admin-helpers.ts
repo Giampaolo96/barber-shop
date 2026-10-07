@@ -332,7 +332,14 @@ export const cleanup = async (
   if (data.bookings?.length) await api.del(`/rest/v1/bookings?id=in.(${list(data.bookings)})`);
   if (data.barbers?.length) {
     await api.del(`/rest/v1/bookings?barber_id=in.(${list(data.barbers)})`);
-    await api.del(`/rest/v1/barbers?id=in.(${list(data.barbers)})`);
+    try {
+      await api.del(`/rest/v1/barbers?id=in.(${list(data.barbers)})`);
+    } catch (error) {
+      // Un barbiere rimasto attivo allarga il calendario degli altri test (colonne in più): se non
+      // si può eliminare, almeno si disattiva.
+      await api.patch(`/rest/v1/barbers?id=in.(${list(data.barbers)})`, { is_active: false });
+      console.warn('cleanup: barbieri disattivati invece che eliminati', error);
+    }
   }
   if (data.services?.length) {
     await api.del(`/rest/v1/bookings?service_id=in.(${list(data.services)})`);

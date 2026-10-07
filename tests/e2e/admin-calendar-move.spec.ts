@@ -134,9 +134,14 @@ const box = async (locator: Locator): Promise<{ x: number; y: number; width: num
  * Trascina la scheda con il mouse fino al centro della riga di destinazione. La pressione avviene al
  * centro della prima riga occupata dalla scheda, così lo scarto verticale è un numero intero di righe
  * (aggancio alla griglia, decisione 3); il primo movimento supera i 5 px di attivazione (decisione 6).
+ * Con `centerTarget` la colonna di destinazione viene portata al centro prima di trascinare: con molte
+ * colonne (barbieri creati dagli altri test) potrebbe stare vicino al bordo, dove l'autoscroll farebbe
+ * scorrere la griglia sotto il puntatore (modifica approvata dall'utente dopo l'indagine sull'e2e
+ * instabile).
  */
-const dragTo = async (page: Page, card: Locator, target: Locator): Promise<void> => {
+const dragTo = async (page: Page, card: Locator, target: Locator, options: { centerTarget?: boolean } = {}): Promise<void> => {
   await card.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+  if (options.centerTarget) await target.evaluate((element) => element.scrollIntoView({ block: 'nearest', inline: 'center' }));
   const from = await box(card);
   const to = await box(target);
   const viewport = page.viewportSize();
@@ -183,7 +188,7 @@ test.describe('Spostamento con trascinamento sul calendario (SPEC §6.3, fetta 6
       await expect(draggableCard(page, guestName)).toHaveCount(1);
 
       // Luca 10:00 → Mario 11:00, dentro la fascia: nessun avviso, salvata subito
-      await dragTo(page, draggableCard(page, guestName), gridRow(page, 'Mario', '11:00'));
+      await dragTo(page, draggableCard(page, guestName), gridRow(page, 'Mario', '11:00'), { centerTarget: true });
       await expect(statusWith(page, 'admin.calendar.move.saved')).not.toHaveCount(0);
       await expect.poll(() => position(api, id)).toEqual([SEED.mario, instant(romeWinter(date, '11:00'))]);
       await expect(page.getByRole('alertdialog')).toHaveCount(0);
