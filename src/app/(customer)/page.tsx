@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { secondaryLinkClass } from "@/components/auth/secondary-link";
 import { InstallBanner } from "@/components/pwa/install-banner";
 import { it } from "@/i18n/it";
 import { fillText } from "@/lib/admin/text";
+import { STAFF_LOGIN_PATH } from "@/lib/auth/access";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { formatLongDate, formatTime, telHref } from "@/lib/booking/format";
 import { BOOK_PATH, MY_BOOKINGS_PATH } from "@/lib/booking/paths";
@@ -29,88 +31,96 @@ export default async function HomePage() {
   const tel = telHref(shop?.phone ?? null);
 
   return (
-    <main className="flex flex-1 flex-col">
-      <section className="on-ink relative overflow-hidden bg-marble text-on-marble">
-        <HeroBackground />
-        <div className="relative mx-auto flex w-full max-w-xl flex-col px-4 pt-4 pb-10">
-          <HeroMark />
-          <h1 aria-label={fullName} className="-mt-10 font-display">
-            <span className="block text-[5.5rem] leading-[0.9] font-medium tracking-tight sm:text-[7rem]">
-              {name.lead}
-            </span>
-            {name.rest && <span className="block text-3xl italic lowercase sm:text-4xl">{name.rest}</span>}
-          </h1>
-          {status && timezone && (
-            <p className="mt-8 text-base">
-              {status.state === "open"
-                ? fillText(t.openNow, { time: closingTime(status.until, timezone) })
-                : status.state === "opens_later"
-                  ? fillText(t.opensAt, { time: formatTime(status.at, timezone) })
-                  : t.closedToday}
-            </p>
+    <>
+      <main className="flex flex-1 flex-col">
+        <section className="on-ink relative overflow-hidden bg-marble text-on-marble">
+          <HeroBackground />
+          <div className="relative mx-auto flex w-full max-w-xl flex-col px-4 pt-4 pb-10">
+            <HeroMark />
+            <h1 aria-label={fullName} className="-mt-10 font-display">
+              <span className="block text-[5.5rem] leading-[0.9] font-medium tracking-tight sm:text-[7rem]">
+                {name.lead}
+              </span>
+              {name.rest && <span className="block text-3xl italic lowercase sm:text-4xl">{name.rest}</span>}
+            </h1>
+            {status && timezone && (
+              <p className="mt-8 text-base">
+                {status.state === "open"
+                  ? fillText(t.openNow, { time: closingTime(status.until, timezone) })
+                  : status.state === "opens_later"
+                    ? fillText(t.opensAt, { time: formatTime(status.at, timezone) })
+                    : t.closedToday}
+              </p>
+            )}
+          </div>
+        </section>
+
+        <div className="mx-auto flex w-full max-w-xl flex-col gap-10 px-4 py-8">
+          {user?.role === "customer" && (
+            <section className="on-ink flex flex-col gap-3 bg-ink p-5 text-surface">
+              <h2 className="text-sm font-medium">{t.nextBooking}</h2>
+              {next && !next.ok ? (
+                <p role="alert">{it.booking.errors.listLoad}</p>
+              ) : next?.booking && timezone ? (
+                <>
+                  <p className="font-display text-3xl leading-tight first-letter:uppercase">
+                    {formatLongDate(next.booking.startsAt, timezone)}
+                    <br />
+                    <time dateTime={next.booking.startsAt}>{formatTime(next.booking.startsAt, timezone)}</time>
+                  </p>
+                  <p>
+                    {fillText(t.withBarber, { service: next.booking.serviceName, barber: next.booking.barberName })}
+                  </p>
+                </>
+              ) : (
+                <p>{t.noBooking}</p>
+              )}
+              <Link
+                href={MY_BOOKINGS_PATH}
+                className="inline-flex h-11 w-fit items-center text-sm font-medium underline underline-offset-4 hover:no-underline"
+              >
+                {t.myBookings}
+              </Link>
+            </section>
+          )}
+
+          <Link
+            href={BOOK_PATH}
+            className="flex h-14 items-center justify-center border border-ink text-base font-medium transition-colors hover:bg-ink hover:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            {t.book}
+          </Link>
+
+          <InstallBanner />
+
+          {opening && timezone && (
+            <WeeklyHours hours={opening.hours} today={isoWeekday(localDateOf(now, timezone))} />
+          )}
+
+          {(shop?.address || tel) && (
+            <section className="flex flex-col gap-3">
+              <h2 className="font-display text-2xl">{t.whereTitle}</h2>
+              {shop?.address && <address className="not-italic">{shop.address}</address>}
+              {tel && shop?.phone && (
+                <a
+                  href={tel}
+                  className="inline-flex h-11 w-fit items-center gap-3 border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface"
+                >
+                  {t.call}
+                  <span className="font-normal tabular-nums">{shop.phone}</span>
+                </a>
+              )}
+            </section>
           )}
         </div>
-      </section>
+      </main>
 
-      <div className="mx-auto flex w-full max-w-xl flex-col gap-10 px-4 py-8">
-        {user?.role === "customer" && (
-          <section className="on-ink flex flex-col gap-3 bg-ink p-5 text-surface">
-            <h2 className="text-sm font-medium">{t.nextBooking}</h2>
-            {next && !next.ok ? (
-              <p role="alert">{it.booking.errors.listLoad}</p>
-            ) : next?.booking && timezone ? (
-              <>
-                <p className="font-display text-3xl leading-tight first-letter:uppercase">
-                  {formatLongDate(next.booking.startsAt, timezone)}
-                  <br />
-                  <time dateTime={next.booking.startsAt}>{formatTime(next.booking.startsAt, timezone)}</time>
-                </p>
-                <p>
-                  {fillText(t.withBarber, { service: next.booking.serviceName, barber: next.booking.barberName })}
-                </p>
-              </>
-            ) : (
-              <p>{t.noBooking}</p>
-            )}
-            <Link
-              href={MY_BOOKINGS_PATH}
-              className="inline-flex h-11 w-fit items-center text-sm font-medium underline underline-offset-4 hover:no-underline"
-            >
-              {t.myBookings}
-            </Link>
-          </section>
-        )}
-
-        <Link
-          href={BOOK_PATH}
-          className="flex h-14 items-center justify-center border border-ink text-base font-medium transition-colors hover:bg-ink hover:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          {t.book}
+      <footer className="mx-auto w-full max-w-xl border-t border-line px-4 py-2">
+        <Link href={STAFF_LOGIN_PATH} className={secondaryLinkClass}>
+          {it.auth.customerLogin.staffLink}
         </Link>
-
-        <InstallBanner />
-
-        {opening && timezone && (
-          <WeeklyHours hours={opening.hours} today={isoWeekday(localDateOf(now, timezone))} />
-        )}
-
-        {(shop?.address || tel) && (
-          <section className="flex flex-col gap-3">
-            <h2 className="font-display text-2xl">{t.whereTitle}</h2>
-            {shop?.address && <address className="not-italic">{shop.address}</address>}
-            {tel && shop?.phone && (
-              <a
-                href={tel}
-                className="inline-flex h-11 w-fit items-center gap-3 border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface"
-              >
-                {t.call}
-                <span className="font-normal tabular-nums">{shop.phone}</span>
-              </a>
-            )}
-          </section>
-        )}
-      </div>
-    </main>
+      </footer>
+    </>
   );
 }
 

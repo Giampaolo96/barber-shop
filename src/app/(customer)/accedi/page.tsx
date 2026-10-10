@@ -1,5 +1,8 @@
+import Link from "next/link";
 import { CustomerLoginForm } from "@/components/auth/customer-login-form";
+import { secondaryLinkClass } from "@/components/auth/secondary-link";
 import { it } from "@/i18n/it";
+import { STAFF_LOGIN_PATH } from "@/lib/auth/access";
 import { safeNextPath } from "@/lib/auth/safe-next-path";
 
 export default async function CustomerLoginPage({
@@ -20,6 +23,9 @@ export default async function CustomerLoginPage({
         </p>
       )}
       <CustomerLoginForm next={safeNextPath(next)} />
+      <Link href={STAFF_LOGIN_PATH} className={`mt-auto pt-8 ${secondaryLinkClass}`}>
+        {it.auth.customerLogin.staffLink}
+      </Link>
     </main>
   );
 }

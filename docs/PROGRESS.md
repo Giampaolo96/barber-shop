@@ -809,3 +809,16 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 - **Nuovi test**:
   - `tests/acceptance/offline-static.test.ts` (4 test);
   - `tests/e2e/offline.spec.ts`: il worker ha in cache solo `/offline`, poi si va offline e si naviga a `/`. La pagina resta visibile per 4 s, senza errori in console né schermata d'errore. Fallisce con la vecchia pagina (verificato) e passa sulla build di produzione e con il server di sviluppo.
+
+**Collegamenti tra i due accessi** (2026-10-11, commit "feat: collegamenti tra accesso cliente e accesso staff")
+- "Accesso staff" (link a `/admin/login`) compare:
+  - in fondo a `/accedi`, dopo il modulo;
+  - nel piè di pagina della home, in un `<footer>` fuori da `<main>`, così è un vero piè di pagina anche per l'accessibilità.
+- "Sei un cliente? Accedi qui" (link a `/accedi`) compare sotto il modulo di `/admin/login`.
+- Testi in `it.auth.customerLogin.staffLink` e `it.auth.staffLogin.customerLink`. Stile in `secondaryLinkClass`: collegamento discreto, tap target da 44 px.
+- **E2e**: `tests/e2e/login-links.spec.ts` (3 test).
+- **Controlli** dopo i due commit:
+  - lint e typecheck ok;
+  - Vitest 1491/1491;
+  - pgTAP 1169/1169;
+  - Playwright 106/106, sia con `CI=true` (build di produzione) sia con il server di sviluppo.

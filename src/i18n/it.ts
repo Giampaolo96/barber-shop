@@ -121,6 +121,7 @@ export const it = {
       rateLimited: "Hai appena chiesto un codice: aspetta qualche secondo e riprova.",
       sendFailed: "Non siamo riusciti a inviare l'email. Riprova tra poco.",
       invalidLink: "Il link non è valido o è scaduto. Richiedine uno nuovo.",
+      staffLink: "Accesso staff",
     },
     loginCode: {
       label: "Codice di 6 cifre",
@@ -146,6 +147,7 @@ export const it = {
       submit: "Entra",
       invalidCredentials: "Credenziali non valide",
       accountDisabled: "Account disabilitato",
+      customerLink: "Sei un cliente? Accedi qui",
     },
     completeProfile: {
       title: "Completa il tuo profilo",
