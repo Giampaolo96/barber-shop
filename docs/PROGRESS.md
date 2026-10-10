@@ -822,3 +822,18 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
   - Vitest 1491/1491;
   - pgTAP 1169/1169;
   - Playwright 106/106, sia con `CI=true` (build di produzione) sia con il server di sviluppo.
+
+**Bug in produzione su Safari iOS: sessione revocata ancora nei cookie** (2026-10-11)
+- **Sintomo**: navigazione normale, header con "Accedi". Il tocco su "Accedi" non faceva nulla, "Prenota" ricaricava la home e `/admin/login` portava alla home. In navigazione privata funzionava.
+- **Riproduzione su produzione** con Playwright (WebKit con profilo iPhone, Chromium con profilo Pixel), con e senza service worker, in contesto pulito: nessun problema. Il service worker e Safari non c'entrano.
+- **Causa**: il proxy usa `getClaims()`, che verifica il JWT in locale, e vedeva un cliente. Le pagine usano `getUser()`, e Supabase rispondeva `403 session_not_found`. I log di Auth di produzione mostrano 48 `session_not_found` tra le 22:22 e le 22:39 UTC del 2026-10-10, poco dopo un `/logout`.
+  - Ipotesi sull'origine, non verificata: l'app installata su iOS parte con una copia dei cookie di Safari, e un logout dall'app revoca anche la sessione rimasta in Safari.
+  - In locale i tre sintomi si riproducono cancellando la sessione lato Supabase.
+- **Correzione**: `resolveAccess` (`src/lib/auth/stale-session.ts`) conferma la sessione con `getUser()` solo quando il proxy sta per fare un redirect dovuto all'utente loggato.
+  - Se la sessione non esiste più (`AuthSessionMissingError`, cioè quello che supabase-js restituisce davvero, oppure `session_not_found`, 401 o 403), il proxy cancella i cookie `sb-…-auth-token` e decide come per un anonimo.
+  - Con un errore di rete resta la decisione di partenza.
+  - Annotato in ADR 002.
+- **Test**:
+  - `tests/acceptance/stale-session.test.ts` (28 test);
+  - `tests/e2e/stale-session.spec.ts`: login con il codice, revoca della sola sessione con la service role, poi controllo di "Accedi", "Prenota", `/admin/login` e dei cookie. Senza la correzione falliva su "Accedi", che restava sulla home.
+- **Domini**: il dominio pubblico di produzione è `barber-shop-jade-alpha.vercel.app`, ora scritto in DEPLOY §2 e §5 e in GO-LIVE §4. Gli URL del team, come `barber-shop-gio-s1.vercel.app` usato dal telefono, sono dietro la protezione dei deploy di Vercel.

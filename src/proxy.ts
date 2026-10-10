@@ -6,12 +6,12 @@ import {
   CUSTOMER_LOGIN_PATH,
   DISABLED_REASON,
   STAFF_LOGIN_PATH,
-  decideAccess,
   isStaffRole,
 } from "@/lib/auth/access";
 import { emailLinkFallback } from "@/lib/auth/email-fallback";
 import { ACCESS_PROFILE_COLUMNS, toCurrentUser } from "@/lib/auth/profile";
 import type { CurrentUser } from "@/lib/auth/profile";
+import { isAuthTokenCookie, resolveAccess, sessionIsGone } from "@/lib/auth/stale-session";
 import { supabaseEnv } from "@/lib/db/env";
 import type { Database } from "@/lib/db/database";
 
@@ -42,23 +42,42 @@ export async function proxy(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const userId = data?.claims.sub;
 
-  let user: CurrentUser | null = null;
+  let claimedUser: CurrentUser | null = null;
   if (userId) {
     const { data: profile } = await supabase
       .from("profiles")
       .select(ACCESS_PROFILE_COLUMNS)
       .eq("id", userId)
       .maybeSingle();
-    if (profile) user = toCurrentUser(userId, profile);
+    if (profile) claimedUser = toCurrentUser(userId, profile);
   }
 
-  const decision = decideAccess({
-    path: request.nextUrl.pathname,
-    role: user?.role ?? null,
-    isBlocked: user?.isBlocked ?? false,
-    profileComplete: user?.profileComplete ?? false,
-  });
-  if (decision.type === "allow") return response;
+  // getClaims() non vede una sessione revocata altrove (ADR 002): prima di un redirect dovuto
+  // all'utente loggato la sessione si conferma con Supabase.
+  const { decision, user, clearAuthCookies } = await resolveAccess(
+    request.nextUrl.pathname,
+    claimedUser,
+    async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (data.user) return "valid";
+      return sessionIsGone(error) ? "gone" : "unknown";
+    },
+  );
+
+  // Sessione che non esiste più: via i cookie, anche per le pagine di questa richiesta.
+  const staleCookies = clearAuthCookies
+    ? request.cookies.getAll().map(({ name }) => name).filter(isAuthTokenCookie)
+    : [];
+  if (staleCookies.length > 0) {
+    for (const name of staleCookies) request.cookies.delete(name);
+    response = NextResponse.next({ request });
+  }
+  const withoutStaleCookies = (res: NextResponse): NextResponse => {
+    for (const name of staleCookies) res.cookies.delete(name);
+    return res;
+  };
+
+  if (decision.type === "allow") return withoutStaleCookies(response);
 
   const target = request.nextUrl.clone();
   target.pathname = decision.to;
@@ -85,7 +104,7 @@ export async function proxy(request: NextRequest) {
 
   const redirectResponse = NextResponse.redirect(target);
   for (const cookie of response.cookies.getAll()) redirectResponse.cookies.set(cookie);
-  return redirectResponse;
+  return withoutStaleCookies(redirectResponse);
 }
 
 export const config = {

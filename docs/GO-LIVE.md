@@ -44,7 +44,7 @@ I passi tecnici di dettaglio sono in `docs/DEPLOY.md`; qui c'è cosa deve esiste
 - [ ] **Dominio personalizzato** collegato al progetto (es. `prenota.nomenegozio.it`), con HTTPS attivo.
 - [ ] Variabili d'ambiente di produzione impostate (`docs/DEPLOY.md` §3), compresa la chiave Resend per l'app.
 - [ ] In Supabase, *Authentication → URL Configuration*:
-  - [ ] **Site URL** = dominio personalizzato (i link delle email lo usano);
+  - [ ] **Site URL** = dominio personalizzato (i link delle email lo usano). Fino ad allora `https://barber-shop-jade-alpha.vercel.app`, il dominio pubblico: mai un URL del team (`barber-shop-<team>.vercel.app`), protetto dal login di Vercel;
   - [ ] **Redirect URLs** aggiornati al dominio personalizzato (`https://<dominio>/**`, serve al ritorno dopo il login); via quelli di prova non più necessari.
 - [ ] Regola di **rate limiting del firewall** sul flusso di prenotazione e su `/accedi`, una sola regola con due condizioni in OR (`docs/DEPLOY.md` §7).
 - [ ] Prova end-to-end in produzione: magic link di un cliente, login dello staff, prenotazione e cancellazione.
