@@ -17,7 +17,7 @@
 //   src/components/pwa/register-sw.tsx  "use client", registra /sw.js solo in production; montato
 //                            da un layout di src/app.
 //   src/components/pwa/install-banner.tsx "use client" (comportamento negli e2e).
-//   src/app/offline/page.tsx pagina statica, senza sessione né dati; testi it.offline.{title,body}.
+//   src/app/offline/route.ts HTML statico generato alla build, senza sessione né dati; testi it.offline.{title,body}.
 //   next.config.ts           headers(): Cache-Control no-cache su /sw.js.
 //   src/i18n/it.ts           it.pwa.install.{title,iosInstructions,install,dismiss,profileEntry}
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
@@ -535,8 +535,8 @@ describe('Registrazione e cache di /sw.js (decisioni "Service worker")', () => {
 // Pagina offline e banner (statici; il comportamento è negli e2e)
 // ---------------------------------------------------------------------------
 describe('Pagina /offline (decisioni "Service worker", SPEC §8)', () => {
-  test('src/app/offline/page.tsx non legge sessione, cookie né database', () => {
-    const code = stripComments(readText('src', 'app', 'offline', 'page.tsx'));
+  test('src/app/offline/route.ts non legge sessione, cookie né database', () => {
+    const code = stripComments(readText('src', 'app', 'offline', 'route.ts'));
     expect(code).not.toMatch(/['"](?:@\/lib\/auth|@\/lib\/db|@\/lib\/booking|next\/headers)[^'"]*['"]/);
     expect(code).not.toMatch(/\b(?:requireRole|getCurrentUser|cookies|headers)\s*\(/);
   });

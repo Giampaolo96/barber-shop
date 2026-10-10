@@ -796,3 +796,16 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
   - Vitest 1487/1487;
   - pgTAP 1169/1169;
   - Playwright con `CI=true` (build di produzione) 102/102.
+
+**Prova su iPhone: schermata d'errore offline** (2026-10-11, commit "fix: pagina offline statica senza JavaScript")
+- **Sintomo**: con l'app installata in modalità aereo compariva "Sei offline" e, dopo un attimo, la schermata di Next "This page couldn't load".
+- **Causa**, riprodotta sulla build di produzione con Chromium: la pagina `/offline`, salvata all'installazione solo come HTML, si idratava e chiedeva i propri script (`next/link`), che non erano in cache. Il caricamento falliva (`Failed to load chunk`) e Next mostrava la sua schermata d'errore. Dopo il passaggio offline non partiva nessuna richiesta dei dati della route `/`.
+- **Correzione**: `src/app/offline/page.tsx` è sostituita da `src/app/offline/route.ts`, HTML statico generato alla build senza JavaScript dell'app.
+  - Gli stili sono inline, con le variabili del `theme.css` del tema attivo (`themeName` in `active.ts`).
+  - Font di sistema; "Riprova" ricarica la pagina.
+  - Indirizzo e service worker invariati.
+  - Leggere il file con un percorso costruito a runtime faceva includere a Turbopack l'intero progetto nel pacchetto del server. Il percorso ora è limitato a `src/themes/`.
+- **Test di accettazione**: `tests/acceptance/pwa.test.ts` ora legge `route.ts` al posto di `page.tsx`, con la stessa verifica (autorizzato dall'utente).
+- **Nuovi test**:
+  - `tests/acceptance/offline-static.test.ts` (4 test);
+  - `tests/e2e/offline.spec.ts`: il worker ha in cache solo `/offline`, poi si va offline e si naviga a `/`. La pagina resta visibile per 4 s, senza errori in console né schermata d'errore. Fallisce con la vecchia pagina (verificato) e passa sulla build di produzione e con il server di sviluppo.
