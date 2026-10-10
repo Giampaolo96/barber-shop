@@ -13,7 +13,13 @@ import {
   isStaffRole,
 } from "./access";
 import { loadCurrentUser, requireRole } from "./current-user";
-import { createEmailLinkVerifier, openCustomerSession } from "./email-link";
+import { createEmailLinkVerifier, type EmailLinkResult, openCustomerSession } from "./email-link";
+import {
+  checkLoginCode,
+  clearLoginCode,
+  registerLoginCodeFailure,
+  resetLoginCode,
+} from "./login-code";
 import {
   completeProfileUrl,
   destinationAfterLogin,
@@ -25,12 +31,16 @@ import {
   completeProfileSchema,
   emailLinkSchema,
   emailLoginSchema,
+  loginCodeSchema,
   staffLoginSchema,
 } from "./schemas";
 
 export type MagicLinkState = { status: "idle" | "sent" | "invalid" };
 export type StaffLoginState = { status: "idle" | "invalid" | "disabled" };
 export type CompleteProfileState = { status: "idle" | "invalid" | "error" };
+export type LoginCodeState =
+  | { status: "idle" | "invalid" | "blocked" | "rateLimited" }
+  | { status: "wrong"; remaining: number };
 
 /** Invio del magic link: la risposta è la stessa che l'indirizzo sia registrato o no. */
 export async function requestMagicLink(
@@ -57,7 +67,15 @@ export async function requestMagicLink(
     options: { shouldCreateUser: true, emailRedirectTo: redirectTo },
   });
   // L'esito non si mostra all'utente (niente enumerazione degli account); resta nei log.
-  if (error) console.error("magic link non inviato:", error.code ?? error.message);
+  if (error) {
+    console.error("magic link non inviato:", error.code ?? error.message);
+  } else {
+    // Nuovo codice in arrivo: riparte il suo contatore dei tentativi. Solo se l'email è partita,
+    // altrimenti si azzererebbe il limite senza un codice nuovo.
+    await resetLoginCode(parsed.data.email).catch((resetError: unknown) =>
+      console.error("contatore del codice non azzerato:", resetError),
+    );
+  }
 
   return { status: "sent" };
 }
@@ -84,15 +102,74 @@ export async function confirmEmailLink(formData: FormData): Promise<void> {
   if (error || !data.session) redirect(invalidLink);
 
   const result = await openCustomerSession(verifier, data.session);
-  if (result.status === "staff") redirect(STAFF_LOGIN_PATH);
   if (result.status === "invalid") redirect(invalidLink);
+  redirectAfterEmailSignIn(result, nextFromEmailLink(parsed.data.next));
+}
+
+/** Destinazione dopo il link o il codice: staff al proprio login, cliente a `next` o al profilo. */
+function redirectAfterEmailSignIn(
+  result: Exclude<EmailLinkResult, { status: "invalid" }>,
+  requestedNext: string | null | undefined,
+): never {
+  if (result.status === "staff") redirect(STAFF_LOGIN_PATH);
 
   revalidatePath("/", "layout");
   // La destinazione richiesta vale solo se è un percorso interno che l'utente può aprire.
-  const next = safeNextPath(nextFromEmailLink(parsed.data.next));
+  const next = safeNextPath(requestedNext ?? undefined);
   // Al primo accesso la destinazione passa da /profilo/completa.
   if (!result.user.profileComplete) redirect(completeProfileUrl(COMPLETE_PROFILE_PATH, next));
   redirect(destinationAfterLogin(next, result.user));
+}
+
+/** Errore di GoTrue per troppe verifiche: non dice nulla sul codice, quindi non conta. */
+const isRateLimit = (error: { status?: number; code?: string }): boolean =>
+  error.status === 429 || error.code === "over_request_rate_limit";
+
+/**
+ * Accesso con il codice a 6 cifre dell'email (fetta 8, ADR 009): apre la sessione nel browser
+ * (o nell'app installata) in cui il codice viene digitato. Stesse regole del link: solo clienti,
+ * stesse destinazioni. Oltre il limite di tentativi il codice non viene nemmeno verificato.
+ */
+export async function verifyLoginCode(
+  _previous: LoginCodeState,
+  formData: FormData,
+): Promise<LoginCodeState> {
+  const parsed = loginCodeSchema.safeParse({
+    email: formData.get("email"),
+    token: formData.get("token"),
+    next: formData.get("next") ?? undefined,
+  });
+  if (!parsed.success) return { status: "invalid" };
+  const { email, token } = parsed.data;
+
+  try {
+    if ((await checkLoginCode(email)).blocked) return { status: "blocked" };
+  } catch (error) {
+    // Senza il contatore non si verifica nulla: meglio un "riprova" che nessun limite.
+    console.error("limite del codice non letto:", error);
+    return { status: "rateLimited" };
+  }
+
+  const verifier = createEmailLinkVerifier();
+  const { data, error } = await verifier.auth.verifyOtp({ email, token, type: "email" });
+  if (error && isRateLimit(error)) return { status: "rateLimited" };
+  if (error || !data.session) {
+    try {
+      const limit = await registerLoginCodeFailure(email);
+      return limit.blocked ? { status: "blocked" } : { status: "wrong", remaining: limit.remaining };
+    } catch (failureError) {
+      console.error("errore del codice non contato:", failureError);
+      return { status: "rateLimited" };
+    }
+  }
+
+  await clearLoginCode(email).catch((clearError: unknown) =>
+    console.error("contatori del codice non azzerati:", clearError),
+  );
+
+  const result = await openCustomerSession(verifier, data.session);
+  if (result.status === "invalid") return { status: "invalid" };
+  redirectAfterEmailSignIn(result, parsed.data.next);
 }
 
 /** Login dello staff: errore generico per qualunque credenziale non valida. */

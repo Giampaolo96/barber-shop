@@ -2,4 +2,4 @@
 // negozio si crea src/themes/<nome>/ con gli stessi export e si cambiano queste due righe.
 import "./mosca/theme.css";
 
-export { fontVariables, HeroBackground, HeroMark, PendingMark } from "./mosca";
+export { appIdentity, fontVariables, HeroBackground, HeroMark, PendingMark } from "./mosca";

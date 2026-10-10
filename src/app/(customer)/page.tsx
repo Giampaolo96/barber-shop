@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { InstallBanner } from "@/components/pwa/install-banner";
 import { it } from "@/i18n/it";
 import { fillText } from "@/lib/admin/text";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -86,6 +87,8 @@ export default async function HomePage() {
         >
           {t.book}
         </Link>
+
+        <InstallBanner />
 
         {opening && timezone && (
           <WeeklyHours hours={opening.hours} today={isoWeekday(localDateOf(now, timezone))} />

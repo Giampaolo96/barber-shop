@@ -208,7 +208,8 @@ token_refresh = 150
 # Number of sign up and sign-in requests that can be made in a 5 minute interval per IP address (excludes anonymous users).
 sign_in_sign_ups = 30
 # Number of OTP / Magic link verifications that can be made in a 5 minute interval per IP address.
-token_verifications = 30
+# Alzato in locale (fetta 8): gli e2e verificano molti codici dallo stesso IP. Nel cloud vedi ADR 009.
+token_verifications = 300
 # Number of Web3 logins that can be made in a 5 minute interval per IP address.
 web3 = 30
 
@@ -232,8 +233,8 @@ secure_password_change = true
 max_frequency = "1s"
 # Number of characters used in the email OTP.
 otp_length = 6
-# Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# Number of seconds before the email OTP expires: 15 minuti per codice e link (fetta 8, ADR 009).
+otp_expiry = 900
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]

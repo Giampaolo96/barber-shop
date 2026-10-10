@@ -13,7 +13,7 @@
 | 6c | completata | 2026-10-07 | Vedi "Fetta 6c" sotto |
 | 7 | da fare | | |
 | 8a | completata | 2026-10-06 | Vedi "Fetta 8a" sotto (identità visiva, prima della 8) |
-| 8 | da fare | | |
+| 8 | completata (review aperta) | 2026-10-10 | Vedi "Fetta 8" sotto; manca la prova su iPhone |
 | 9 | da fare | | |
 
 Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli account): checklist in `docs/GO-LIVE.md`, da completare con il titolare del negozio.
@@ -507,7 +507,7 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 
 ## Fetta 6c – Spostamento con trascinamento sul calendario
 
-**Stato**: completata, review chiusa (un giro, un bloccante corretto; migliorie 1–8 applicate su richiesta dell'utente nel commit "fix: review fetta 6c"). Hash di partenza `b091929`, test di accettazione nel commit `fa5e268`. Migrazioni `20261007090000` e `20261007110000` da applicare a Supabase cloud (`db push`).
+**Stato**: completata, review chiusa (un giro, un bloccante corretto; migliorie 1–8 applicate su richiesta dell'utente nel commit "fix: review fetta 6c"). Hash di partenza `b091929`, test di accettazione nel commit `fa5e268`. Migrazioni `20261007090000` e `20261007110000` applicate a Supabase cloud (`db push` dell'utente, 2026-10-07, senza errori).
 
 **Fatto**
 - Migrazione `20261007090000_barber_move_own_booking.sql`: `bookings_before_write` permette al barbiere di cambiare solo `starts_at` di una propria `confirmed` non iniziata, senza cambiare lo stato nello stesso update. Nessun cambio di schema (tipi invariati).
@@ -708,3 +708,67 @@ Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli a
 3. `DEPLOY.md` §5 e PROGRESS: vale solo l'ultimo link richiesto da quel browser.
 7. `GO-LIVE.md` allineato al ripiego (la pagina di partenza si conserva con i Redirect URLs). In `DEPLOY.md` §5 il ripiego è il punto 5 e i successivi sono rinumerati.
 
+
+## Fetta 8 – PWA e accesso dall'app installata
+
+**Stato**: implementata, review in corso (un giro, nessun bloccante; migliorie M1–M6 da decidere con l'utente). Hash di partenza `342b2cc`, test di accettazione nel commit `d96835a`. Procede prima della fetta 7 (notifiche), su decisione dell'utente. Da fare: `db push` della migrazione `20261010090000`, configurazione del cloud (GO-LIVE §3) e prova a mano su iPhone e Android (`docs/DEPLOY.md` §8).
+
+**Fatto**
+- Login con codice a 6 cifre (ADR 009):
+  - i template email contengono il codice (`{{ .Token }}`) e il link; codice e link scadono dopo 15 minuti (`otp_expiry = 900`);
+  - in `/accedi`, dopo l'invio, c'è il campo del codice (`inputmode="numeric"`, `autocomplete="one-time-code"`), con "Invia di nuovo" dopo 60 s e "Usa un'altra email";
+  - la server action `verifyLoginCode` apre la sessione dove il codice viene digitato, con le stesse regole del link (solo clienti, stesse destinazioni).
+- Limite dei tentativi: migrazione `20261010090000_login_code_attempts.sql`.
+  - Tabella con l'hash sha256 dell'email normalizzata e funzioni `login_code_check/register_failure/reset/clear`, eseguibili solo dalla `service_role` e chiamate da `src/lib/auth/login-code.ts` (server-only).
+  - 5 errori per codice (si azzerano con un nuovo codice, solo se l'email è partita), 10 all'ora per email (finestra fissa), entrambi azzerati da un login riuscito.
+  - Un 429 di GoTrue non conta come errore.
+- App installabile:
+  - `manifest.ts` con nome dalle impostazioni e nome breve = prima parola;
+  - icone da `next/og` con la mosca del tema (`icon.tsx` a 192 e 512 px, la 512 anche maskable; `apple-icon.tsx` a 180 px);
+  - `appIdentity` nel tema;
+  - `appleWebApp` e `themeColor` nel layout.
+- Installazione: banner in home (istruzioni iOS, oppure "Installa" con `beforeinstallprompt`; "Non ora" per sempre su quel dispositivo, mai in standalone) e voce "Installa l'app" nel profilo.
+- Service worker (`public/sw.js`, solo in produzione):
+  - cache-first per `/_next/static/` e le icone; navigazioni in rete, con la pagina `/offline` statica come ripiego;
+  - interruttore d'emergenza `public/sw-kill-switch.js`;
+  - `Cache-Control: no-store` su `/sw.js`.
+- Documentazione: ADR 009, GO-LIVE §3 e §4, DEPLOY §8 (verifica dell'app installata e interruttore), SPEC §5.5 e §5.6. In locale `token_verifications = 300` per gli e2e.
+- Test (commit `d96835a`):
+  - pgTAP `27_login_code_attempts` (60);
+  - Vitest `login-code.test.ts` (51) e `pwa.test.ts` (48);
+  - e2e `login-code.spec.ts` (4) e `pwa.spec.ts` (6);
+  - eccezione in `admin-access.test.ts` per `login-code.ts`, approvata dall'utente.
+
+**Esiti**: lint ok, typecheck ok, Vitest 1472/1472, pgTAP 1169/1169, Playwright 102/102 (dev, 4 worker, con `SUPABASE_SERVICE_ROLE_KEY`), `npm run build` ok.
+
+Verifica sulla build di produzione (Playwright MCP, 390 px):
+- service worker attivo, in cache solo `/offline`, file `/_next/static/` e icone;
+- senza rete compare "Sei offline", e "Riprova" torna alla home;
+- banner con user agent iPhone, modulo del codice, icona a 512 px.
+
+L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script separato): il worker si deregistra e le cache si svuotano in circa 1,5 s. In Playwright MCP il nuovo worker restava in attesa, perché la sessione MCP si aggancia ai worker.
+
+**Decisioni** (approvate dall'utente)
+- Si procede prima della fetta 7.
+- La rifinitura UI si limita a quello che emerge dalla prova in standalone.
+- Un solo messaggio per codice sbagliato o scaduto, con i tentativi rimasti.
+- Dopo un login riuscito si azzerano entrambi i contatori.
+- La finestra oraria è fissa.
+- Il reset avviene solo se l'email è partita.
+- Il 429 non conta come errore.
+- Lo scope `/` include l'admin.
+- Icone generate da `next/og`.
+- La voce nel profilo resta visibile anche dove il browser non propone l'installazione e mostra istruzioni generiche: lo richiede l'e2e, che la cerca su Chromium desktop.
+
+**Problemi trovati durante l'implementazione**
+- Le modifiche fatte con script Python hanno convertito i fine riga in CRLF (il test LF di `it.ts` è fallito); corretto.
+- `/offline` è statica, quindi il titolo della pagina viene dal nome del negozio al momento della build.
+- Il pulsante "Invia di nuovo" non mostra il conto alla rovescia: un numero nel testo renderebbe instabile il confronto anti-enumerazione degli e2e.
+
+**Migliorie dalla review** (da decidere)
+1. M1: il limite si aggira con richieste parallele (check e register separati). Correzione: prenotare il tentativo in modo atomico prima di `verifyOtp`; cambia la semantica fissata dai test.
+2. M2: il contatore non copre la chiamata diretta a `/auth/v1/verify` con la chiave anon: è una difesa in più, non l'unica. Il limite reale resta `token_verifications` per IP; da precisare in ADR 009 e GO-LIVE.
+3. M3: chi invia codici a raffica con email sempre diverse esaurisce il budget per IP di GoTrue (IP di Vercel) per tutti. Estendere la regola del firewall Vercel (DEPLOY §7) a `/accedi`.
+4. M4: se la sessione non si apre dopo un codice valido, il modulo mostra "Il codice è fatto di 6 cifre." Serve un messaggio generico dedicato.
+5. M5: `Buffer` e l'SVG dell'icona finiscono nel bundle client (`slot-picker` importa da `@/themes/active`). Usare `encodeURIComponent` oppure importare `appIdentity` solo lato server.
+6. M6: con lo stesso `VERSION` la cache accumula i chunk dei deploy e tiene icone e `/offline` vecchie. Usare stale-while-revalidate per icone e `/offline`, oppure documentare quando alzare `VERSION`.

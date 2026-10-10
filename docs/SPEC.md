@@ -111,8 +111,8 @@ Il calcolo avviene lato server (funzione Postgres `security definer` o server ac
    4. riepilogo + note opzionali + conferma.
 3. **Le mie prenotazioni**: future e passate; cancellazione consentita fino a `cancel_limit_min` prima (bordo incluso), poi pulsante "Chiama il negozio". Il cliente bloccato (manualmente o per no-show) vede l'invito a chiamare il negozio già all'inizio del flusso.
 4. **Profilo**: nome, telefono, email, consensi, eliminazione account.
-5. **Registrazione/login**: email con magic link; il login Google è rimandato (vedi domande aperte). Il telefono è obbligatorio in profilo per essere contattabili: al primo accesso il cliente completa il profilo (nome, telefono salvato in formato E.164, consensi), necessario per le pagine private e per prenotare ma non per le pagine pubbliche. Lo staff entra con email e password da `/admin/login`, senza auto-registrazione.
-6. **Installazione PWA**: banner che spiega come aggiungere l'app alla schermata Home (istruzioni specifiche per iOS).
+5. **Registrazione/login**: email con magic link e codice a 6 cifre (fetta 8, ADR 009): il codice si digita nella pagina in cui si è chiesto l'accesso, quindi apre la sessione anche nell'app installata; 5 errori per codice e al massimo 10 all'ora per email, codice e link validi 15 minuti; il login Google è rimandato (vedi domande aperte). Il telefono è obbligatorio in profilo per essere contattabili: al primo accesso il cliente completa il profilo (nome, telefono salvato in formato E.164, consensi), necessario per le pagine private e per prenotare ma non per le pagine pubbliche. Lo staff entra con email e password da `/admin/login`, senza auto-registrazione.
+6. **Installazione PWA**: banner in home che spiega come aggiungere l'app alla schermata Home (istruzioni specifiche per iOS, pulsante "Installa" dove il browser lo permette); "Non ora" lo chiude per sempre su quel dispositivo e resta la voce "Installa l'app" nel profilo. Service worker minimo: in cache solo file statici, icone e la pagina offline (ADR 009).
 
 ## 6. Funzionalità – lato admin (web)
 

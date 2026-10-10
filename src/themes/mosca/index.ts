@@ -2,3 +2,4 @@
 export { fontVariables } from "./fonts";
 export { Marble as HeroBackground } from "./marble";
 export { FlyFlight as HeroMark, FlyPending as PendingMark } from "./fly";
+export { appIdentity } from "./identity";

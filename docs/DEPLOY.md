@@ -75,3 +75,12 @@ Per frenare le richieste automatiche configura una regola di rate limiting del f
 2. Condizione: *Request Path* che inizia con `/prenota`, **qualsiasi metodo**. Copre le pagine del flusso (GET, compresa `/prenota/orario`) e le server action, che sono POST sulla pagina.
 3. Azione **Rate Limit**, *Fixed Window* 60 s, limite indicativo 60 richieste per IP, risposta 429. Conviene partire con l'azione **Log** per qualche giorno e controllare il traffico prima di passare al blocco.
 4. **Review Changes** → **Publish**.
+
+## 8. App installata (PWA, ADR 009)
+Il service worker si registra solo nella build di produzione e richiede HTTPS: si prova sul deploy di Vercel, non con `npm run dev`.
+1. **Controllo dal computer** (Chrome, DevTools → *Application*): *Manifest* senza errori, con nome del negozio e icone; *Service workers* con `/sw.js` attivo; *Cache storage* con la sola cache `barber-shop-static-*` (pagina `/offline`, file `/_next/static/` e icone, nessuna pagina).
+2. **iPhone** (Safari): apri il sito, in home compare il banner con le istruzioni. *Condividi → Aggiungi alla schermata Home*: l'icona è la mosca su fondo scuro, il nome è la prima parola del negozio.
+3. Dall'app installata: *Accedi*, inserisci l'email, leggi il codice nell'email (anche da un altro dispositivo) e digitalo nell'app. La sessione deve aprirsi nell'app, non in Safari. Poi completa una prenotazione: le pagine si aprono dentro l'app, senza barra del browser.
+4. **Android** (Chrome): in home compare il pulsante *Installa*; dopo l'installazione ripeti il punto 3.
+5. **Offline**: con la modalità aereo, aprendo l'app compare la pagina "Sei offline"; tornata la rete, *Riprova* riapre la home.
+6. **Interruttore d'emergenza**: se il service worker causa problemi, copia `public/sw-kill-switch.js` su `public/sw.js` e pubblica. Alla visita successiva le cache si svuotano e il worker si deregistra (in DevTools *Service workers* non c'è più nulla). Ripristina il worker normale, con un nuovo `VERSION`, solo dopo aver corretto il problema.

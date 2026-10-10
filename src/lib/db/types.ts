@@ -216,6 +216,27 @@ export type Database = {
           },
         ];
       };
+      login_code_attempts: {
+        Row: {
+          code_failures: number;
+          email_hash: string;
+          hour_failures: number;
+          window_started_at: string | null;
+        };
+        Insert: {
+          code_failures?: number;
+          email_hash: string;
+          hour_failures?: number;
+          window_started_at?: string | null;
+        };
+        Update: {
+          code_failures?: number;
+          email_hash?: string;
+          hour_failures?: number;
+          window_started_at?: string | null;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           created_at: string;
@@ -500,6 +521,30 @@ export type Database = {
       local_band_to_interval: {
         Args: { p_date: string; p_end: string; p_start: string; p_tz: string };
         Returns: unknown;
+      };
+      login_code_check: {
+        Args: { p_email: string };
+        Returns: {
+          blocked: boolean;
+          remaining: number;
+        }[];
+      };
+      login_code_clear: { Args: { p_email: string }; Returns: undefined };
+      login_code_hash: { Args: { p_email: string }; Returns: string };
+      login_code_register_failure: {
+        Args: { p_email: string };
+        Returns: {
+          blocked: boolean;
+          remaining: number;
+        }[];
+      };
+      login_code_reset: { Args: { p_email: string }; Returns: undefined };
+      login_code_status: {
+        Args: { p_code_failures: number; p_hour_failures: number; p_window_started_at: string };
+        Returns: {
+          blocked: boolean;
+          remaining: number;
+        }[];
       };
       online_slot_error: {
         Args: { p_barber_id: string; p_service_id: string; p_starts_at: string };

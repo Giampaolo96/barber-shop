@@ -23,6 +23,14 @@ export const emailLoginSchema = z.object({
   next: z.string().max(2048).optional().catch(undefined),
 });
 
+// Codice a 6 cifre dell'email (fetta 8): l'email si normalizza come la normalizza il database
+// per il limite dei tentativi; gli spazi incollati nel codice (es. "123 456") si tolgono.
+export const loginCodeSchema = z.object({
+  email: z.string().trim().toLowerCase().max(254).pipe(z.email()),
+  token: z.string().transform((value) => value.replace(/\s+/g, "")).pipe(z.string().regex(/^\d{6}$/)),
+  next: z.string().max(2048).optional().catch(undefined),
+});
+
 // La password non si tocca e non si valida oltre il "non vuota": la lunghezza minima vale
 // per le password nuove e il modulo di login non deve rivelare la policy.
 export const staffLoginSchema = z.object({

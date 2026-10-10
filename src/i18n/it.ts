@@ -112,13 +112,24 @@ export const it = {
     logout: "Esci",
     customerLogin: {
       title: "Accedi con la tua email",
-      intro: "Ti mandiamo un link per entrare, senza password.",
+      intro: "Ti mandiamo un codice e un link per entrare, senza password.",
       emailLabel: "Email",
-      submit: "Invia il link di accesso",
+      submit: "Invia il codice di accesso",
       // Volutamente neutro: non deve dire se l'indirizzo è già registrato.
-      linkSent: "Controlla la posta: se l'indirizzo è corretto riceverai a breve un link per entrare.",
+      linkSent: "Controlla la posta: se l'indirizzo è corretto riceverai a breve un codice e un link per entrare.",
       invalidEmail: "Inserisci un indirizzo email valido.",
       invalidLink: "Il link non è valido o è scaduto. Richiedine uno nuovo.",
+    },
+    loginCode: {
+      label: "Codice di 6 cifre",
+      submit: "Accedi con il codice",
+      resend: "Invia di nuovo",
+      changeEmail: "Usa un'altra email",
+      linkStillWorks: "Nell'email c'è anche il link: puoi usare quello, se apri la posta su questo dispositivo.",
+      invalidFormat: "Il codice è fatto di 6 cifre.",
+      invalid: "Codice non valido o scaduto. Tentativi rimasti: {remaining}.",
+      blocked: "Troppi tentativi: chiedi un nuovo codice, oppure usa il link nell'email.",
+      rateLimited: "Troppe richieste, riprova tra poco.",
     },
     confirmLink: {
       title: "Conferma l'accesso",
@@ -144,6 +155,22 @@ export const it = {
       invalid: "Controlla i dati: nome, telefono valido e consenso privacy sono obbligatori.",
       error: "Non è stato possibile salvare. Riprova tra poco.",
     },
+  },
+  pwa: {
+    install: {
+      title: "L'app sul tuo telefono",
+      intro: "Aggiungila alla schermata Home: la apri con un tocco, come le altre app.",
+      iosInstructions: "Tocca Condividi, poi «Aggiungi alla schermata Home».",
+      otherInstructions: "Apri il menu del browser e scegli «Installa app» o «Aggiungi alla schermata Home».",
+      install: "Installa",
+      dismiss: "Non ora",
+      profileEntry: "Installa l'app",
+    },
+  },
+  offline: {
+    title: "Sei offline",
+    body: "Serve la connessione per vedere orari e prenotazioni. Riprova quando sei di nuovo in linea.",
+    retry: "Riprova",
   },
   profile: {
     title: "Il tuo profilo",

@@ -28,6 +28,9 @@ I passi tecnici di dettaglio sono in `docs/DEPLOY.md`; qui c'è cosa deve esiste
 - [ ] **SMTP proprio** in *Authentication → SMTP Settings* con la chiave Resend per Supabase e il mittente del sottodominio di invio (`docs/DEPLOY.md` §5).
 - [ ] **Template** *Magic Link* e *Confirm signup* copiati da `supabase/templates/magic_link.html` e `confirmation.html`, con nome e recapiti del negozio.
   Con questi template il link porta alla pagina di conferma dell'app (`/auth/confirm`, accesso con il pulsante) e riporta il cliente alla pagina di partenza (parametro `next={{ .RedirectTo }}`).
+  I template contengono anche il **codice a 6 cifre** (`{{ .Token }}`), che serve a chi usa l'app installata su iPhone: lì il link si aprirebbe in Safari e non nell'app (ADR 009). Con il template predefinito il codice non c'è e dall'app installata si entra solo aprendo l'email nel browser.
+- [ ] **Scadenza di codice e link a 15 minuti**: sul cloud si imposta dalla dashboard, in *Authentication → Providers → Email → Email OTP Expiration* = `900` secondi (`supabase/config.toml` vale solo in locale). Lunghezza del codice: 6 cifre.
+- [ ] **Limite di verifiche per IP** (*Authentication → Rate Limits*, verifiche OTP): le verifiche del codice partono dai server di Vercel, quindi molti clienti condividono pochi IP. Dopo l'avvio controllare nei log errori 429 e "Troppe richieste"; se compaiono, alzare il limite o seguire la via d'uscita dell'ADR 009.
   Finché mancano SMTP e template, l'accesso funziona con il ripiego `/auth/callback` (template predefinito, `?code=`): anche così si torna alla pagina di partenza, purché `https://<dominio>/**` sia tra i Redirect URLs. I limiti sono in `docs/DEPLOY.md` §5 punto 5: link valido solo nel browser della richiesta e solo l'ultimo richiesto, consumato all'apertura. Il ripiego serve solo fino a questo punto della checklist.
 - [ ] **Rate limit delle email** in *Authentication → Rate Limits*, tarati sul piano Resend; CAPTCHA pronto da attivare in caso di abusi (`docs/DEPLOY.md` §5).
 - [ ] **Valutazione del piano Pro**: nel piano gratuito i progetti inattivi vengono messi in pausa e i backup sono limitati. Per un negozio che lavora tutti i giorni servono backup giornalieri e nessuna pausa.
@@ -43,6 +46,7 @@ I passi tecnici di dettaglio sono in `docs/DEPLOY.md`; qui c'è cosa deve esiste
   - [ ] **Redirect URLs** aggiornati al dominio personalizzato (`https://<dominio>/**`, serve al ritorno dopo il login); via quelli di prova non più necessari.
 - [ ] Regola di **rate limiting del firewall** sul flusso di prenotazione (`docs/DEPLOY.md` §7).
 - [ ] Prova end-to-end in produzione: magic link di un cliente, login dello staff, prenotazione e cancellazione.
+- [ ] Prova dell'app installata (`docs/DEPLOY.md` §8): installazione su iPhone e Android, accesso con il codice dall'app installata, prenotazione in modalità standalone.
 
 ## 5. Privacy (GDPR)
 - [ ] **Informativa privacy** con i dati del titolare del negozio: ragione sociale, indirizzo, contatti, finalità, basi giuridiche, tempi di conservazione, diritti dell'interessato.
