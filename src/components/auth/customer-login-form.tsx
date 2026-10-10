@@ -89,9 +89,11 @@ function LoginCodeForm({ email, next }: { email: string; next: string }) {
         ? t.blocked
         : state.status === "rateLimited"
           ? t.rateLimited
-          : state.status === "invalid"
-            ? t.invalidFormat
-            : null;
+          : state.status === "sessionFailed"
+            ? t.sessionFailed
+            : state.status === "invalid"
+              ? t.invalidFormat
+              : null;
 
   return (
     <form action={formAction} noValidate className="flex flex-col gap-4">

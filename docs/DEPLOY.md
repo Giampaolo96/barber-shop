@@ -70,10 +70,14 @@ Lo staff non si registra da solo. Per creare il primo admin:
 ## 7. Rate limiting (firewall Vercel)
 La creazione delle prenotazioni è limitata nel database, per cliente (al massimo 3 prenotazioni online future e 10 creazioni nelle ultime 24 ore, ADR 005). La consultazione degli orari no: le pagine del flusso (`/prenota/**`) richiedono il login, ma un cliente autenticato potrebbe aprirle in continuazione, e ogni apertura di `/prenota/orario` calcola i giorni liberi su tutto l'orizzonte. Un limitatore in memoria non funziona sulle funzioni serverless, e uno nel database eseguibile dai clienti sarebbe usabile per bloccare altri utenti.
 
-Per frenare le richieste automatiche configura una regola di rate limiting del firewall Vercel (disponibile anche sul piano Hobby, una regola per progetto; finestra fissa da 10 s a 10 min, chiave IP):
+Lo stesso vale per `/accedi`: la verifica del codice a 6 cifre parte dai server di Vercel, quindi chi prova codici a raffica (anche con email sempre diverse, che il contatore per email non ferma) consuma il limite di verifiche per IP di Supabase, condiviso da tutti i clienti (ADR 009).
+
+Per frenare le richieste automatiche configura una regola di rate limiting del firewall Vercel (disponibile anche sul piano Hobby, **una sola regola** per progetto; finestra fissa da 10 s a 10 min, chiave IP). Prenotazione e accesso stanno nella stessa regola, con due condizioni in OR:
 1. Progetto → **Firewall** → **Configure** → **New Rule**.
-2. Condizione: *Request Path* che inizia con `/prenota`, **qualsiasi metodo**. Copre le pagine del flusso (GET, compresa `/prenota/orario`) e le server action, che sono POST sulla pagina.
-3. Azione **Rate Limit**, *Fixed Window* 60 s, limite indicativo 60 richieste per IP, risposta 429. Conviene partire con l'azione **Log** per qualche giorno e controllare il traffico prima di passare al blocco.
+2. Condizioni, **qualsiasi metodo**:
+   - *Request Path* che inizia con `/prenota`: le pagine del flusso (GET, compresa `/prenota/orario`) e le server action, che sono POST sulla pagina;
+   - **OR** (*Add Or*, un secondo gruppo di condizioni) *Request Path* uguale a `/accedi`: invio dell'email e verifica del codice, entrambi server action in POST sulla pagina.
+3. Azione **Rate Limit**, *Fixed Window* 60 s, limite indicativo 60 richieste per IP (il conteggio è unico per le due pagine), risposta 429. Conviene partire con l'azione **Log** per qualche giorno e controllare il traffico prima di passare al blocco.
 4. **Review Changes** → **Publish**.
 
 ## 8. App installata (PWA, ADR 009)
@@ -83,4 +87,4 @@ Il service worker si registra solo nella build di produzione e richiede HTTPS: s
 3. Dall'app installata: *Accedi*, inserisci l'email, leggi il codice nell'email (anche da un altro dispositivo) e digitalo nell'app. La sessione deve aprirsi nell'app, non in Safari. Poi completa una prenotazione: le pagine si aprono dentro l'app, senza barra del browser.
 4. **Android** (Chrome): in home compare il pulsante *Installa*; dopo l'installazione ripeti il punto 3.
 5. **Offline**: con la modalità aereo, aprendo l'app compare la pagina "Sei offline"; tornata la rete, *Riprova* riapre la home.
-6. **Interruttore d'emergenza**: se il service worker causa problemi, copia `public/sw-kill-switch.js` su `public/sw.js` e pubblica. Alla visita successiva le cache si svuotano e il worker si deregistra (in DevTools *Service workers* non c'è più nulla). Ripristina il worker normale, con un nuovo `VERSION`, solo dopo aver corretto il problema.
+6. **Interruttore d'emergenza**: se il service worker causa problemi, copia `public/sw-kill-switch.js` su `public/sw.js` e pubblica. Alla visita successiva le cache si svuotano e il worker si deregistra (in DevTools *Service workers* non c'è più nulla). Ripristina il worker normale solo dopo aver corretto il problema: ogni deploy ha già la sua versione della cache (commit del deploy, ADR 009).

@@ -130,6 +130,7 @@ export const it = {
       invalid: "Codice non valido o scaduto. Tentativi rimasti: {remaining}.",
       blocked: "Troppi tentativi: chiedi un nuovo codice, oppure usa il link nell'email.",
       rateLimited: "Troppe richieste, riprova tra poco.",
+      sessionFailed: "Il codice è giusto, ma non siamo riusciti a farti entrare. Chiedi un nuovo codice oppure usa il link nell'email.",
     },
     confirmLink: {
       title: "Conferma l'accesso",

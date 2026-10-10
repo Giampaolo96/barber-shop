@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
+import { serviceWorkerVersion } from "./src/lib/pwa/sw-version";
 
 const nextConfig: NextConfig = {
+  // Versione della cache del service worker: una per deploy (ADR 009).
+  env: { SW_VERSION: serviceWorkerVersion(process.env) },
   async headers() {
     return [
       {

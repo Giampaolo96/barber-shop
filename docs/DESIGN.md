@@ -69,10 +69,11 @@ src/themes/mosca/
   theme.css                  valori dei token e animazioni del tema
   fonts.ts                   next/font: Bodoni Moda e Hanken Grotesk
   marble.tsx, fly.tsx        segni grafici del tema
+  identity.ts, app-icon.ts   colori e icona dell'app installata (ADR 009)
   index.ts                   export comuni a ogni tema
 ```
 
-Ogni tema esporta gli stessi nomi: `fontVariables`, `HeroBackground` (fondo della testata), `HeroMark` (segno sopra il nome), `PendingMark` (segno nello slot in caricamento). Per un nuovo negozio:
+Ogni tema esporta gli stessi nomi: `fontVariables`, `HeroBackground` (fondo della testata), `HeroMark` (segno sopra il nome), `PendingMark` (segno nello slot in caricamento), `appIdentity` (colori dell'app installata) e `appIconSvg` (disegno dell'icona dell'app, usato solo lato server). Per un nuovo negozio:
 1. creare `src/themes/<nome>/` con gli stessi file ed export;
 2. cambiare le due righe di `src/themes/active.ts`;
 3. impostare nome e recapiti in Impostazioni.

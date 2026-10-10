@@ -13,7 +13,7 @@
 | 6c | completata | 2026-10-07 | Vedi "Fetta 6c" sotto |
 | 7 | da fare | | |
 | 8a | completata | 2026-10-06 | Vedi "Fetta 8a" sotto (identità visiva, prima della 8) |
-| 8 | completata (review aperta) | 2026-10-10 | Vedi "Fetta 8" sotto; manca la prova su iPhone |
+| 8 | completata | 2026-10-10 | Vedi "Fetta 8" sotto; review chiusa, manca la prova su iPhone |
 | 9 | da fare | | |
 
 Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli account): checklist in `docs/GO-LIVE.md`, da completare con il titolare del negozio.
@@ -765,10 +765,18 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 - `/offline` è statica, quindi il titolo della pagina viene dal nome del negozio al momento della build.
 - Il pulsante "Invia di nuovo" non mostra il conto alla rovescia: un numero nel testo renderebbe instabile il confronto anti-enumerazione degli e2e.
 
-**Migliorie dalla review** (da decidere)
-1. M1: il limite si aggira con richieste parallele (check e register separati). Correzione: prenotare il tentativo in modo atomico prima di `verifyOtp`; cambia la semantica fissata dai test.
-2. M2: il contatore non copre la chiamata diretta a `/auth/v1/verify` con la chiave anon: è una difesa in più, non l'unica. Il limite reale resta `token_verifications` per IP; da precisare in ADR 009 e GO-LIVE.
-3. M3: chi invia codici a raffica con email sempre diverse esaurisce il budget per IP di GoTrue (IP di Vercel) per tutti. Estendere la regola del firewall Vercel (DEPLOY §7) a `/accedi`.
-4. M4: se la sessione non si apre dopo un codice valido, il modulo mostra "Il codice è fatto di 6 cifre." Serve un messaggio generico dedicato.
-5. M5: `Buffer` e l'SVG dell'icona finiscono nel bundle client (`slot-picker` importa da `@/themes/active`). Usare `encodeURIComponent` oppure importare `appIdentity` solo lato server.
-6. M6: con lo stesso `VERSION` la cache accumula i chunk dei deploy e tiene icone e `/offline` vecchie. Usare stale-while-revalidate per icone e `/offline`, oppure documentare quando alzare `VERSION`.
+**Review chiusa** (commit "fix: review fetta 8", 2026-10-10)
+- M1 non applicata: il limite si può superare di qualche tentativo con richieste parallele, perché controllo e conteggio sono separati. Documentata insieme a M2.
+- M2 documentata in ADR 009 e GO-LIVE §3: il contatore è una difesa in più e si aggira chiamando Supabase direttamente. Le protezioni vere sono il limite per IP di Supabase, la scadenza di 15 minuti e lo spazio di 10^6 codici.
+- M3: in DEPLOY §7 la regola del firewall Vercel copre `/prenota` OPPURE `/accedi`, cioè una regola con due condizioni, perché il piano Hobby ne ammette una sola. Voce aggiornata anche in GO-LIVE §4.
+- M4: nuovo stato `sessionFailed` di `verifyLoginCode` con messaggio dedicato (`it.auth.loginCode.sessionFailed`), che compare quando il codice è giusto ma la sessione non si apre. Non conta come tentativo.
+- M5: `appIdentity` ora contiene solo i colori. Il disegno è `appIconSvg` (`src/themes/mosca/app-icon.ts`) e diventa data URI solo in `src/lib/pwa/icons.ts`, che è server-only. Verificato sulla build: prima il disegno era in un chunk client, ora si trova solo nei chunk del server.
+- M6: la cache del service worker ha la versione del deploy (`VERCEL_GIT_COMMIT_SHA`, poi `VERCEL_DEPLOYMENT_ID`, poi `local`). La calcola `next.config.ts` (`env.SW_VERSION`), la passa `register-sw.tsx` come `/sw.js?v=` e `sw.js` la legge dal proprio URL. Non c'è più una costante `VERSION` da aggiornare a mano.
+  - Verificato su una build con un commit finto: il worker `/sw.js?v=abc1234def` usa la cache `barber-shop-static-abc1234def`.
+- Test di regressione in `tests/acceptance/pwa-review-fixes.test.ts` (9 test).
+- Controlli dopo il fix:
+  - lint e typecheck ok;
+  - Vitest 1481/1481;
+  - pgTAP 1169/1169;
+  - Playwright 102/102;
+  - build ok.

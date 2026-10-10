@@ -39,7 +39,7 @@ export type MagicLinkState = { status: "idle" | "sent" | "invalid" };
 export type StaffLoginState = { status: "idle" | "invalid" | "disabled" };
 export type CompleteProfileState = { status: "idle" | "invalid" | "error" };
 export type LoginCodeState =
-  | { status: "idle" | "invalid" | "blocked" | "rateLimited" }
+  | { status: "idle" | "invalid" | "blocked" | "rateLimited" | "sessionFailed" }
   | { status: "wrong"; remaining: number };
 
 /** Invio del magic link: la risposta è la stessa che l'indirizzo sia registrato o no. */
@@ -168,7 +168,8 @@ export async function verifyLoginCode(
   );
 
   const result = await openCustomerSession(verifier, data.session);
-  if (result.status === "invalid") return { status: "invalid" };
+  // Codice giusto (e ormai consumato) ma sessione non aperta: non è un errore del cliente.
+  if (result.status === "invalid") return { status: "sessionFailed" };
   redirectAfterEmailSignIn(result, parsed.data.next);
 }
 

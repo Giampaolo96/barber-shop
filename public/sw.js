@@ -1,9 +1,10 @@
 // Service worker minimo (ADR 009). In cache solo file statici con hash e icone, più la pagina
 // /offline; pagine, dati, server action, /auth e /admin vanno sempre in rete e non si salvano.
-// Cambiando la strategia si aumenta VERSION: all'attivazione le cache precedenti si cancellano.
+// Ogni deploy ha la sua cache: la versione arriva da register-sw.tsx come ?v= (commit del deploy,
+// src/lib/pwa/sw-version.ts) e all'attivazione le cache dei deploy precedenti si cancellano.
 // Emergenza: copiare sw-kill-switch.js su questo file e pubblicare.
 
-const VERSION = "v1";
+const VERSION = new URL(self.location.href).searchParams.get("v")?.replace(/[^\w-]/g, "") || "local";
 const CACHE = `barber-shop-static-${VERSION}`;
 const OFFLINE_PATH = "/offline";
 
