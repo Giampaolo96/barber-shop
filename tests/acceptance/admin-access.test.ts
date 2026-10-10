@@ -86,6 +86,12 @@ const ADMIN_CLIENT_MODULE = 'src/lib/db/admin';
 const ADMIN_CLIENT_FILE = 'src/lib/db/admin.ts';
 /** Decisione fetta 3: l'unico modulo che usa il client service_role (server action degli account staff). */
 const STAFF_ACCOUNTS_FILE = 'src/lib/admin/staff-accounts.ts';
+/**
+ * Eccezione approvata dall'utente (fetta 8, login con codice): il contatore dei tentativi
+ * (funzioni eseguibili solo dal service_role) si legge e si aggiorna da questo modulo server-only.
+ * L'elenco dei file ammessi resta chiuso.
+ */
+const LOGIN_CODE_FILE = 'src/lib/auth/login-code.ts';
 
 const importsAdminClient = (file: string): boolean =>
   importSpecifiers(readSource(file)).some((specifier) => {
@@ -210,13 +216,24 @@ describe('Client service_role in src/lib/db/admin.ts (SPEC §8, CLAUDE.md – Si
     expect(source).not.toMatch(/\bcreateServerClient\b|\bcreateBrowserClient\b/);
   });
 
-  // Decisione fetta 3: il service role serve solo agli account staff
-  test(`solo ${STAFF_ACCOUNTS_FILE} importa il client service_role`, () => {
+  // Decisione fetta 3: il service role serve solo agli account staff.
+  // Fetta 8 (eccezione approvata): anche al contatore dei tentativi del login con codice.
+  test(`solo ${STAFF_ACCOUNTS_FILE} e ${LOGIN_CODE_FILE} importano il client service_role`, () => {
     expect(existsSync(fromRoot(ADMIN_CLIENT_FILE)), `file mancante: ${ADMIN_CLIENT_FILE}`).toBe(true);
     const importers = sourceFiles()
       .filter((file) => file !== ADMIN_CLIENT_FILE)
-      .filter((file) => importsAdminClient(file));
-    expect(importers).toEqual([STAFF_ACCOUNTS_FILE]);
+      .filter((file) => importsAdminClient(file))
+      .sort();
+    expect(importers).toEqual([LOGIN_CODE_FILE, STAFF_ACCOUNTS_FILE].sort());
+  });
+
+  // Fetta 8: il modulo del contatore è solo lato server e non espone server action (le sue
+  // funzioni, ad esempio l'azzeramento, non devono essere invocabili dal browser)
+  test(`${LOGIN_CODE_FILE} importa "server-only" e non è né "use server" né "use client"`, () => {
+    const source = stripComments(readText(...LOGIN_CODE_FILE.split('/')));
+    expect(source).toMatch(/^\s*import\s+['"]server-only['"]/m);
+    expect(hasDirective(source, 'use server')).toBe(false);
+    expect(hasDirective(source, 'use client')).toBe(false);
   });
 
   test('nessun file "use client" importa il client service_role', () => {
