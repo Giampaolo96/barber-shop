@@ -118,6 +118,8 @@ export const it = {
       // Volutamente neutro: non deve dire se l'indirizzo è già registrato.
       linkSent: "Controlla la posta: se l'indirizzo è corretto riceverai a breve un codice e un link per entrare.",
       invalidEmail: "Inserisci un indirizzo email valido.",
+      rateLimited: "Hai appena chiesto un codice: aspetta qualche secondo e riprova.",
+      sendFailed: "Non siamo riusciti a inviare l'email. Riprova tra poco.",
       invalidLink: "Il link non è valido o è scaduto. Richiedine uno nuovo.",
     },
     loginCode: {

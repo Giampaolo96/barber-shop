@@ -35,12 +35,16 @@ import {
   staffLoginSchema,
 } from "./schemas";
 
-export type MagicLinkState = { status: "idle" | "sent" | "invalid" };
+export type MagicLinkState = { status: "idle" | "sent" | "invalid" | "rateLimited" | "error" };
 export type StaffLoginState = { status: "idle" | "invalid" | "disabled" };
 export type CompleteProfileState = { status: "idle" | "invalid" | "error" };
 export type LoginCodeState =
   | { status: "idle" | "invalid" | "blocked" | "rateLimited" | "sessionFailed" }
   | { status: "wrong"; remaining: number };
+
+/** Invio rifiutato per l'intervallo minimo tra due email o per il tetto orario di Supabase. */
+const isEmailRateLimit = (error: { status?: number; code?: string }): boolean =>
+  error.status === 429 || error.code === "over_email_send_rate_limit";
 
 /** Invio del magic link: la risposta è la stessa che l'indirizzo sia registrato o no. */
 export async function requestMagicLink(
@@ -66,17 +70,19 @@ export async function requestMagicLink(
     email: parsed.data.email,
     options: { shouldCreateUser: true, emailRedirectTo: redirectTo },
   });
-  // L'esito non si mostra all'utente (niente enumerazione degli account); resta nei log.
+  // Con shouldCreateUser anche un indirizzo nuovo riceve l'email: un errore non dice se l'account
+  // esiste. Un 429 dice solo che di recente è già partita un'email (rischio accettato, ADR 009).
+  // Senza invio il cliente non deve credere che l'email sia partita.
   if (error) {
     console.error("magic link non inviato:", error.code ?? error.message);
-  } else {
-    // Nuovo codice in arrivo: riparte il suo contatore dei tentativi. Solo se l'email è partita,
-    // altrimenti si azzererebbe il limite senza un codice nuovo.
-    await resetLoginCode(parsed.data.email).catch((resetError: unknown) =>
-      console.error("contatore del codice non azzerato:", resetError),
-    );
+    return { status: isEmailRateLimit(error) ? "rateLimited" : "error" };
   }
 
+  // Nuovo codice in arrivo: riparte il suo contatore dei tentativi. Solo se l'email è partita,
+  // altrimenti si azzererebbe il limite senza un codice nuovo.
+  await resetLoginCode(parsed.data.email).catch((resetError: unknown) =>
+    console.error("contatore del codice non azzerato:", resetError),
+  );
   return { status: "sent" };
 }
 

@@ -780,3 +780,19 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
   - pgTAP 1169/1169;
   - Playwright 102/102;
   - build ok.
+
+**CI rossa dopo il push** (2026-10-10, commit "fix: invio email rifiutato da Supabase (CI fetta 8)")
+- **Sintomo**: `login-code.spec.ts`, "un nuovo codice fa ripartire". La seconda email non arrivava. Si riproduceva in locale con `CI=true`, cioè sulla build di produzione.
+- **Causa**: dai log di Supabase Auth, la seconda richiesta arrivava 0,87 s dopo la prima, perché sulla build di produzione i cinque codici sbagliati si provano in meno di un secondo. Con `max_frequency = "1s"` Supabase la rifiutava con `429 over_email_send_rate_limit`. Il tetto orario (`email_sent`) non è mai scattato.
+- **Configurazione**: in `supabase/config.toml`, che vale solo in locale e in CI, ora c'è `max_frequency = "1ms"`. `"0s"` non funziona, perché Supabase lo tratta come il valore predefinito di 60 s (verificato). In produzione resta la dashboard a 60 s: aggiunta la voce in GO-LIVE §3.
+- **Messaggio all'utente**: `requestMagicLink` non risponde più "inviato" quando l'email non parte.
+  - Con un 429 risponde `rateLimited` ("aspetta qualche secondo e riprova").
+  - Con altri errori risponde `error` ("invio non riuscito").
+  - In entrambi i casi il campo del codice non compare e il contatore non si azzera.
+- **Enumerazione**: il rischio legato al 429 è accettato e annotato in ADR 009.
+- **Test**: `tests/acceptance/login-send-errors.test.ts` (6 test).
+- **Controlli**:
+  - lint e typecheck ok;
+  - Vitest 1487/1487;
+  - pgTAP 1169/1169;
+  - Playwright con `CI=true` (build di produzione) 102/102.

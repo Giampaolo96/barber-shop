@@ -14,6 +14,13 @@ const initialState: MagicLinkState = { status: "idle" };
 const initialCodeState: LoginCodeState = { status: "idle" };
 const errorClass = "border-l-2 border-destructive pl-3 text-destructive";
 
+/** Invio non riuscito (Supabase lo ha rifiutato): il cliente non deve aspettare un'email. */
+function sendErrorText(state: MagicLinkState): string | null {
+  if (state.status === "rateLimited") return it.auth.customerLogin.rateLimited;
+  if (state.status === "error") return it.auth.customerLogin.sendFailed;
+  return null;
+}
+
 type Sent = { email: string; at: number };
 
 /**
@@ -23,6 +30,8 @@ type Sent = { email: string; at: number };
  */
 export function CustomerLoginForm({ next = "/" }: { next?: string }) {
   const [sent, setSent] = useState<Sent | null>(null);
+  // Esito già visto prima di "Usa un'altra email": il suo errore non si ripete sul modulo nuovo.
+  const [dismissed, setDismissed] = useState<MagicLinkState | null>(null);
   const [state, formAction, pending] = useActionState(
     async (previous: MagicLinkState, formData: FormData) => {
       const result = await requestMagicLink(previous, formData);
@@ -32,6 +41,7 @@ export function CustomerLoginForm({ next = "/" }: { next?: string }) {
     initialState,
   );
   const t = it.auth.customerLogin;
+  const sendError = state === dismissed ? null : sendErrorText(state);
 
   if (sent) {
     return (
@@ -43,8 +53,21 @@ export function CustomerLoginForm({ next = "/" }: { next?: string }) {
           <input type="hidden" name="email" value={sent.email} />
           {next !== "/" && <input type="hidden" name="next" value={next} />}
           <ResendButton sentAt={sent.at} pending={pending} />
+          {sendError && (
+            <p role="alert" className={errorClass}>
+              {sendError}
+            </p>
+          )}
         </form>
-        <Button type="button" variant="link" className="h-11 w-fit px-0" onClick={() => setSent(null)}>
+        <Button
+          type="button"
+          variant="link"
+          className="h-11 w-fit px-0"
+          onClick={() => {
+            setSent(null);
+            setDismissed(state);
+          }}
+        >
           {it.auth.loginCode.changeEmail}
         </Button>
       </div>
@@ -73,6 +96,11 @@ export function CustomerLoginForm({ next = "/" }: { next?: string }) {
       {state.status === "invalid" && (
         <p role="alert" className={errorClass}>
           {t.invalidEmail}
+        </p>
+      )}
+      {sendError && (
+        <p role="alert" className={errorClass}>
+          {sendError}
         </p>
       )}
     </form>

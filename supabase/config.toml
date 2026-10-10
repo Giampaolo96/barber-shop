@@ -230,7 +230,10 @@ enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = true
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
-max_frequency = "1s"
+# Intervallo minimo solo in locale e in CI: sulla build di produzione gli e2e chiedono un nuovo
+# codice per la stessa email entro un secondo. "0s" non va: Supabase lo tratta come il valore
+# predefinito (60 s). In produzione vale la dashboard (60 s, docs/GO-LIVE.md §3).
+max_frequency = "1ms"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Number of seconds before the email OTP expires: 15 minuti per codice e link (fetta 8, ADR 009).
