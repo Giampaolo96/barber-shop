@@ -31,6 +31,8 @@ const ADMIN_PAGES = [
   `/admin/barbieri/${SEED.luca}/assenze`,
   '/admin/chiusure',
   '/admin/impostazioni',
+  // fetta 9a
+  '/admin/statistiche',
 ];
 
 /** Pagine del flusso cliente (con la sessione del cliente demo). */
