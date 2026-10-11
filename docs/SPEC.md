@@ -124,7 +124,15 @@ Il calcolo avviene lato server (funzione Postgres `security definer` o server ac
 6. **Chiusure negozio**.
 7. **Clienti** (solo admin): elenco con ricerca per nome, telefono o email, storico prenotazioni, contatore no-show, blocco/sblocco. Il blocco manuale impedisce solo la prenotazione online (le prenotazioni già fissate restano). "Azzera no-show" toglie il blocco automatico: da quel momento contano solo le no-show di appuntamenti successivi all'azzeramento (ADR 007). Nella ricerca della prenotazione manuale i clienti bloccati hanno l'etichetta "Bloccato".
 8. **Impostazioni**: i parametri della sezione 3.1.
-9. **Statistiche base**: prenotazioni e incasso stimato per giorno/settimana/mese, per barbiere e per servizio, tasso di no-show.
+9. **Statistiche base** (solo admin, ADR 010): prenotazioni e incasso stimato per giorno/settimana/mese, per barbiere e per servizio, tasso di no-show.
+   - Ogni prenotazione conta nel giorno dell'appuntamento (`starts_at` nella timezone del negozio); settimane da lunedì; periodo scelto dall'admin (predefinito il mese corrente), al massimo 366 giorni.
+   - **Prenotazioni**: stati `confirmed`, `completed` e `no_show`; le cancellate si contano a parte (dal cliente e dal negozio).
+   - **Incasso stimato**: somma di `price_cents` delle `completed` e `confirmed`.
+   - **Tasso di no-show**: `no_show` diviso le prenotazioni non cancellate già iniziate ("—" se nessuna).
+   - **Passate da chiudere**: prenotazioni già iniziate ancora `confirmed`.
+   - Grafico a barre dell'andamento (prenotazioni o incasso), con la tabella sotto come versione accessibile.
+   - Nelle tabelle per barbiere e per servizio compaiono anche quelli attivi senza prenotazioni nel periodo (a zero); quelli disattivati solo se hanno prenotazioni nel periodo.
+   - Le prenotazioni demo (nota del cliente uguale a "Prenotazione demo", senza spazi, tab o a capo ai bordi e senza distinguere maiuscole e minuscole) contano normalmente; una casella facoltativa, spenta di base, le esclude.
 
 ## 7. Notifiche (MVP)
 
@@ -170,7 +178,8 @@ Pagamenti e caparre online, più servizi in una prenotazione, lista d'attesa, pr
 | 7 | Notifiche email e promemoria | Email ricevute in ambiente di test |
 | 8a | Identità visiva: design system a token, tema "Mosca", restyling cliente e admin (`docs/DESIGN.md`) | Screenshot a 390 e 1280 px rivisti, test esistenti verdi senza cambiare le asserzioni |
 | 8 | PWA (manifest, icone, installazione) + rifinitura UI | Installabile su iOS e Android |
-| 9 | Statistiche, privacy, eliminazione account | Pronto per il primo uso reale |
+| 9a | Statistiche (§6.9, ADR 010) | L'admin vede prenotazioni, incasso stimato e no-show del periodo, per barbiere e per servizio |
+| 9b | Privacy e account prima del go-live: nuovo consenso quando cambia la versione dell'informativa (versione di nuovo modificabile), eliminazione dell'account cliente con anonimizzazione dello storico, staff con invito via email, recupero e cambio password ed eliminazione account, TOTP per gli admin | Pronto per il primo uso reale |
 
 ## 12. Casi limite da coprire con test
 
