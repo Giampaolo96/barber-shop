@@ -14,7 +14,8 @@
 | 7 | da fare | | |
 | 8a | completata | 2026-10-06 | Vedi "Fetta 8a" sotto (identità visiva, prima della 8) |
 | 8 | completata | 2026-10-10 | Vedi "Fetta 8" sotto; review chiusa, manca la prova su iPhone |
-| 9 | da fare | | |
+| 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto; manca il `db push` |
+| 9b | da fare | | Privacy e account prima del go-live (SPEC §11) |
 
 Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli account): checklist in `docs/GO-LIVE.md`, da completare con il titolare del negozio.
 
@@ -837,3 +838,50 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
   - `tests/acceptance/stale-session.test.ts` (28 test);
   - `tests/e2e/stale-session.spec.ts`: login con il codice, revoca della sola sessione con la service role, poi controllo di "Accedi", "Prenota", `/admin/login` e dei cookie. Senza la correzione falliva su "Accedi", che restava sulla home.
 - **Domini**: il dominio pubblico di produzione è `barber-shop-jade-alpha.vercel.app`, ora scritto in DEPLOY §2 e §5 e in GO-LIVE §4. Gli URL del team, come `barber-shop-gio-s1.vercel.app` usato dal telefono, sono dietro la protezione dei deploy di Vercel.
+
+## Fetta 9a – Statistiche
+
+**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 1–7 applicate su richiesta dell'utente, la 8 annotata). Hash di partenza `5902d18`; SPEC aggiornata nel commit `52d9043` (§11 divisa in 9a e 9b, §6.9 con le definizioni), test di accettazione nel commit `7310c2d`. Procede prima della fetta 7, su decisione dell'utente. Da fare: `db push` della migrazione `20261011090000`.
+
+**Fatto**
+- Migrazione `20261011090000_admin_booking_stats.sql`: `admin_booking_stats(p_from, p_to, p_exclude_demo)`, `security definer`, solo admin (42501, prima del controllo sul periodo), periodo massimo 366 giorni (22023). Restituisce un `jsonb` di gruppi per giorno locale, barbiere, servizio, stato e "già iniziata". Execute solo ad `authenticated`, revocato anche alla `service_role`.
+- Logica pura in `src/lib/stats/`: `aggregate.ts` (`buildStats`), `dates.ts` (settimane e mesi, riusa `src/lib/domain/local-time.ts`), `format.ts` (`formatRate`, `bucketLabel`), `periods.ts` (scorciatoie), `schemas.ts` (parametri della pagina, non fallisce mai).
+- Lettura in `src/lib/db/stats.ts` (client della richiesta, colonne esplicite, jsonb validato con Zod).
+- Pagina `src/app/admin/(panel)/statistiche/page.tsx`: modulo GET (periodo, scorciatoie, raggruppamento, barbiere, "Escludi prenotazioni demo"), riquadri dei totali con `data-stat`, grafico a barre HTML/CSS (`src/components/admin/stats/trend-chart.tsx`, `aria-hidden`, dettaglio al passaggio del mouse), tabelle andamento, per barbiere e per servizio (`stats-tables.tsx`). Testi in `it.admin.stats`.
+- ADR 010.
+- Test (commit `7310c2d`): pgTAP `28_admin_booking_stats` (42), Vitest `stats.test.ts` (123), e2e `admin-stats.spec.ts` (3); `/admin/statistiche` aggiunta al warm-up di `global-setup.ts`.
+
+**Esiti**: lint ok, typecheck ok, Vitest 1642/1642, pgTAP 1211/1211, Playwright 110/110 (dev, con `SUPABASE_SERVICE_ROLE_KEY`). Verifica visiva con Playwright MCP a 1280 e 390 px su dati temporanei (poi cancellati): a 390 px corretti il "€" a capo nell'incasso e la cella vuota del quinto riquadro; nessuno scroll orizzontale della pagina.
+
+**Decisioni** (approvate dall'utente)
+- Prenotazioni = confirmed + completed + no_show; cancellazioni a parte (cliente e negozio).
+- Incasso stimato = `price_cents` di completed + confirmed; riquadro "Passate da chiudere" (già iniziate, ancora confirmed).
+- Tasso di no-show = no_show / non cancellate già iniziate, "—" se nessuna.
+- Giorno locale di `starts_at`; settimane da lunedì; periodo predefinito il mese corrente, massimo 366 giorni; "Ultimi 3 mesi" = mesi di calendario.
+- Solo admin: il barbiere non vede nemmeno le proprie.
+- Demo: `bookings.notes` uguale a "Prenotazione demo" (senza spazi, tab e a capo ai bordi, senza distinguere maiuscole); contano normalmente, la casella spenta di base le esclude.
+- Barbieri e servizi attivi senza prenotazioni nel periodo compaiono a zero; i disattivati solo se hanno prenotazioni.
+- Grafico a barre semplice in HTML/CSS senza librerie, con la tabella sotto come versione accessibile.
+- `service_role` senza execute; controllo del ruolo prima del periodo; lettura in `src/lib/db/stats.ts`.
+
+**Correzioni ai test di accettazione** (approvate dall'utente)
+- Prima del commit: spec-qa ha adeguato i test alle decisioni sui punti aperti (righe a zero, tab e a capo nella nota demo, `service_role`, ordine dei controlli).
+- Dopo il commit: in `admin-stats.spec.ts` le righe di Luca e Taglio si cercano per nome esatto (`has: getByText(nome, { exact: true })`): "Taglio" corrispondeva anche a "Taglio + Barba" e "Taglio bambino", presenti a zero.
+
+**Problemi trovati durante l'implementazione**
+- `npx supabase gen types` da solo produce un file non formattato: usare `npm run db:types`.
+- Il primo giro degli e2e è fallito (55) per l'ambiente: mancava `SUPABASE_SERVICE_ROLE_KEY` e Playwright riusava il server di sviluppo lasciato acceso dalla verifica visiva.
+
+**Migliorie della review** (1–7 applicate su richiesta dell'utente prima del commit; la review è chiusa)
+1. Nuovo indice `bookings_starts_at_idx` nella migrazione `20261011090000`, commento allineato.
+2. `statistiche/error.tsx` come nelle altre sezioni (impostazioni non leggibili → messaggio dell'app).
+3. Un solo client Supabase per richiesta, passato a `loadStats`.
+4. Se il caricamento fallisce, il barbiere scelto resta in un campo nascosto e "Applica" lo conserva.
+5. Rimossi il segnaposto `src/app/admin/(panel)/[section]/page.tsx` (ogni sezione ha la sua pagina; gli slug sconosciuti danno il 404 di Next) e `it.admin.comingSoon`.
+6. `buildStats` in una sola passata sui gruppi (mappa giorno → bucket).
+7. `sum(price_cents)` in `bigint`.
+
+**Esiti dopo le migliorie**: lint ok, typecheck ok (dopo aver cancellato i tipi generati in `.next/`, che citavano ancora `[section]`), Vitest 1642/1642, pgTAP 1211/1211, Playwright 110/110.
+
+**Miglioria annotata, non applicata**
+8. Il dettaglio delle barre si vede solo con il mouse: accettabile, la tabella dell'andamento è l'alternativa accessibile e il grafico è `aria-hidden`.

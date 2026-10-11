@@ -143,12 +143,12 @@ test.describe('Statistiche (SPEC §6.9)', () => {
       }
 
       const byBarber = page.getByRole('table', { name: s('admin.stats.byBarberTitle') });
-      const lucaRow = byBarber.getByRole('row').filter({ hasText: luca?.display_name ?? '?' });
+      const lucaRow = byBarber.getByRole('row').filter({ has: page.getByText(luca?.display_name ?? '?', { exact: true }) });
       await expect(lucaRow).toHaveCount(1);
       await expect(lucaRow).toContainText(euro(formatCents(2 * price)));
 
       const byService = page.getByRole('table', { name: s('admin.stats.byServiceTitle') });
-      const taglioRow = byService.getByRole('row').filter({ hasText: taglio?.name ?? '?' });
+      const taglioRow = byService.getByRole('row').filter({ has: page.getByText(taglio?.name ?? '?', { exact: true }) });
       await expect(taglioRow).toHaveCount(1);
       await expect(taglioRow).toContainText(euro(formatCents(2 * price)));
 

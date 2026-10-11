@@ -461,6 +461,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      admin_booking_stats: {
+        Args: { p_exclude_demo?: boolean; p_from: string; p_to: string };
+        Returns: Json;
+      };
       admin_customer: {
         Args: { p_id: string };
         Returns: {
