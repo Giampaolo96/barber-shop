@@ -5,7 +5,7 @@
 //
 // Interfacce attese:
 //   src/app/(customer)/prenotazioni/[id]/calendario.ics/route.ts   export GET, requireRole(["customer"]),
-//     lettura via RLS con il client della richiesta, UID con appIdentity.calendarUidHost (non l'host
+//     lettura via RLS con il client della richiesta, UID con calendarUidHost del tema (non l'host
 //     della richiesta), corpo da buildBookingIcs di src/lib/booking/ics.ts
 //   src/app/(customer)/prenotazioni/[id]/confermata/page.tsx       pagina di conferma, senza service role
 //   src/lib/booking/actions.ts   createBooking porta a confirmationPath(id) (non più ?esito=confermata)
@@ -57,7 +57,7 @@ describe('route GET del file .ics (8b; CLAUDE.md Sicurezza)', () => {
     expect(source(ICS_ROUTE)).not.toMatch(SERVICE_ROLE);
   });
 
-  test('corpo da buildBookingIcs e host dell\'UID da appIdentity.calendarUidHost, non dalla richiesta', () => {
+  test('corpo da buildBookingIcs e host dell\'UID da calendarUidHost del tema, non dalla richiesta', () => {
     const code = source(ICS_ROUTE);
     expect(code).toMatch(/\bbuildBookingIcs\s*\(/);
     expect(code).toMatch(/\bcalendarUidHost\b/);

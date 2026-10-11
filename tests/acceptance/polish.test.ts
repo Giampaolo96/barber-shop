@@ -27,7 +27,8 @@
 //       : number | null   minuti dall'inizio della griglia; null se day non è oggi nella timezone
 //                         o se l'ora locale è fuori da [startMin, endMin] (bordi inclusi)
 //   src/themes/mosca/identity.ts
-//     appIdentity.calendarUidHost = "mosca-barber-shop"
+//     calendarUidHost = "mosca-barber-shop" (costante separata, esportata da src/themes/active.ts;
+//     appIdentity resta solo colori, test M5 della fetta 8)
 //   Testi in src/i18n/it.ts (chiavi nuove o con valore nuovo):
 //     it.booking.service.title = "Il listino", it.booking.service.subtitle = "Scegli il servizio"
 //     it.booking.barber.title = "Con chi?"
@@ -67,7 +68,7 @@ type IcsModule = { buildBookingIcs: (input: IcsInput) => string };
 type NowLineModule = {
   nowLineMinutes: (now: Date, day: string, timezone: string, startMin: number, endMin: number) => number | null;
 };
-type IdentityModule = { appIdentity: Record<string, unknown> };
+type ThemeModule = { calendarUidHost: unknown; appIdentity: Record<string, unknown> };
 
 const load = async <T>(specifier: string): Promise<T> => (await import(/* @vite-ignore */ specifier)) as T;
 const countdown = () => load<CountdownModule>('@/lib/booking/countdown');
@@ -486,10 +487,12 @@ describe('nowLineMinutes (8b, SPEC §6.1; CLAUDE.md regola 2)', () => {
 // ---------------------------------------------------------------------------
 // Identità del tema – 8b: host dell'UID del calendario
 // ---------------------------------------------------------------------------
-describe('appIdentity.calendarUidHost (8b)', () => {
-  test('il tema Mosca dichiara calendarUidHost = "mosca-barber-shop"', async () => {
-    const { appIdentity } = await load<IdentityModule>('@/themes/mosca/identity');
-    expect(appIdentity.calendarUidHost).toBe('mosca-barber-shop');
+describe('calendarUidHost (8b)', () => {
+  test('il tema Mosca esporta calendarUidHost = "mosca-barber-shop", fuori da appIdentity', async () => {
+    // Il file dell'identità, non @/themes/active: quello carica next/font, non eseguibile in Vitest.
+    const theme = await load<ThemeModule>('@/themes/mosca/identity');
+    expect(theme.calendarUidHost).toBe('mosca-barber-shop');
+    expect(theme.appIdentity).not.toHaveProperty('calendarUidHost');
   });
 });
 
