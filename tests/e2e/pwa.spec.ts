@@ -11,6 +11,8 @@
 //   banner solo in home: region con nome it.pwa.install.title; testo it.pwa.install.iosInstructions
 //           (iOS), pulsante it.pwa.install.install (dopo beforeinstallprompt), pulsante
 //           it.pwa.install.dismiss ("Non ora", per sempre su quel dispositivo); mai in standalone;
+//           solo sui telefoni (puntatore touch e viewport da telefono): mai sul computer, anche
+//           quando Chrome o Edge desktop inviano beforeinstallprompt (fix approvato dall'utente);
 //   /offline: pubblica, heading it.offline.title e testo it.offline.body.
 // Il service worker si registra solo con la build di produzione: qui non si verifica.
 // Prerequisiti: Supabase locale con il seed.
@@ -193,5 +195,42 @@ test.describe('Banner di installazione su Android (SPEC §5.6, §11)', () => {
     await expect
       .poll(() => page.evaluate(() => (window as unknown as { __promptCalls: number }).__promptCalls))
       .toBeGreaterThan(0);
+  });
+});
+
+// Fix approvato dall'utente: Chrome ed Edge desktop inviano beforeinstallprompt, ma il banner
+// compare solo sui telefoni (puntatore principale touch e viewport da telefono)
+test.describe('Banner di installazione sul computer (SPEC §5.6)', () => {
+  test.use({
+    viewport: { width: 1280, height: 800 },
+    isMobile: false,
+    hasTouch: false,
+    userAgent:
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+  });
+
+  test('con beforeinstallprompt il banner non compare', async ({ page }) => {
+    await page.goto('/');
+
+    // Controllo: l'evento arriva al componente (che lo trattiene per la voce del profilo), quindi
+    // l'assenza del banner non dipende da una pagina non ancora idratata
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const event = new Event('beforeinstallprompt', { cancelable: true }) as Event & {
+              prompt: () => Promise<void>;
+            };
+            event.prompt = async () => undefined;
+            window.dispatchEvent(event);
+            return event.defaultPrevented;
+          }),
+        { timeout: 15_000 },
+      )
+      .toBe(true);
+
+    await settled(page);
+    await expect(banner(page)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: s('pwa.install.install'), exact: true })).toHaveCount(0);
   });
 });

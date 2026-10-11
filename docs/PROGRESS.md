@@ -839,6 +839,13 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
   - `tests/e2e/stale-session.spec.ts`: login con il codice, revoca della sola sessione con la service role, poi controllo di "Accedi", "Prenota", `/admin/login` e dei cookie. Senza la correzione falliva su "Accedi", che restava sulla home.
 - **Domini**: il dominio pubblico di produzione è `barber-shop-jade-alpha.vercel.app`, ora scritto in DEPLOY §2 e §5 e in GO-LIVE §4. Gli URL del team, come `barber-shop-gio-s1.vercel.app` usato dal telefono, sono dietro la protezione dei deploy di Vercel.
 
+**Banner di installazione solo su mobile** (2026-10-11, commit "fix: banner di installazione solo su mobile")
+- **Sintomo**: il banner "L'app sul tuo telefono" compariva anche su Chrome ed Edge desktop, che inviano `beforeinstallprompt`.
+- **Correzione** (`src/components/pwa/install-banner.tsx`): il banner compare solo se `matchMedia` riconosce un telefono, cioè puntatore principale touch e viewport da telefono (larghezza fino a 767 px, o altezza fino a 500 px in orizzontale); lo user agent non conta. La voce del profilo resta su ogni dispositivo: sul computer dice "Installa l'app sul computer" (`it.pwa.install.profileEntryDesktop`) e le istruzioni sono generiche (`desktopInstructions`); su iOS restano le istruzioni iOS.
+- **Documenti**: SPEC §5.6 e ADR 009 aggiornati (approvato dall'utente).
+- **Test**: in `tests/e2e/pwa.spec.ts`, nuovo "con beforeinstallprompt il banner non compare" su un contesto desktop (1280 px, senza touch, user agent di Chrome per Windows). Il test controlla prima che l'evento arrivi al componente (`defaultPrevented`), poi l'assenza del banner. Fallisce con il vecchio componente (verificato). I test del banner su iPhone e Android girano già con il profilo Pixel 7 (touch, viewport da telefono) e restano invariati. Autorizzato dall'utente.
+- **Controlli**: lint e typecheck ok, Vitest 1642/1642, Playwright 111/111 (pgTAP invariato: nessuna modifica al database).
+
 ## Fetta 9a – Statistiche
 
 **Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 1–7 applicate su richiesta dell'utente, la 8 annotata). Hash di partenza `5902d18`; SPEC aggiornata nel commit `52d9043` (§11 divisa in 9a e 9b, §6.9 con le definizioni), test di accettazione nel commit `7310c2d`. Procede prima della fetta 7, su decisione dell'utente. Migrazione `20261011090000` applicata a Supabase cloud (`db push` dell'utente, 2026-10-11, senza errori); CI da verificare dopo il push di `c32bc40`.

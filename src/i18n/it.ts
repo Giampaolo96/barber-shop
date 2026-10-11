@@ -170,6 +170,8 @@ export const it = {
       install: "Installa",
       dismiss: "Non ora",
       profileEntry: "Installa l'app",
+      profileEntryDesktop: "Installa l'app sul computer",
+      desktopInstructions: "Apri il menu del browser e scegli «Installa app» oppure usa l'icona di installazione nella barra degli indirizzi.",
     },
   },
   offline: {

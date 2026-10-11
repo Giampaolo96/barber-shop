@@ -32,6 +32,7 @@ Un'app installabile richiede manifest, icone e (per Chromium) un service worker.
 
 **Installazione**
 - Banner solo in home: istruzioni su iOS ("Condividi → Aggiungi alla schermata Home"), pulsante "Installa" dove il browser invia `beforeinstallprompt`, niente altrove; mai nell'app già installata. "Non ora" lo chiude per sempre su quel dispositivo (`localStorage`). Voce fissa "Installa l'app" nel profilo.
+- Il banner compare solo sui telefoni: puntatore principale touch e viewport da telefono (`(pointer: coarse)` con larghezza fino a 767 px, o altezza fino a 500 px in orizzontale), non lo user agent. Chrome ed Edge desktop inviano `beforeinstallprompt`, ma lì il banner non compare (correzione del 2026-10-11). La voce del profilo resta ovunque; sul computer dice "Installa l'app sul computer" con istruzioni generiche, su iPhone e iPad restano le istruzioni iOS.
 
 **Service worker** (`public/sw.js`, registrato solo nella build di produzione)
 - In cache solo i file statici di Next (`/_next/static/`, nomi con hash), le icone e la pagina `/offline`, salvata all'installazione.
