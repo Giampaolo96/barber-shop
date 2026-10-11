@@ -968,7 +968,7 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 
 **Problemi trovati durante i controlli finali**
 - Il primo test di `polish.test.ts` andava in timeout (5 s) nella suite completa: `countdown.ts` importava il barile `date-fns/locale`, con tutte le lingue. Ora `countdown.ts` e `src/lib/booking/format.ts` importano solo `date-fns/locale/it`.
-- `npm run test:db` non si collegava: su `127.0.0.1:54322` era in ascolto anche Steam, che intercettava le connessioni al database locale. pgTAP eseguito file per file con `psql` dentro il container `supabase_db_barber-shop`. Per usare di nuovo `npm run test:db` va chiuso Steam (o cambiata la porta del database in `supabase/config.toml`).
+- `npm run test:db` non si collegava: su `127.0.0.1:54322` era in ascolto anche Steam, che intercettava le connessioni al database locale. pgTAP eseguito file per file con `psql` dentro il container `supabase_db_barber-shop`. Risolto dopo la fetta (commit "chore: porta del DB locale libera da conflitti"): il database locale ora usa la porta 54332 (`[db] port` in `supabase/config.toml`); nessun file usava 54322 scritto a mano, CI e script leggono `DB_URL` da `supabase status`. `npm run test:db` di nuovo verde (1211/1211).
 
 **Esiti dopo le migliorie**: lint ok, typecheck ok, Vitest 1739/1739 (due giri), pgTAP 1211/1211, Playwright 117/117.
 
