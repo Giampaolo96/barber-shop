@@ -1,6 +1,7 @@
 // Formattazione di date e orari per il cliente, sempre nella timezone del negozio (CLAUDE.md regola 2).
-import { it as itLocale } from "date-fns/locale";
+import { it as itLocale } from "date-fns/locale/it";
 import { formatInTimeZone } from "date-fns-tz";
+import { it } from "@/i18n/it";
 
 /** "HH:mm" locale del negozio. */
 export const formatTime = (instant: Date | string, tz: string): string =>
@@ -32,3 +33,6 @@ export const telHref = (phone: string | null): string | null =>
 /** Prima riga non vuota della bio del barbiere, usata come specialità; null se non c'è. */
 export const firstBioLine = (bio: string | null): string | null =>
   bio?.split(/\r\n|\r|\n/).map((line) => line.trim()).find((line) => line !== "") ?? null;
+
+/** Durata di un servizio: "30 min". */
+export const formatDuration = (minutes: number): string => it.booking.duration.replace("{count}", String(minutes));

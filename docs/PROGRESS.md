@@ -14,7 +14,7 @@
 | 7 | da fare | | |
 | 8a | completata | 2026-10-06 | Vedi "Fetta 8a" sotto (identità visiva, prima della 8) |
 | 8 | completata | 2026-10-10 | Vedi "Fetta 8" sotto; review chiusa, manca la prova su iPhone |
-| 8b | implementata | 2026-10-12 | Vedi "Fetta 8b" sotto; review senza bloccanti, migliorie da decidere |
+| 8b | completata | 2026-10-12 | Vedi "Fetta 8b" sotto; manca la prova su iPhone di "Aggiungi al calendario" |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
 | 9b | da fare | | Privacy e account prima del go-live (SPEC §11) |
 
@@ -916,7 +916,7 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 
 ## Fetta 8b – Rifinitura estetica (tema Mosca)
 
-**Stato**: implementata, review in corso (un giro, nessun bloccante; migliorie 1–8 da decidere con l'utente). Hash di partenza `312f4c4`. Test di accettazione nel commit `20d7fa8` (con SPEC §5.1, §5.2, §11, DESIGN, DEPLOY §8 e GO-LIVE) e `f81656e` (`calendarUidHost` separato). Nessuna migrazione. Resta la prova a mano su iPhone di "Aggiungi al calendario" (`docs/DEPLOY.md` §8 punto 4).
+**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 1–8 applicate su richiesta dell'utente nel commit "fix: review fetta 8b"). Hash di partenza `312f4c4`, implementazione nel commit `34ee58a`. Test di accettazione nel commit `20d7fa8` (con SPEC §5.1, §5.2, §11, DESIGN, DEPLOY §8 e GO-LIVE) e `f81656e` (`calendarUidHost` separato). Nessuna migrazione. Resta la prova a mano su iPhone di "Aggiungi al calendario" (`docs/DEPLOY.md` §8 punto 4).
 
 **Fatto**
 - Home: prossima prenotazione come biglietto (`src/components/booking/next-booking-ticket.tsx`): conto alla rovescia, data, ora grande, perforazione con tacche, "Gestisci". Senza prenotazione resta il blocco nero "Prossima prenotazione". "Prenota" con bordo doppio e Bodoni; doppio filetto sotto "Orari" e "Dove siamo".
@@ -946,7 +946,7 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 - Gli heredoc di Git Bash con `python -` dimezzano le barre rovesciate: per le regex con `\` usare Edit.
 - `@/themes/active` non si importa in Vitest senza il mock di `next/font`: il test di `calendarUidHost` legge `src/themes/mosca/identity.ts`.
 
-**Migliorie dalla review** (da decidere)
+**Migliorie dalla review** (tutte applicate, vedi sotto)
 1. Commento di `ColumnDropZone` rimasto sopra `EmptyDay` in `day-grid.tsx`.
 2. `choiceClass` in `step-header.tsx` non è più usato.
 3. Giorno vuoto: "Nuova prenotazione" compare due volte (barra della pagina e stato vuoto).
@@ -955,4 +955,20 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 6. "1°" e la regola dell'elisione scritti in `countdown.ts` invece che in `it.ts`.
 7. `it.booking.duration.replace(...)` ripetuto: helper `formatDuration`.
 8. Home: con prenotazione ma senza timezone compare "nessuna prenotazione" (caso già presente prima della fetta).
+
+**Come sono state applicate le migliorie** (commit "fix: review fetta 8b")
+1. Il commento di `ColumnDropZone` è tornato sopra la sua funzione.
+2. Rimosso `choiceClass` da `step-header.tsx`.
+3. Giorno vuoto del calendario: lo stato vuoto ha solo il testo; l'invito resta il pulsante "Nuova prenotazione" della pagina (rimossa la chiave `emptyDayCta`).
+4. Pagina di conferma: se la lettura fallisce, messaggio `it.booking.confirmation.loadError` (`role="alert"`) con il link a "Le mie prenotazioni".
+5. Pagina e route `.ics` usano la stessa lettura `loadOwnUpcomingBooking` (`src/lib/booking/own-booking.ts`: id, RLS, regola "in programma") e gli stessi controlli (`requireRole`, profilo completo); la route risponde 404 o 500, la pagina 404, redirect o messaggio.
+6. "1°" e i giorni con l'articolo eliso in `it.booking.confirmation` (`firstOfMonth`, `elidedDays`).
+7. `formatDuration(min)` in `src/lib/booking/format.ts`, usato da listino, barbieri e riepilogo.
+8. Home: con una prenotazione ma senza timezone nelle impostazioni compare `it.home.nextBookingUnavailable` (`role="alert"`).
+
+**Problemi trovati durante i controlli finali**
+- Il primo test di `polish.test.ts` andava in timeout (5 s) nella suite completa: `countdown.ts` importava il barile `date-fns/locale`, con tutte le lingue. Ora `countdown.ts` e `src/lib/booking/format.ts` importano solo `date-fns/locale/it`.
+- `npm run test:db` non si collegava: su `127.0.0.1:54322` era in ascolto anche Steam, che intercettava le connessioni al database locale. pgTAP eseguito file per file con `psql` dentro il container `supabase_db_barber-shop`. Per usare di nuovo `npm run test:db` va chiuso Steam (o cambiata la porta del database in `supabase/config.toml`).
+
+**Esiti dopo le migliorie**: lint ok, typecheck ok, Vitest 1739/1739 (due giri), pgTAP 1211/1211, Playwright 117/117.
 

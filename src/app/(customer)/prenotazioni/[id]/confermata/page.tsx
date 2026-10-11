@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { z } from "zod";
 import { it } from "@/i18n/it";
 import { COMPLETE_PROFILE_PATH } from "@/lib/auth/access";
 import { requireRole } from "@/lib/auth/current-user";
 import { seeYouPhrase } from "@/lib/booking/countdown";
 import { formatLongDate, formatTime } from "@/lib/booking/format";
 import { MY_BOOKINGS_PATH, calendarFilePath } from "@/lib/booking/paths";
-import { getOwnBooking, getShopInfo } from "@/lib/booking/queries";
-import { isUpcoming } from "@/lib/booking/rules";
+import { loadOwnUpcomingBooking } from "@/lib/booking/own-booking";
 import { ConfirmationBackground, ConfirmationMark } from "@/themes/active";
 
 const t = it.booking.confirmation;
@@ -24,15 +22,28 @@ const actionClass = `${actionBase} hover:bg-on-marble hover:text-ink active:bg-o
 export default async function BookingConfirmedPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireRole(["customer"]);
   if (!user.profileComplete) redirect(COMPLETE_PROFILE_PATH);
-  const id = z.uuid().safeParse((await params).id);
-  if (!id.success) notFound();
-
-  const [result, shop] = await Promise.all([getOwnBooking(user.id, id.data), getShopInfo()]);
-  if (!result.ok || !shop) throw new Error("conferma non leggibile");
-  if (!result.booking) notFound();
   const now = new Date();
-  const booking = result.booking;
-  if (!isUpcoming(booking, now)) redirect(MY_BOOKINGS_PATH);
+  const result = await loadOwnUpcomingBooking(user.id, (await params).id, now);
+  if (result.status === "not_found") notFound();
+  if (result.status === "not_upcoming") redirect(MY_BOOKINGS_PATH);
+  if (result.status === "error") {
+    // La prenotazione è già salvata: si invita a ritrovarla in "Le mie prenotazioni".
+    return (
+      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-4 px-4 py-6">
+        <h1 className="font-display text-4xl leading-tight">{t.title}</h1>
+        <div role="alert" className="flex flex-col gap-3 border-l-2 border-destructive p-4">
+          <p>{t.loadError}</p>
+          <Link
+            href={MY_BOOKINGS_PATH}
+            className="inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface active:bg-ink active:text-surface"
+          >
+            {t.myBookings}
+          </Link>
+        </div>
+      </main>
+    );
+  }
+  const { booking, shop } = result;
 
   return (
     <main className="on-ink relative flex flex-1 flex-col overflow-hidden bg-marble text-on-marble">

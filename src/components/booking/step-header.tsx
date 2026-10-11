@@ -44,7 +44,3 @@ export function StepHeader({
     </div>
   );
 }
-
-/** Voce di scelta a tutta larghezza (servizio, barbiere), tap target ≥ 44px. */
-export const choiceClass =
-  "flex min-h-16 w-full items-center gap-4 border border-ink px-4 py-3 text-left transition-colors hover:bg-ink hover:text-surface active:bg-ink active:text-surface [&:hover_.text-muted-foreground]:text-surface [&:active_.text-muted-foreground]:text-surface";

@@ -188,7 +188,7 @@ export function DayGridView({
       onDragCancel={onDragCancel}
     >
       <MoveFeedback notice={notice} dialog={dialog} busy={busy} />
-      {bookings.length === 0 && <EmptyDay date={date} columns={columns} />}
+      {bookings.length === 0 && <EmptyDay />}
       <div className="overflow-x-auto">
         <div
           ref={gridRef}
@@ -332,25 +332,11 @@ export function DayGridView({
 }
 
 /**
- * Area della colonna su cui si rilascia una scheda; non intercetta i click sulle righe. Durante il
- * trascinamento la colonna di arrivo ha un contorno pieno (`data-drop-target`).
+ * Giorno senza appuntamenti: solo il testo; l'invito è il pulsante "Nuova prenotazione" della pagina,
+ * subito sopra (nell'area staff niente segni del tema).
  */
-/** Giorno senza appuntamenti: testo e invito a crearne uno (nell'area staff niente segni del tema). */
-function EmptyDay({ date, columns }: { date: string; columns: DayColumn[] }) {
-  const column = columns.find((candidate) => candidate.isActive);
-  return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-line py-4">
-      <p className="font-display text-xl">{t.emptyDay}</p>
-      {column && (
-        <Link
-          href={newBookingPath({ barberId: column.barberId, date })}
-          className="inline-flex h-11 items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface active:bg-ink active:text-surface"
-        >
-          {t.emptyDayCta}
-        </Link>
-      )}
-    </div>
-  );
+function EmptyDay() {
+  return <p className="border-y border-line py-4 font-display text-xl">{t.emptyDay}</p>;
 }
 
 /**
@@ -390,6 +376,10 @@ function NowLine({ grid, date, timezone, serverNow }: { grid: DayGrid; date: str
   );
 }
 
+/**
+ * Area della colonna su cui si rilascia una scheda; non intercetta i click sulle righe. Durante il
+ * trascinamento la colonna di arrivo ha un contorno pieno (`data-drop-target`).
+ */
 function ColumnDropZone({
   barberId,
   gridColumn,

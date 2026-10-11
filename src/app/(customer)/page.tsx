@@ -63,7 +63,14 @@ export default async function HomePage() {
             ) : (
               <section className="on-ink flex flex-col gap-3 bg-ink p-5 text-surface">
                 <h2 className="text-sm font-medium">{t.nextBooking}</h2>
-                {next && !next.ok ? <p role="alert">{it.booking.errors.listLoad}</p> : <p>{t.noBooking}</p>}
+                {next && !next.ok ? (
+                  <p role="alert">{it.booking.errors.listLoad}</p>
+                ) : next?.booking ? (
+                  // C'è una prenotazione ma mancano le impostazioni (fuso orario): non si può mostrare.
+                  <p role="alert">{t.nextBookingUnavailable}</p>
+                ) : (
+                  <p>{t.noBooking}</p>
+                )}
                 <Link
                   href={MY_BOOKINGS_PATH}
                   className="inline-flex h-11 w-fit items-center text-sm font-medium underline underline-offset-4 hover:no-underline"

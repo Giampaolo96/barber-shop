@@ -30,6 +30,8 @@ export const it = {
       inDays: "Tra {count} giorni",
       manage: "Gestisci",
     },
+    /** Impostazioni del negozio non leggibili: senza timezone la prenotazione non si può mostrare. */
+    nextBookingUnavailable: "Non è stato possibile mostrare la tua prossima prenotazione. Riprova tra poco.",
   },
   nav: {
     login: "Accedi",
@@ -99,12 +101,17 @@ export const it = {
       tomorrow: "domani",
       onDate: "il {date}",
       onDateElided: "l'{date}",
+      /** Il primo del mese si scrive "1°" ("il 1° novembre"). */
+      firstOfMonth: "1°",
+      /** Giorni che iniziano per vocale: articolo eliso ("l'8 ottobre", "l'11 ottobre"). */
+      elidedDays: [8, 11],
       addToCalendar: "Aggiungi al calendario",
       myBookings: "Le mie prenotazioni",
       backHome: "Torna alla home",
       service: "Servizio",
       barber: "Barbiere",
       shop: "Dove",
+      loadError: "Non è stato possibile mostrare i dettagli della prenotazione. La trovi in «Le mie prenotazioni».",
     },
     errors: {
       generic: "Qualcosa è andato storto. Riprova tra poco.",
@@ -504,7 +511,6 @@ export const it = {
       dayOff: "Riposo",
       noBookings: "Nessuna prenotazione",
       emptyDay: "Nessun appuntamento in questo giorno",
-      emptyDayCta: "Nuova prenotazione",
       loadError: "Non è stato possibile caricare il calendario. Riprova tra poco.",
       pageError: "Non è stato possibile caricare la pagina. Riprova tra poco.",
       retry: "Riprova",

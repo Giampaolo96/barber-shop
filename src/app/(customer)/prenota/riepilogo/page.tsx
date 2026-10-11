@@ -4,7 +4,7 @@ import { ConfirmBookingForm } from "@/components/booking/confirm-booking-form";
 import { RestartNotice } from "@/components/booking/restart-notice";
 import { StepHeader } from "@/components/booking/step-header";
 import { it } from "@/i18n/it";
-import { formatDateTime } from "@/lib/booking/format";
+import { formatDateTime, formatDuration } from "@/lib/booking/format";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
 import { ANY_BARBER, BOOK_PATH, summaryStepUrl, timeStepUrl } from "@/lib/booking/paths";
 import { getBarbersForService, getBookableService } from "@/lib/booking/queries";
@@ -56,7 +56,7 @@ export default async function BookingSummaryPage({
             <dt className="text-muted-foreground">{t.price}</dt>
             <dd className="font-medium">
               {formatCents(service.priceCents)},{" "}
-              {it.booking.duration.replace("{count}", String(service.durationMin))}
+              {formatDuration(service.durationMin)}
             </dd>
           </dl>
           {access !== "ok" ? (

@@ -5,7 +5,7 @@ import { AccessNotice } from "@/components/booking/access-notice";
 import { RestartNotice } from "@/components/booking/restart-notice";
 import { StepHeader } from "@/components/booking/step-header";
 import { it } from "@/i18n/it";
-import { firstBioLine } from "@/lib/booking/format";
+import { firstBioLine, formatDuration } from "@/lib/booking/format";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
 import { ANY_BARBER, BOOK_PATH, barberStepUrl, timeStepUrl } from "@/lib/booking/paths";
 import { getBarbersForService, getBookableService } from "@/lib/booking/queries";
@@ -32,7 +32,7 @@ export default async function ChooseBarberPage({
         title={t.title}
         subtitle={
           service
-            ? `${service.name}, ${it.booking.duration.replace("{count}", String(service.durationMin))}`
+            ? `${service.name}, ${formatDuration(service.durationMin)}`
             : undefined
         }
         backHref={BOOK_PATH}

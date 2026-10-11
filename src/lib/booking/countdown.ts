@@ -1,6 +1,6 @@
 // Conto alla rovescia della prossima prenotazione e "Ci vediamo <giorno>" (fetta 8b). Logica pura:
 // giorni di CALENDARIO nella timezone del negozio, mai blocchi di 24 ore né l'ora del server.
-import { it as itLocale } from "date-fns/locale";
+import { it as itLocale } from "date-fns/locale/it";
 import { formatInTimeZone } from "date-fns-tz";
 import { it } from "@/i18n/it";
 import { localDateOf } from "@/lib/domain/local-time";
@@ -35,6 +35,7 @@ export function seeYouPhrase(startsAt: Date | string, now: Date, timezone: strin
 
   const day = Number(formatInTimeZone(instant, timezone, "d"));
   const month = formatInTimeZone(instant, timezone, "MMMM", { locale: itLocale });
-  const date = `${day === 1 ? "1°" : day} ${month}`;
-  return (day === 8 || day === 11 ? t.onDateElided : t.onDate).replace("{date}", date);
+  const date = `${day === 1 ? t.firstOfMonth : day} ${month}`;
+  const elided = (t.elidedDays as readonly number[]).includes(day);
+  return (elided ? t.onDateElided : t.onDate).replace("{date}", date);
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AccessNotice } from "@/components/booking/access-notice";
 import { StepHeader } from "@/components/booking/step-header";
 import { it } from "@/i18n/it";
+import { formatDuration } from "@/lib/booking/format";
 import { formatCents } from "@/lib/domain/money";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
 import { BOOK_PATH, barberStepUrl, timeStepUrl } from "@/lib/booking/paths";
@@ -43,7 +44,7 @@ async function ServiceList() {
           service.barberIds.length === 1
             ? timeStepUrl(service.id, service.barberIds[0])
             : barberStepUrl(service.id);
-        const duration = it.booking.duration.replace("{count}", String(service.durationMin));
+        const duration = formatDuration(service.durationMin);
         const price = formatCents(service.priceCents);
         return (
           <li key={service.id} className="border-b border-line last:border-b-0">
