@@ -892,3 +892,24 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 
 **Miglioria annotata, non applicata**
 8. Il dettaglio delle barre si vede solo con il mouse: accettabile, la tabella dell'andamento è l'alternativa accessibile e il grafico è `aria-hidden`.
+
+**Testi e elenco "Da aggiornare"** (2026-10-11, commit "fix: testi e elenco Da aggiornare nelle statistiche", richiesta dell'utente)
+- Il riquadro "Passate da chiudere" diventa "Da aggiornare", con il sottotitolo "Appuntamenti già passati non ancora segnati come completati o no-show". Se è più di zero, tutto il riquadro (bordo nero, come ciò che si tocca) porta all'elenco.
+- Elenco `/admin/statistiche/da-aggiornare`, solo admin (`requireRole`), con gli stessi filtri (periodo, barbiere, demo):
+  - colonne data, ora, barbiere, cliente, servizio, dalla più vecchia, al massimo 200 righe;
+  - la data apre il dettaglio nel calendario, dove si cambia lo stato. In una prima versione c'era una colonna "Apri" in fondo, che a 390 px finiva fuori dallo schermo: sostituita dal collegamento sulla data.
+- Lettura `getBookingsToUpdate` in `src/lib/db/stats.ts` (RLS di `bookings`, stessa regola del riquadro). Nuovi moduli puri `src/lib/stats/demo.ts` (`isDemoNote`, uguale alla funzione SQL) e `src/lib/stats/paths.ts` (percorsi condivisi delle due pagine).
+- Testi della pagina con le parole del titolare:
+  - "Appuntamenti" al posto di "Prenotazioni", con il sottotitolo "Senza i cancellati";
+  - "Clienti non presentati" al posto di "Tasso di no-show";
+  - "Cancellati" al posto di "Cancellazioni";
+  - "Mostra per" al posto di "Raggruppa per";
+  - colonne "Non presentati" e "% non presentati".
+  - "Escludi prenotazioni demo" resta com'è: il testo è fissato dai test di accettazione.
+- SPEC §6.9 e ADR 010 aggiornati.
+- **Test**:
+  - in `tests/acceptance/stats.test.ts` cambia solo il testo atteso di `totals.toClose` ("Da aggiornare"), autorizzato dall'utente;
+  - nuovi `tests/acceptance/stats-to-update.test.ts` (12) e `tests/e2e/admin-stats-to-update.spec.ts` (3): riquadro ed elenco con il filtro demo, riquadro a zero senza collegamento, barbiere rimandato a `/admin`.
+- Verifica visiva con Playwright MCP a 1280 e 390 px su dati temporanei, poi cancellati.
+- **Controlli**: lint e typecheck ok, Vitest 1654/1654, pgTAP 1211/1211, Playwright 114/114.
+

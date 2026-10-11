@@ -16,7 +16,7 @@ SPEC §6.9 chiede prenotazioni e incasso stimato per giorno, settimana e mese, p
 - Prenotazioni: stati `confirmed`, `completed` e `no_show`. Cancellazioni a parte, divise fra cliente e negozio.
 - Incasso stimato: somma di `price_cents` (il prezzo copiato sulla prenotazione, CLAUDE.md regola 4) delle `completed` e `confirmed`.
 - Tasso di no-show: `no_show` diviso le prenotazioni non cancellate già iniziate; "—" se nessuna. Percentuale intera.
-- Passate da chiudere: prenotazioni già iniziate ancora `confirmed`.
+- Da aggiornare: prenotazioni già iniziate ancora `confirmed`. Il riquadro, se non è zero, porta a `/admin/statistiche/da-aggiornare` con gli stessi filtri (periodo, barbiere, demo): elenco dalla più vecchia, al massimo 200 righe, ciascuna con il collegamento al dettaglio nel calendario. Stessa regola del riquadro (giorno locale nel periodo, `starts_at <= now`), letta con la RLS di `bookings`; il filtro demo usa `isDemoNote`, uguale alla funzione SQL.
 - Ogni prenotazione conta nel giorno locale di `starts_at` (timezone del negozio), non in quello di creazione. Settimane da lunedì; i bucket ai bordi del periodo si tagliano.
 
 **Database**: `admin_booking_stats(p_from, p_to, p_exclude_demo)` (migrazione `20261011090000`)
@@ -38,6 +38,6 @@ SPEC §6.9 chiede prenotazioni e incasso stimato per giorno, settimana e mese, p
 ## Conseguenze
 
 - Le formule si cambiano in un solo punto, testato con Vitest; il database fa solo il raggruppamento per giorno locale.
-- L'incasso stimato include le `confirmed` non ancora segnate: se lo staff non chiude le prenotazioni, il riquadro "Passate da chiudere" lo mostra.
+- L'incasso stimato include le `confirmed` non ancora segnate: se lo staff non chiude le prenotazioni, il riquadro "Da aggiornare" lo mostra e porta all'elenco.
 - Le prenotazioni anonimizzate dall'eliminazione dell'account (fetta 9b) restano nelle statistiche: non servono i dati del cliente.
 - Una prenotazione demo con una nota diversa dal testo esatto conta sempre; il filtro è facoltativo e non tocca i dati.

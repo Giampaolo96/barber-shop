@@ -15,26 +15,16 @@ import { localDateOf } from "@/lib/domain/local-time";
 import { formatCents } from "@/lib/domain/money";
 import { buildStats, type Stats, type StatsRow } from "@/lib/stats/aggregate";
 import { bucketLabel, formatRate } from "@/lib/stats/format";
+import { STATS_PATH, statsPath, statsToUpdatePath } from "@/lib/stats/paths";
 import { periodShortcut, STATS_SHORTCUTS } from "@/lib/stats/periods";
 import { type StatsParams, statsSearchParamsSchema } from "@/lib/stats/schemas";
 
 const t = it.admin.stats;
-const STATS_PATH = "/admin/statistiche";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
 const first = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value;
-
-/** URL della pagina con i parametri dati; quelli predefiniti restano fuori. */
-function statsPath(params: StatsParams): string {
-  const query = new URLSearchParams({ dal: params.from, al: params.to });
-  if (params.granularity !== "giorno") query.set("raggruppa", params.granularity);
-  if (params.barberId) query.set("barbiere", params.barberId);
-  if (params.excludeDemo) query.set("escludi_demo", "1");
-  if (params.chart !== "prenotazioni") query.set("grafico", params.chart);
-  return `${STATS_PATH}?${query}`;
-}
 
 type StatsData = { stats: Stats; barbers: StatsCatalogItem[]; services: StatsCatalogItem[] };
 
@@ -181,7 +171,7 @@ function StatsContent({ data, params }: { data: StatsData; params: StatsParams }
   const { stats, barbers, services } = data;
   const { totals } = stats;
   const tiles = [
-    { stat: "bookings", label: t.totals.bookings, value: String(totals.bookings), hint: null },
+    { stat: "bookings", label: t.totals.bookings, value: String(totals.bookings), hint: t.totalsHint.bookings },
     { stat: "revenue", label: t.totals.revenue, value: formatCents(totals.revenueCents), hint: t.totalsHint.revenue },
     {
       stat: "no-show-rate",
@@ -200,17 +190,38 @@ function StatsContent({ data, params }: { data: StatsData; params: StatsParams }
     },
     { stat: "to-close", label: t.totals.toClose, value: String(totals.toClose), hint: t.totalsHint.toClose },
   ];
+  // "Da aggiornare" porta all'elenco di quegli appuntamenti, dove si apre il dettaglio.
+  const toUpdateHref = totals.toClose > 0 ? statsToUpdatePath(params) : null;
 
   return (
     <>
       <dl className="grid grid-cols-2 gap-px border border-line bg-line lg:grid-cols-5">
         {tiles.map((tile) => (
-          <div key={tile.stat} data-stat={tile.stat} className="flex flex-col gap-1 bg-surface p-4 last:col-span-2 lg:last:col-span-1">
+          <div
+            key={tile.stat}
+            data-stat={tile.stat}
+            className={`relative flex flex-col gap-1 bg-surface p-4 last:col-span-2 lg:last:col-span-1 ${
+              tile.stat === "to-close" && toUpdateHref ? "ring-1 ring-ink ring-inset hover:bg-disabled" : ""
+            }`}
+          >
             <dt className="text-sm text-muted-foreground">{tile.label}</dt>
             <dd data-stat-value className="font-display text-2xl whitespace-nowrap tabular-nums sm:text-3xl">
               {tile.value}
             </dd>
-            {tile.hint && <dd className="text-xs text-muted-foreground">{tile.hint}</dd>}
+            {tile.stat === "to-close" && toUpdateHref ? (
+              <dd className="text-xs">
+                {/* Collegamento esteso a tutto il riquadro */}
+                <Link
+                  href={toUpdateHref}
+                  aria-label={fillText(t.toCloseLink, { count: totals.toClose })}
+                  className="underline underline-offset-4 after:absolute after:inset-0"
+                >
+                  {tile.hint}
+                </Link>
+              </dd>
+            ) : (
+              tile.hint && <dd className="text-xs text-muted-foreground">{tile.hint}</dd>
+            )}
           </div>
         ))}
       </dl>

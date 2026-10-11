@@ -5,7 +5,9 @@ import "server-only";
 // dalla RLS, che all'admin mostra anche quelli disattivati.
 import { z } from "zod";
 import type { createClient } from "@/lib/db/server";
+import { addDays, startOfLocalDay } from "@/lib/domain/local-time";
 import { BOOKING_STATUSES, type StatsGroup } from "@/lib/stats/aggregate";
+import { isDemoNote } from "@/lib/stats/demo";
 
 type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -53,5 +55,55 @@ export async function getStatsCatalog(
   return {
     barbers: barbers.data.map((row) => ({ id: row.id, name: row.display_name, isActive: row.is_active })),
     services: services.data.map((row) => ({ id: row.id, name: row.name, isActive: row.is_active })),
+  };
+}
+
+/** Righe massime dell'elenco "Da aggiornare". */
+export const TO_UPDATE_LIMIT = 200;
+
+export type BookingToUpdate = {
+  id: string;
+  startsAt: Date;
+  barberName: string;
+  customerName: string;
+  serviceName: string;
+};
+
+/**
+ * "Da aggiornare": prenotazioni già iniziate ancora `confirmed`, con giorno locale nel periodo
+ * (stessa regola del riquadro, ADR 010), dalla più vecchia. `truncated` se ce ne sono altre.
+ */
+export async function getBookingsToUpdate(
+  supabase: ServerClient,
+  filters: { from: string; to: string; barberId: string | null; excludeDemo: boolean; timezone: string; now: Date },
+): Promise<{ bookings: BookingToUpdate[]; truncated: boolean }> {
+  const startsFrom = startOfLocalDay(filters.from, filters.timezone);
+  const startsBefore = startOfLocalDay(addDays(filters.to, 1), filters.timezone);
+  let query = supabase
+    .from("bookings")
+    .select(
+      "id, starts_at, notes, guest_name, barber:barbers(display_name), service:services(name), customer:profiles!bookings_customer_id_fkey(full_name)",
+    )
+    .eq("status", "confirmed")
+    .gte("starts_at", startsFrom.toISOString())
+    .lt("starts_at", startsBefore.toISOString())
+    .lte("starts_at", filters.now.toISOString())
+    .order("starts_at")
+    .order("id")
+    .limit(TO_UPDATE_LIMIT + 1);
+  if (filters.barberId) query = query.eq("barber_id", filters.barberId);
+  const { data, error } = await query;
+  if (error) return fail("prenotazioni da aggiornare", error);
+
+  const rows = data.filter((row) => !(filters.excludeDemo && isDemoNote(row.notes)));
+  return {
+    bookings: rows.slice(0, TO_UPDATE_LIMIT).map((row) => ({
+      id: row.id,
+      startsAt: new Date(row.starts_at),
+      barberName: row.barber?.display_name ?? "",
+      customerName: row.guest_name ?? row.customer?.full_name ?? "",
+      serviceName: row.service?.name ?? "",
+    })),
+    truncated: data.length > TO_UPDATE_LIMIT,
   };
 }

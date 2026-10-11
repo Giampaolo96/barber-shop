@@ -37,7 +37,7 @@ export type StatsMetrics = {
   cancellations: number;
   cancelledByCustomer: number;
   cancelledByShop: number;
-  /** confirmed già iniziate ("Passate da chiudere") */
+  /** confirmed già iniziate ("Da aggiornare") */
   toClose: number;
 };
 

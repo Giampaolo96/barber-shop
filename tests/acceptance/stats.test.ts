@@ -20,7 +20,7 @@
 //       cancellations: number       cancelledByCustomer + cancelledByShop
 //       cancelledByCustomer: number
 //       cancelledByShop: number
-//       toClose: number             confirmed con started = true ("Passate da chiudere")
+//       toClose: number             confirmed con started = true ("Da aggiornare")
 //     }
 //     type StatsBucket = StatsMetrics & { start: "YYYY-MM-DD"; end: "YYYY-MM-DD" }  (bordi tagliati al periodo)
 //     type StatsRow = StatsMetrics & { id: string }                                   (barbiere o servizio)
@@ -816,7 +816,7 @@ describe('testi delle statistiche in src/i18n/it.ts (SPEC §9)', () => {
     ['shortcuts.last3Months', 'Ultimi 3 mesi'],
     ['shortcuts.thisYear', "Quest'anno"],
     ['excludeDemo', 'Escludi prenotazioni demo'],
-    ['totals.toClose', 'Passate da chiudere'],
+    ['totals.toClose', 'Da aggiornare'],
   ])('it.admin.stats.%s = "%s" (decisioni approvate)', (key, expected) => {
     expect(text(`admin.stats.${key}`)).toBe(expected);
   });

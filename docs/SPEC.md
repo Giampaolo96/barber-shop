@@ -129,7 +129,8 @@ Il calcolo avviene lato server (funzione Postgres `security definer` o server ac
    - **Prenotazioni**: stati `confirmed`, `completed` e `no_show`; le cancellate si contano a parte (dal cliente e dal negozio).
    - **Incasso stimato**: somma di `price_cents` delle `completed` e `confirmed`.
    - **Tasso di no-show**: `no_show` diviso le prenotazioni non cancellate già iniziate ("—" se nessuna).
-   - **Passate da chiudere**: prenotazioni già iniziate ancora `confirmed`.
+   - **Da aggiornare**: prenotazioni già iniziate ancora `confirmed` ("Appuntamenti già passati non ancora segnati come completati o no-show"). Se sono più di zero il riquadro porta all'elenco del periodo (data, ora, barbiere, cliente, servizio), con il collegamento al dettaglio dove si cambia lo stato.
+   - Testi con le parole del titolare (appuntamenti, cancellati, clienti non presentati), non termini tecnici.
    - Grafico a barre dell'andamento (prenotazioni o incasso), con la tabella sotto come versione accessibile.
    - Nelle tabelle per barbiere e per servizio compaiono anche quelli attivi senza prenotazioni nel periodo (a zero); quelli disattivati solo se hanno prenotazioni nel periodo.
    - Le prenotazioni demo (nota del cliente uguale a "Prenotazione demo", senza spazi, tab o a capo ai bordi e senza distinguere maiuscole e minuscole) contano normalmente; una casella facoltativa, spenta di base, le esclude.
