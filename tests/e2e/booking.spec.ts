@@ -11,8 +11,12 @@
 //   /prenota/orario?servizio=&barbiere=<id|any> striscia dei giorni (all'apertura è selezionato il primo
 //                                              giorno con orari) e griglia degli orari "HH:MM"
 //   /prenota/riepilogo?servizio=&barbiere=&inizio=<ISO>  riepilogo, nota facoltativa, conferma
-//   /prenotazioni                              future e passate; dopo la conferma banner "Prenotazione
-//                                              confermata"
+//   /prenotazioni                              future e passate
+//   /prenotazioni/<id>/confermata              dopo la conferma (fetta 8b, prima era /prenotazioni con il
+//                                              banner "Prenotazione confermata"): titolo "Prenotazione
+//                                              confermata" e link "Le mie prenotazioni"
+// Fetta 8b: con una prenotazione futura la home mostra il biglietto it.home.ticket.title ("Il tuo
+// prossimo appuntamento") al posto di "Prossima prenotazione".
 // Testi attesi (da mettere in src/i18n/it.ts): "Prenota", "Prossima prenotazione", "Nessuna preferenza",
 // "Conferma prenotazione", campo con etichetta che contiene "Note", "Prenotazione confermata",
 // "Cancella", "Prenotazione cancellata", "Chiama il negozio" (link tel:), messaggio per il cliente
@@ -182,9 +186,21 @@ const pickLastSlotAndConfirm = async (page: Page, note?: string): Promise<string
   await expect(main(page)).toContainText(time);
   if (note !== undefined) await page.getByLabel(/note/i).fill(note);
   await tap(confirmButton(page));
-  await expectPath(page, '/prenotazioni');
-  await expect(page.getByText('Prenotazione confermata')).toBeVisible();
+  await expectConfirmedThenMyBookings(page);
   return time;
+};
+
+/**
+ * Fetta 8b: dopo la conferma si arriva su /prenotazioni/<id>/confermata ("Prenotazione confermata"),
+ * poi da "Le mie prenotazioni" si torna su /prenotazioni.
+ */
+const expectConfirmedThenMyBookings = async (page: Page): Promise<void> => {
+  await expect
+    .poll(() => new URL(page.url()).pathname, { message: 'percorso atteso: /prenotazioni/<id>/confermata' })
+    .toMatch(/^\/prenotazioni\/[0-9a-f-]{36}\/confermata$/);
+  await expect(page.getByRole('heading', { name: 'Prenotazione confermata' })).toBeVisible();
+  await tap(main(page).getByRole('link', { name: s('booking.confirmation.myBookings'), exact: true }));
+  await expectPath(page, '/prenotazioni');
 };
 
 // ---------------------------------------------------------------------------
@@ -245,7 +261,7 @@ test('il cliente demo prenota con un barbiere scelto: la prenotazione è in "Le 
     );
     expect(upcoming[0]?.id, 'la nuova prenotazione è la prima futura del cliente demo').toBe(rows[0]?.id);
     await page.goto('/');
-    await expect(main(page).getByText('Prossima prenotazione').first()).toBeVisible();
+    await expect(main(page).getByText(s('home.ticket.title')).first()).toBeVisible();
     await expect(main(page).getByText(service.name).first()).toBeVisible();
     await expect(main(page)).toContainText(time);
   } finally {
@@ -312,8 +328,7 @@ test('il cliente cancella una propria prenotazione futura; entro il limite vede 
     );
     await expect(main(page).getByText(far.name).first()).toBeVisible();
     await tap(confirmButton(page));
-    await expectPath(page, '/prenotazioni');
-    await expect(page.getByText('Prenotazione confermata')).toBeVisible();
+    await expectConfirmedThenMyBookings(page);
     const [booking] = await bookingsOfService(api, far.id);
     expect(booking).toMatchObject({ customer_id: customerId, status: 'confirmed', source: 'online' });
     data.bookings.push(booking?.id ?? '');

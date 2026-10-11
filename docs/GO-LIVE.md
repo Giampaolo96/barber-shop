@@ -48,7 +48,7 @@ I passi tecnici di dettaglio sono in `docs/DEPLOY.md`; qui c'è cosa deve esiste
   - [ ] **Redirect URLs** aggiornati al dominio personalizzato (`https://<dominio>/**`, serve al ritorno dopo il login); via quelli di prova non più necessari.
 - [ ] Regola di **rate limiting del firewall** sul flusso di prenotazione e su `/accedi`, una sola regola con due condizioni in OR (`docs/DEPLOY.md` §7).
 - [ ] Prova end-to-end in produzione: magic link di un cliente, login dello staff, prenotazione e cancellazione.
-- [ ] Prova dell'app installata (`docs/DEPLOY.md` §8): installazione su iPhone e Android, accesso con il codice dall'app installata, prenotazione in modalità standalone.
+- [ ] Prova dell'app installata (`docs/DEPLOY.md` §8): installazione su iPhone e Android, accesso con il codice dall'app installata, prenotazione in modalità standalone, "Aggiungi al calendario" che apre il Calendario su iPhone.
 
 ## 5. Privacy (GDPR)
 - [ ] **Informativa privacy** con i dati del titolare del negozio: ragione sociale, indirizzo, contatti, finalità, basi giuridiche, tempi di conservazione, diritti dell'interessato.

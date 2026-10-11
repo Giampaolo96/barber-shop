@@ -103,12 +103,12 @@ Il calcolo avviene lato server (funzione Postgres `security definer` o server ac
 
 ## 5. Funzionalità – lato cliente (mobile / PWA)
 
-1. **Home**: info negozio, pulsante "Prenota", prossima prenotazione in evidenza. Stato di apertura del giorno ("Aperto fino alle…", "Apre alle…", "Oggi chiuso") e orari della settimana: sono l'unione delle fasce dei barbieri attivi, meno le chiusure di oggi, senza dati sui singoli barbieri (`shop_opening_hours`, `shop_closures_today`, fetta 8a).
+1. **Home**: info negozio, pulsante "Prenota", prossima prenotazione in evidenza come "biglietto" con il conto alla rovescia in giorni di calendario nella timezone del negozio ("Oggi", "Domani", "Tra N giorni", fetta 8b). Stato di apertura del giorno ("Aperto fino alle…", "Apre alle…", "Oggi chiuso") e orari della settimana: sono l'unione delle fasce dei barbieri attivi, meno le chiusure di oggi, senza dati sui singoli barbieri (`shop_opening_hours`, `shop_closures_today`, fetta 8a).
 2. **Flusso di prenotazione** (max 4 schermate):
    1. scelta servizio (nome, durata, prezzo);
    2. scelta barbiere (con foto) oppure "Nessuna preferenza"; il passo si salta se il servizio ha un solo barbiere abilitato;
    3. scelta giorno (striscia orizzontale di date) e orario (griglia di slot);
-   4. riepilogo + note opzionali + conferma.
+   4. riepilogo + note opzionali + conferma. Dopo la conferma si apre la schermata dedicata `/prenotazioni/<id>/confermata` (solo il cliente proprietario, altrimenti 404; una prenotazione propria cancellata o passata rimanda a "Le mie prenotazioni"), con "Aggiungi al calendario": file iCalendar `/prenotazioni/<id>/calendario.ics` solo per le proprie prenotazioni confermate e future, orari in UTC, titolo "<servizio> – <negozio>", luogo dall'indirizzo, UID stabile indipendente dal dominio, nessun altro dato personale (fetta 8b).
 3. **Le mie prenotazioni**: future e passate; cancellazione consentita fino a `cancel_limit_min` prima (bordo incluso), poi pulsante "Chiama il negozio". Il cliente bloccato (manualmente o per no-show) vede l'invito a chiamare il negozio già all'inizio del flusso.
 4. **Profilo**: nome, telefono, email, consensi, eliminazione account.
 5. **Registrazione/login**: email con magic link e codice a 6 cifre (fetta 8, ADR 009): il codice si digita nella pagina in cui si è chiesto l'accesso, quindi apre la sessione anche nell'app installata; 5 errori per codice e al massimo 10 all'ora per email, codice e link validi 15 minuti; il login Google è rimandato (vedi domande aperte). Il telefono è obbligatorio in profilo per essere contattabili: al primo accesso il cliente completa il profilo (nome, telefono salvato in formato E.164, consensi), necessario per le pagine private e per prenotare ma non per le pagine pubbliche. Lo staff entra con email e password da `/admin/login`, senza auto-registrazione.
@@ -179,6 +179,7 @@ Pagamenti e caparre online, più servizi in una prenotazione, lista d'attesa, pr
 | 7 | Notifiche email e promemoria | Email ricevute in ambiente di test |
 | 8a | Identità visiva: design system a token, tema "Mosca", restyling cliente e admin (`docs/DESIGN.md`) | Screenshot a 390 e 1280 px rivisti, test esistenti verdi senza cambiare le asserzioni |
 | 8 | PWA (manifest, icone, installazione) + rifinitura UI | Installabile su iOS e Android |
+| 8b | Rifinitura estetica (tema Mosca, `docs/DESIGN.md`): biglietto della prossima prenotazione, listino, ritratti dei barbieri, schermata di conferma con file `.ics`, movimento solo CSS, stati vuoti, ora attuale nel calendario admin | Screenshot a 390 e 1280 px (anche stati vuoti e movimento ridotto) rivisti, conferma e `.ics` solo per il proprietario |
 | 9a | Statistiche (§6.9, ADR 010) | L'admin vede prenotazioni, incasso stimato e no-show del periodo, per barbiere e per servizio |
 | 9b | Privacy e account prima del go-live: nuovo consenso quando cambia la versione dell'informativa (versione di nuovo modificabile), eliminazione dell'account cliente con anonimizzazione dello storico, staff con invito via email, recupero e cambio password ed eliminazione account, TOTP per gli admin | Pronto per il primo uso reale |
 

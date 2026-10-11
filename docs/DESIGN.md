@@ -8,7 +8,8 @@ Come è fatta l'interfaccia e come si cambia tema. Il primo tema è **Mosca** (M
 - **Il pieno nero indica ciò che è tuo o scelto**: la prossima prenotazione, il giorno selezionato, l'azione principale ("Conferma prenotazione"), la vista attiva del calendario.
 - **Il bordo nero indica ciò che si può toccare**: scelte, orari, "Prenota", "Chiama". Le linee `--line` dividono soltanto, non si toccano.
 - **Numeri come tipografia**: date e orari grandi in Bodoni sono l'elemento visivo della scelta, non etichette.
-- **Un solo momento memorabile per schermata.** In home è la testata in marmo con la mosca; tutto il resto è disciplinato.
+- **Un solo momento memorabile per schermata.** In home è la testata in marmo con la mosca (il biglietto della prossima prenotazione è il secondo elemento forte, mai un terzo); dopo la prenotazione è la schermata di conferma in marmo; tutto il resto è disciplinato.
+- **Doppio filetto** (`border-double`, 3 px, colore `--ink`) solo come separatore principale: sotto i titoli di sezione della home, sopra e sotto il listino, sul pulsante "Prenota". Altrove bastano i bordi da 1 px.
 - **Allineamento a sinistra**, griglia a 16 px su mobile, colonna di lettura `max-w-xl`.
 - Mobile first per il cliente (tap target ≥ 44 px), desktop first per lo staff.
 
@@ -43,11 +44,19 @@ Regole:
 
 ## Marmo e mosca (tema Mosca)
 
-- **Marmo**: fondo `--surface-marble` con venature SVG (curve sottili, opacità 0,2–0,5, spessori diversi, `non-scaling-stroke`). **Solo nella testata della home**, mai altrove.
-- **Mosca**: icona a tratto (testa e corpo pieni, due ali ellittiche, zampette sottili), componente unico `Fly` con `data-testid="fly"`. Due usi:
-  - in home vola sopra il nome lungo una scia tratteggiata di un giro, una volta al caricamento;
-  - nella scelta dell'orario compare dentro lo slot toccato mentre si apre il riepilogo.
-- Con `prefers-reduced-motion: reduce` la mosca è già posata e non si muove.
+- **Marmo**: fondo `--surface-marble` con venature SVG (curve sottili, opacità 0,2–0,5, spessori diversi, `non-scaling-stroke`). **Solo nella testata della home e nella schermata di conferma** (a schermo intero), mai altrove.
+- **Mosca**: icona a tratto (testa e corpo pieni, due ali ellittiche, zampette sottili), componente unico `Fly` con `data-testid="fly"`. Usi:
+  - in home vola sopra il nome lungo una scia tratteggiata di un giro, che si disegna una volta al caricamento;
+  - nella scelta dell'orario compare dentro lo slot toccato mentre si apre il riepilogo;
+  - nella schermata di conferma atterra alla fine della scia e resta posata;
+  - piccola e ferma (`EmptyMark`) accanto al titolo del listino, nel blocco "Nessuna preferenza" e negli stati vuoti dell'area clienti.
+
+## Movimento
+
+- Solo CSS, tutto dentro `@media (prefers-reduced-motion: no-preference)`: con `reduce` ogni elemento è già nello stato finale.
+- Ogni animazione parte una volta (caricamento o pressione) e finisce: niente `infinite`, niente loop.
+- Usi ammessi: scia e volo della home, atterraggio della mosca sulla conferma, orari della griglia che compaiono in rapida sequenza (ritardo limitato), pulsanti e scelte che si invertono in nero alla pressione (`active:`).
+- Stati vuoti: un testo e un invito all'azione; nell'area clienti anche la mosca piccola.
 - Nell'area staff niente marmo né mosca.
 
 ## Cosa NON fare
@@ -73,7 +82,7 @@ src/themes/mosca/
   index.ts                   export comuni a ogni tema
 ```
 
-Ogni tema esporta gli stessi nomi: `fontVariables`, `HeroBackground` (fondo della testata), `HeroMark` (segno sopra il nome), `PendingMark` (segno nello slot in caricamento), `appIdentity` (colori dell'app installata) e `appIconSvg` (disegno dell'icona dell'app, usato solo lato server). Per un nuovo negozio:
+Ogni tema esporta gli stessi nomi: `fontVariables`, `HeroBackground` (fondo della testata), `HeroMark` (segno sopra il nome), `PendingMark` (segno nello slot in caricamento), `EmptyMark` (segno piccolo degli stati vuoti, del listino e di "Nessuna preferenza"), `ConfirmationBackground` e `ConfirmationMark` (fondo e segno della schermata di conferma), `appIdentity` (colori dell'app installata e `calendarUidHost`, la parte fissa dell'UID degli eventi `.ics`) e `appIconSvg` (disegno dell'icona dell'app, usato solo lato server). Per un nuovo negozio:
 1. creare `src/themes/<nome>/` con gli stessi file ed export;
 2. in `src/themes/active.ts` sostituire `mosca` con il nome del nuovo tema (import del CSS, `themeName` usato dalla pagina offline, export);
 3. impostare nome e recapiti in Impostazioni.
