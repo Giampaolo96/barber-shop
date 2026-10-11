@@ -7,3 +7,9 @@ export const appIdentity = {
   /** Schermata di avvio su Android. */
   backgroundColor: "#ffffff",
 } as const;
+
+/**
+ * Parte fissa dell'UID degli eventi .ics ("<id>@<host>"), usata solo dalla route del calendario:
+ * non dipende dal dominio, che al go-live cambia, così un nuovo download aggiorna l'evento.
+ */
+export const calendarUidHost = "mosca-barber-shop";

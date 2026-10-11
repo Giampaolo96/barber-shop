@@ -8,7 +8,7 @@ import { COMPLETE_PROFILE_PATH } from "@/lib/auth/access";
 import { requireRole } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/db/server";
 import { rpcErrorCode as errorCode } from "./errors";
-import { MY_BOOKINGS_PATH } from "./paths";
+import { MY_BOOKINGS_PATH, confirmationPath } from "./paths";
 import { cancelBookingSchema, createBookingSchema } from "./schemas";
 
 /** `code`: codice di create_online_booking / cancel_own_booking, SQLSTATE o "invalid". */
@@ -31,7 +31,7 @@ export async function createBooking(
   const { serviceId, barberId, startsAt, notes } = parsed.data;
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc("create_online_booking", {
+  const { data: bookingId, error } = await supabase.rpc("create_online_booking", {
     p_service_id: serviceId,
     p_barber_id: barberId === "any" ? null : barberId,
     p_starts_at: startsAt,
@@ -44,7 +44,8 @@ export async function createBooking(
   }
 
   revalidatePath("/", "layout");
-  redirect(`${MY_BOOKINGS_PATH}?esito=confermata`);
+  // Schermata dedicata alla conferma (fetta 8b).
+  redirect(confirmationPath(bookingId));
 }
 
 export async function cancelBooking(

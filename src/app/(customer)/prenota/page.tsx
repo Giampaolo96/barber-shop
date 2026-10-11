@@ -1,20 +1,27 @@
 import Link from "next/link";
 import { AccessNotice } from "@/components/booking/access-notice";
-import { StepHeader, choiceClass } from "@/components/booking/step-header";
+import { StepHeader } from "@/components/booking/step-header";
 import { it } from "@/i18n/it";
 import { formatCents } from "@/lib/domain/money";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
 import { BOOK_PATH, barberStepUrl, timeStepUrl } from "@/lib/booking/paths";
 import { getBookableServices } from "@/lib/booking/queries";
+import { EmptyMark } from "@/themes/active";
 
-// Passo 1 di 4 (SPEC §5.2): scelta del servizio.
+// Passo 1 di 4 (SPEC §5.2): scelta del servizio, impaginata come un listino (fetta 8b).
 export default async function ChooseServicePage() {
   const { shop, access } = await loadBookingPageContext();
   const t = it.booking;
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-6">
-      <StepHeader step={1} title={t.service.title} backHref="/" />
+      <StepHeader
+        step={1}
+        title={t.service.title}
+        subtitle={t.service.subtitle}
+        mark={<EmptyMark className="mb-1 size-8 shrink-0" />}
+        backHref="/"
+      />
       {access !== "ok" ? (
         <AccessNotice access={access} phone={shop.phone} retryHref={BOOK_PATH} />
       ) : (
@@ -29,27 +36,30 @@ async function ServiceList() {
   if (services.length === 0) return <p className="text-muted-foreground">{it.booking.service.empty}</p>;
 
   return (
-    <ul className="flex flex-col [&>li+li]:-mt-px">
+    <ul className="border-y-[3px] border-double border-ink">
       {services.map((service) => {
         // Con un solo barbiere abilitato il passo del barbiere si salta.
         const href =
           service.barberIds.length === 1
             ? timeStepUrl(service.id, service.barberIds[0])
             : barberStepUrl(service.id);
+        const duration = it.booking.duration.replace("{count}", String(service.durationMin));
+        const price = formatCents(service.priceCents);
         return (
-          <li key={service.id}>
-            <Link href={href} className={choiceClass}>
-              <span className="flex flex-1 flex-col">
-                <span className="font-medium">{service.name}</span>
-                {service.description && (
-                  <span className="text-sm text-muted-foreground">{service.description}</span>
-                )}
+          <li key={service.id} className="border-b border-line last:border-b-0">
+            <Link
+              href={href}
+              aria-label={`${service.name}, ${duration}, ${price}`}
+              className="flex min-h-16 flex-col justify-center gap-1 py-3 transition-colors hover:bg-ink hover:text-surface active:bg-ink active:text-surface [&:active_.text-muted-foreground]:text-surface [&:hover_.text-muted-foreground]:text-surface"
+            >
+              <span className="flex items-baseline gap-2 px-2 font-display text-2xl leading-tight">
+                <span>{service.name}</span>
+                <span aria-hidden="true" className="mb-1.5 flex-1 border-b-2 border-dotted border-current" />
+                <span className="tabular-nums">{price}</span>
               </span>
-              <span className="flex flex-col items-end text-sm">
-                <span className="font-medium">{formatCents(service.priceCents)}</span>
-                <span className="text-muted-foreground">
-                  {it.booking.duration.replace("{count}", String(service.durationMin))}
-                </span>
+              <span className="px-2 text-sm text-muted-foreground">
+                {duration}
+                {service.description && <span className="block">{service.description}</span>}
               </span>
             </Link>
           </li>

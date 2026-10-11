@@ -82,7 +82,7 @@ src/themes/mosca/
   index.ts                   export comuni a ogni tema
 ```
 
-Ogni tema esporta gli stessi nomi: `fontVariables`, `HeroBackground` (fondo della testata), `HeroMark` (segno sopra il nome), `PendingMark` (segno nello slot in caricamento), `EmptyMark` (segno piccolo degli stati vuoti, del listino e di "Nessuna preferenza"), `ConfirmationBackground` e `ConfirmationMark` (fondo e segno della schermata di conferma), `appIdentity` (colori dell'app installata e `calendarUidHost`, la parte fissa dell'UID degli eventi `.ics`) e `appIconSvg` (disegno dell'icona dell'app, usato solo lato server). Per un nuovo negozio:
+Ogni tema esporta gli stessi nomi: `fontVariables`, `HeroBackground` (fondo della testata), `HeroMark` (segno sopra il nome), `PendingMark` (segno nello slot in caricamento), `EmptyMark` (segno piccolo degli stati vuoti, del listino e di "Nessuna preferenza"), `ConfirmationBackground` e `ConfirmationMark` (fondo e segno della schermata di conferma), `appIdentity` (colori dell'app installata), `calendarUidHost` (parte fissa dell'UID degli eventi `.ics`, solo lato server) e `appIconSvg` (disegno dell'icona dell'app, usato solo lato server). Per un nuovo negozio:
 1. creare `src/themes/<nome>/` con gli stessi file ed export;
 2. in `src/themes/active.ts` sostituire `mosca` con il nome del nuovo tema (import del CSS, `themeName` usato dalla pagina offline, export);
 3. impostare nome e recapiti in Impostazioni.

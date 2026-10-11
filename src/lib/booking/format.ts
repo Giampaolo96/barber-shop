@@ -28,3 +28,7 @@ export const dayParts = (date: string): { weekday: string; day: string; month: s
 /** Link `tel:` dal telefono del negozio (solo cifre e +); null se manca. */
 export const telHref = (phone: string | null): string | null =>
   phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : null;
+
+/** Prima riga non vuota della bio del barbiere, usata come specialità; null se non c'è. */
+export const firstBioLine = (bio: string | null): string | null =>
+  bio?.split(/\r\n|\r|\n/).map((line) => line.trim()).find((line) => line !== "") ?? null;

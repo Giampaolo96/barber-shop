@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { secondaryLinkClass } from "@/components/auth/secondary-link";
+import { NextBookingTicket } from "@/components/booking/next-booking-ticket";
 import { InstallBanner } from "@/components/pwa/install-banner";
 import { it } from "@/i18n/it";
 import { fillText } from "@/lib/admin/text";
 import { STAFF_LOGIN_PATH } from "@/lib/auth/access";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { formatLongDate, formatTime, telHref } from "@/lib/booking/format";
+import { formatTime, telHref } from "@/lib/booking/format";
 import { BOOK_PATH, MY_BOOKINGS_PATH } from "@/lib/booking/paths";
 import { getNextBooking, getShopInfo } from "@/lib/booking/queries";
 import { isoWeekday } from "@/lib/calendar/grid";
@@ -56,37 +57,25 @@ export default async function HomePage() {
         </section>
 
         <div className="mx-auto flex w-full max-w-xl flex-col gap-10 px-4 py-8">
-          {user?.role === "customer" && (
-            <section className="on-ink flex flex-col gap-3 bg-ink p-5 text-surface">
-              <h2 className="text-sm font-medium">{t.nextBooking}</h2>
-              {next && !next.ok ? (
-                <p role="alert">{it.booking.errors.listLoad}</p>
-              ) : next?.booking && timezone ? (
-                <>
-                  <p className="font-display text-3xl leading-tight first-letter:uppercase">
-                    {formatLongDate(next.booking.startsAt, timezone)}
-                    <br />
-                    <time dateTime={next.booking.startsAt}>{formatTime(next.booking.startsAt, timezone)}</time>
-                  </p>
-                  <p>
-                    {fillText(t.withBarber, { service: next.booking.serviceName, barber: next.booking.barberName })}
-                  </p>
-                </>
-              ) : (
-                <p>{t.noBooking}</p>
-              )}
-              <Link
-                href={MY_BOOKINGS_PATH}
-                className="inline-flex h-11 w-fit items-center text-sm font-medium underline underline-offset-4 hover:no-underline"
-              >
-                {t.myBookings}
-              </Link>
-            </section>
-          )}
+          {user?.role === "customer" &&
+            (next?.ok && next.booking && timezone ? (
+              <NextBookingTicket booking={next.booking} now={now} timezone={timezone} />
+            ) : (
+              <section className="on-ink flex flex-col gap-3 bg-ink p-5 text-surface">
+                <h2 className="text-sm font-medium">{t.nextBooking}</h2>
+                {next && !next.ok ? <p role="alert">{it.booking.errors.listLoad}</p> : <p>{t.noBooking}</p>}
+                <Link
+                  href={MY_BOOKINGS_PATH}
+                  className="inline-flex h-11 w-fit items-center text-sm font-medium underline underline-offset-4 hover:no-underline"
+                >
+                  {t.myBookings}
+                </Link>
+              </section>
+            ))}
 
           <Link
             href={BOOK_PATH}
-            className="flex h-14 items-center justify-center border border-ink text-base font-medium transition-colors hover:bg-ink hover:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="flex h-14 items-center justify-center border-[4px] border-double border-ink font-display text-2xl transition-colors hover:bg-ink hover:text-surface active:bg-ink active:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             {t.book}
           </Link>
@@ -99,7 +88,7 @@ export default async function HomePage() {
 
           {(shop?.address || tel) && (
             <section className="flex flex-col gap-3">
-              <h2 className="font-display text-2xl">{t.whereTitle}</h2>
+              <h2 className="border-b-[3px] border-double border-ink pb-2 font-display text-2xl">{t.whereTitle}</h2>
               {shop?.address && <address className="not-italic">{shop.address}</address>}
               {tel && shop?.phone && (
                 <a
@@ -134,7 +123,7 @@ function closingTime(until: Date, timezone: string): string {
 function WeeklyHours({ hours, today }: { hours: OpeningHours[]; today: number }) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-display text-2xl">{t.hoursTitle}</h2>
+      <h2 className="border-b-[3px] border-double border-ink pb-2 font-display text-2xl">{t.hoursTitle}</h2>
       <dl className="flex flex-col">
         {t.weekdays.map((label, index) => {
           const weekday = index + 1;

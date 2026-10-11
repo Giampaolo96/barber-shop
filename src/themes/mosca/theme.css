@@ -17,17 +17,44 @@
   --radius: 0rem;
 }
 
-/* Volo della mosca in home: posata a fine percorso; l'animazione solo senza riduzione del movimento. */
-.fly-flight {
+/*
+ * Movimento del tema (docs/DESIGN.md): ogni animazione parte una volta e finisce, nessun loop. Lo
+ * stato di riposo è quello finale (mosca posata, scia completa): con prefers-reduced-motion resta
+ * fermo così.
+ */
+.fly-flight,
+.fly-landing {
   offset-distance: 100%;
+}
+.fly-trail-reveal {
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 0;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .fly-flight {
     animation: fly-flight 2.4s cubic-bezier(0.45, 0.05, 0.3, 1) 0.3s both;
   }
+  .fly-trail-reveal.is-flight {
+    animation: fly-trail-reveal 2.4s cubic-bezier(0.45, 0.05, 0.3, 1) 0.3s both;
+  }
+  .fly-landing {
+    animation: fly-flight 1.6s cubic-bezier(0.2, 0.6, 0.25, 1) 0.2s both;
+  }
+  .fly-trail-reveal.is-landing {
+    animation: fly-trail-reveal 1.6s cubic-bezier(0.2, 0.6, 0.25, 1) 0.2s both;
+  }
   .fly-pending {
-    animation: fly-pending 0.5s ease-in-out infinite alternate;
+    animation: fly-pending 0.25s ease-in-out 4 alternate;
+  }
+}
+
+@keyframes fly-trail-reveal {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
   }
 }
 

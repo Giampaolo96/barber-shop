@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DndContext,
   type DragEndEvent,
@@ -20,6 +20,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { it } from "@/i18n/it";
 import { blockPosition, busyRows, type DayGrid, type Interval } from "@/lib/calendar/grid";
 import { canDrag, dropTarget } from "@/lib/calendar/move";
+import { nowLineMinutes } from "@/lib/calendar/now-line";
 import { bookingDetailPath, newBookingPath } from "@/lib/calendar/paths";
 import type { DayColumn } from "@/lib/calendar/page-data";
 import type { CalendarBooking } from "@/lib/calendar/queries";
@@ -187,6 +188,7 @@ export function DayGridView({
       onDragCancel={onDragCancel}
     >
       <MoveFeedback notice={notice} dialog={dialog} busy={busy} />
+      {bookings.length === 0 && <EmptyDay date={date} columns={columns} />}
       <div className="overflow-x-auto">
         <div
           ref={gridRef}
@@ -227,9 +229,15 @@ export function DayGridView({
             return [
               <h2
                 key={`${column.barberId}-head`}
-                className="pb-2 text-sm font-semibold"
+                className="flex items-center gap-2 pb-2 text-sm font-semibold"
                 style={{ gridColumn, gridRow: 1 }}
               >
+                <span
+                  aria-hidden="true"
+                  className="flex size-7 shrink-0 items-center justify-center border border-ink font-display text-base font-normal"
+                >
+                  {column.barberName.charAt(0)}
+                </span>
                 {column.barberName}
               </h2>,
               <ColumnDropZone
@@ -299,6 +307,7 @@ export function DayGridView({
               }),
             ];
           })}
+          <NowLine grid={grid} date={date} timezone={timezone} serverNow={now} />
         </div>
       </div>
       {/* La copia trascinata sta fuori dal contenitore che scorre: spostare la scheda originale
@@ -326,6 +335,61 @@ export function DayGridView({
  * Area della colonna su cui si rilascia una scheda; non intercetta i click sulle righe. Durante il
  * trascinamento la colonna di arrivo ha un contorno pieno (`data-drop-target`).
  */
+/** Giorno senza appuntamenti: testo e invito a crearne uno (nell'area staff niente segni del tema). */
+function EmptyDay({ date, columns }: { date: string; columns: DayColumn[] }) {
+  const column = columns.find((candidate) => candidate.isActive);
+  return (
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-line py-4">
+      <p className="font-display text-xl">{t.emptyDay}</p>
+      {column && (
+        <Link
+          href={newBookingPath({ barberId: column.barberId, date })}
+          className="inline-flex h-11 items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface active:bg-ink active:text-surface"
+        >
+          {t.emptyDayCta}
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Linea dell'ora attuale (fetta 8b): solo se il giorno mostrato è oggi nella timezone del negozio,
+ * aggiornata ogni minuto. Parte dall'istante del server per non cambiare l'HTML all'idratazione.
+ */
+function NowLine({ grid, date, timezone, serverNow }: { grid: DayGrid; date: string; timezone: string; serverNow: Date }) {
+  const [now, setNow] = useState(serverNow);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const minutesOf = (instant: Date): number => {
+    if (formatInTimeZone(instant, timezone, "yyyy-MM-dd") !== date) return 24 * 60;
+    const [hours, minutes] = formatInTimeZone(instant, timezone, "HH:mm").split(":").map(Number);
+    return hours * 60 + minutes;
+  };
+  const offset = nowLineMinutes(now, date, timezone, minutesOf(grid.startsAt), minutesOf(grid.endsAt));
+  if (offset === null) return null;
+
+  return (
+    <div
+      aria-hidden="true"
+      data-now-line
+      className="pointer-events-none relative z-10"
+      style={{ gridColumn: "1 / -1", gridRow: `2 / span ${grid.rows.length}` }}
+    >
+      <div
+        className="absolute inset-x-0 flex items-center"
+        style={{ top: `calc(${offset / grid.granularityMin} * ${ROW_HEIGHT})` }}
+      >
+        <span className="size-2 shrink-0 rounded-full bg-ink" />
+        <span className="h-0.5 flex-1 bg-ink" />
+      </div>
+    </div>
+  );
+}
+
 function ColumnDropZone({
   barberId,
   gridColumn,

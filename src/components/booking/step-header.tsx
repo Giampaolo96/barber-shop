@@ -5,10 +5,16 @@ import { it } from "@/i18n/it";
 export function StepHeader({
   step,
   title,
+  subtitle,
+  mark,
   backHref,
 }: {
   step: number;
   title: string;
+  /** Sottotitolo in corsivo sotto il titolo. */
+  subtitle?: string;
+  /** Segno del tema accanto al titolo (decorativo). */
+  mark?: React.ReactNode;
   backHref?: string;
 }) {
   return (
@@ -28,11 +34,17 @@ export function StepHeader({
           {it.booking.step.replace("{current}", String(step)).replace("{total}", "4")}
         </p>
       </div>
-      <h1 className="font-display text-4xl leading-tight">{title}</h1>
+      <div className="flex items-end justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-display text-5xl leading-none">{title}</h1>
+          {subtitle && <p className="font-display text-xl italic text-muted-foreground">{subtitle}</p>}
+        </div>
+        {mark}
+      </div>
     </div>
   );
 }
 
 /** Voce di scelta a tutta larghezza (servizio, barbiere), tap target ≥ 44px. */
 export const choiceClass =
-  "flex min-h-16 w-full items-center gap-4 border border-ink px-4 py-3 text-left transition-colors hover:bg-ink hover:text-surface [&:hover_.text-muted-foreground]:text-surface";
+  "flex min-h-16 w-full items-center gap-4 border border-ink px-4 py-3 text-left transition-colors hover:bg-ink hover:text-surface active:bg-ink active:text-surface [&:hover_.text-muted-foreground]:text-surface [&:active_.text-muted-foreground]:text-surface";

@@ -14,6 +14,7 @@
 | 7 | da fare | | |
 | 8a | completata | 2026-10-06 | Vedi "Fetta 8a" sotto (identità visiva, prima della 8) |
 | 8 | completata | 2026-10-10 | Vedi "Fetta 8" sotto; review chiusa, manca la prova su iPhone |
+| 8b | implementata | 2026-10-12 | Vedi "Fetta 8b" sotto; review senza bloccanti, migliorie da decidere |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
 | 9b | da fare | | Privacy e account prima del go-live (SPEC §11) |
 
@@ -912,4 +913,46 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
   - nuovi `tests/acceptance/stats-to-update.test.ts` (12) e `tests/e2e/admin-stats-to-update.spec.ts` (3): riquadro ed elenco con il filtro demo, riquadro a zero senza collegamento, barbiere rimandato a `/admin`.
 - Verifica visiva con Playwright MCP a 1280 e 390 px su dati temporanei, poi cancellati.
 - **Controlli**: lint e typecheck ok, Vitest 1654/1654, pgTAP 1211/1211, Playwright 114/114.
+
+## Fetta 8b – Rifinitura estetica (tema Mosca)
+
+**Stato**: implementata, review in corso (un giro, nessun bloccante; migliorie 1–8 da decidere con l'utente). Hash di partenza `312f4c4`. Test di accettazione nel commit `20d7fa8` (con SPEC §5.1, §5.2, §11, DESIGN, DEPLOY §8 e GO-LIVE) e `f81656e` (`calendarUidHost` separato). Nessuna migrazione. Resta la prova a mano su iPhone di "Aggiungi al calendario" (`docs/DEPLOY.md` §8 punto 4).
+
+**Fatto**
+- Home: prossima prenotazione come biglietto (`src/components/booking/next-booking-ticket.tsx`): conto alla rovescia, data, ora grande, perforazione con tacche, "Gestisci". Senza prenotazione resta il blocco nero "Prossima prenotazione". "Prenota" con bordo doppio e Bodoni; doppio filetto sotto "Orari" e "Dove siamo".
+- Listino (`/prenota`): "Il listino", "Scegli il servizio", mosca piccola; righe con linea puntinata, nome accessibile "nome, durata, prezzo", tra due doppi filetti.
+- Barbieri (`/prenota/barbiere`): "Con chi?" con servizio e durata, "Nessuna preferenza" in un blocco nero con la mosca, griglia a due colonne di ritratti (foto in scala di grigi o riquadro tratteggiato con l'iniziale), prima riga della bio.
+- Conferma: `/prenotazioni/[id]/confermata` sul marmo a schermo intero, scia con la mosca che atterra, "Ci vediamo …", data e ora, servizio, barbiere, negozio e indirizzo; azioni "Aggiungi al calendario", "Le mie prenotazioni", "Torna alla home". `createBooking` porta qui; il banner `?esito=confermata` è stato rimosso (resta quello della cancellazione).
+- File `.ics`: route `/prenotazioni/[id]/calendario.ics` (`requireRole`, `getOwnBooking` con RLS, solo prenotazioni proprie confermate e future, altrimenti 404), builder puro `src/lib/booking/ics.ts`, `Content-Disposition: attachment`, `Cache-Control: private, no-store`.
+- Logica pura: `src/lib/booking/countdown.ts` (`bookingCountdown`, `seeYouPhrase` con elisione "l'8", "l'11", "il 1°"), `src/lib/calendar/now-line.ts`, `firstBioLine`, `confirmationPath`/`calendarFilePath`, `isUpcoming` in `rules.ts` (riusata da `splitBookings`).
+- Tema: nuovi export `EmptyMark`, `ConfirmationBackground`, `ConfirmationMark`, `calendarUidHost`. Movimento solo CSS dentro `prefers-reduced-motion: no-preference`: scia della home che si disegna (maschera con `pathLength`), atterraggio sulla conferma, orari in sequenza (`.appear-in`, ritardo limitato), pressione che inverte in nero (`active:`); `fly-pending` non più infinita (4 mezzi battiti).
+- Stati vuoti: Le mie prenotazioni (mosca, testo, "Prenota"); admin solo testo e invito: giorno del calendario ("Nessun appuntamento in questo giorno", "Nuova prenotazione") ed elenco "Da aggiornare" ("Nessun appuntamento da aggiornare", "Torna alle statistiche").
+- Admin, calendario giorno: linea dell'ora attuale (solo se il giorno è oggi nella timezone del negozio, aggiornata ogni minuto, minuti reali dall'inizio della griglia) e iniziale del barbiere nelle intestazioni.
+- Test (spec-qa): `tests/acceptance/polish.test.ts`, `tests/acceptance/polish-static.test.ts`, `tests/e2e/booking-polish.spec.ts` (3); `tests/e2e/booking.spec.ts` adeguato (autorizzato): dopo la conferma pagina dedicata e poi "Le mie prenotazioni"; in home il titolo del biglietto.
+
+**Esiti**: lint ok, typecheck ok, Vitest 1739/1739, Playwright 117/117 (dev, con `SUPABASE_SERVICE_ROLE_KEY`, rieseguito dopo le ultime correzioni). pgTAP non rieseguito: nessuna modifica al database. Verifica con Playwright MCP a 390 e 1280 px (home, listino, barbieri, orari, conferma, Le mie prenotazioni vuota e piena, giorno vuoto del calendario, "Da aggiornare" vuoto), a 390 px con movimento ridotto (nessuna animazione su home e conferma) e focus sul marmo (contorno bianco). Linea dell'ora verificata con l'orologio di Playwright. Dati temporanei cancellati.
+
+**Decisioni** (approvate dall'utente)
+- Nell'admin niente mosca: stati vuoti con solo testo e invito.
+- "Ci vediamo": oggi, domani, nome del giorno entro 6 giorni, poi "il 24 ottobre" ("l'8", "l'11", "il 1° novembre").
+- Prenotazione propria cancellata o già iniziata: la conferma rimanda a /prenotazioni; il `.ics` solo per confermate future (404 altrimenti).
+- UID del `.ics` `<id>@mosca-barber-shop` da `calendarUidHost`, export a parte del tema (`appIdentity` resta solo colori, test M5 della fetta 8 invariato); `DTSTAMP` dall'ora della richiesta; `PRODID` generico, nessuna `DESCRIPTION`.
+- `Content-Disposition: attachment`; se su iPhone il file finisse in File si passa a `inline` (l'utente ha già autorizzato a cambiare la sola asserzione di quell'header).
+- Linea dell'ora: minuti reali dall'inizio della griglia, arrotondati per difetto.
+- Marmo anche sulla schermata di conferma (DESIGN.md aggiornato).
+
+**Problemi trovati durante l'implementazione**
+- Già presente dalla fetta 8a: nella pagina degli orari il testo `sr-only` dei giorni senza orari usciva dalla striscia e allargava la pagina (scrollWidth 1773 px a 390). Corretto con `relative` sulle caselle dei giorni.
+- Gli heredoc di Git Bash con `python -` dimezzano le barre rovesciate: per le regex con `\` usare Edit.
+- `@/themes/active` non si importa in Vitest senza il mock di `next/font`: il test di `calendarUidHost` legge `src/themes/mosca/identity.ts`.
+
+**Migliorie dalla review** (da decidere)
+1. Commento di `ColumnDropZone` rimasto sopra `EmptyDay` in `day-grid.tsx`.
+2. `choiceClass` in `step-header.tsx` non è più usato.
+3. Giorno vuoto: "Nuova prenotazione" compare due volte (barra della pagina e stato vuoto).
+4. Pagina di conferma: se la lettura fallisce lancia un errore invece di mostrare `it.booking.errors.listLoad` con il link a "Le mie prenotazioni".
+5. La route `.ics` non controlla `profileComplete` come la pagina (non è un problema di sicurezza).
+6. "1°" e la regola dell'elisione scritti in `countdown.ts` invece che in `it.ts`.
+7. `it.booking.duration.replace(...)` ripetuto: helper `formatDuration`.
+8. Home: con prenotazione ma senza timezone compare "nessuna prenotazione" (caso già presente prima della fetta).
 

@@ -64,7 +64,9 @@ export function SlotPicker({
                 <span className={`text-xs ${showMonth ? "" : "invisible"}`}>{parts.month}</span>
               </>
             );
-            const box = "flex h-20 w-14 flex-col items-center justify-center gap-1 border";
+            // relative: il testo sr-only dei giorni senza orari resta dentro la striscia che scorre (niente
+            // scroll orizzontale della pagina).
+            const box = "relative flex h-20 w-14 flex-col items-center justify-center gap-1 border";
             return (
               <li key={date}>
                 {available.has(date) ? (
@@ -108,7 +110,9 @@ export function SlotPicker({
             return (
               <div
                 key={`${group.hour}-${index}`}
-                className={`flex items-start gap-4 border-t py-3 ${gap ? "mt-4 border-t-ink" : "border-line"}`}
+                // Le ore compaiono in rapida sequenza (solo se il movimento è ammesso, globals.css).
+                style={{ "--appear-index": index } as React.CSSProperties}
+                className={`appear-in flex items-start gap-4 border-t py-3 ${gap ? "mt-4 border-t-ink" : "border-line"}`}
               >
                 <span
                   aria-hidden="true"
@@ -122,7 +126,7 @@ export function SlotPicker({
                       <Link
                         href={summaryStepUrl(serviceId, barberId, slot.iso)}
                         aria-label={`${group.hour}${slot.minutes}`}
-                        className="relative flex h-11 items-center justify-center border border-ink text-sm font-medium tabular-nums hover:bg-ink hover:text-surface"
+                        className="relative flex h-11 items-center justify-center border border-ink text-sm font-medium tabular-nums hover:bg-ink hover:text-surface active:bg-ink active:text-surface"
                       >
                         {/* Nome accessibile (aria-label) e testo restano l'ora completa HH:MM; l'ora non si
                             vede perché è già a sinistra (font a 0: resta nel testo, senza spazi). */}

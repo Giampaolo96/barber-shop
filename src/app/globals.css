@@ -26,3 +26,21 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/*
+ * Comparsa in sequenza (orari della griglia): una volta sola, con un ritardo limitato; con
+ * prefers-reduced-motion gli elementi sono già al loro posto (docs/DESIGN.md, "Movimento").
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .appear-in {
+    animation: appear-in 180ms ease-out both;
+    animation-delay: calc(min(var(--appear-index, 0), 12) * 35ms);
+  }
+}
+
+@keyframes appear-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}

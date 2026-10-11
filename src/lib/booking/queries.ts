@@ -142,6 +142,31 @@ export async function getMyBookings(customerId: string): Promise<MyBooking[] | n
   return data.map(toMyBooking);
 }
 
+/** Prenotazione del cliente con la fine, per la conferma e il file .ics (fetta 8b). */
+export type OwnBooking = MyBooking & { endsAt: string };
+
+/**
+ * Una prenotazione del cliente (RLS: solo le proprie, mai la service role). `booking` null se non
+ * esiste o è di un altro cliente; `ok: false` se la lettura non riesce.
+ */
+export async function getOwnBooking(
+  customerId: string,
+  bookingId: string,
+): Promise<{ ok: true; booking: OwnBooking | null } | { ok: false }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .select(`${MY_BOOKING_COLUMNS}, ends_at`)
+    .eq("id", bookingId)
+    .eq("customer_id", customerId)
+    .maybeSingle();
+  if (error) {
+    console.error("getOwnBooking", error);
+    return { ok: false };
+  }
+  return { ok: true, booking: data ? { ...toMyBooking(data), endsAt: data.ends_at } : null };
+}
+
 /** Prima prenotazione confermata non ancora iniziata (`booking` null se non c'è). */
 export async function getNextBooking(
   customerId: string,

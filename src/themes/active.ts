@@ -5,4 +5,15 @@ import "./mosca/theme.css";
 /** Cartella del tema: la pagina offline statica legge alla build il suo theme.css (src/app/offline/route.ts). */
 export const themeName = "mosca";
 
-export { appIconSvg, appIdentity, fontVariables, HeroBackground, HeroMark, PendingMark } from "./mosca";
+export {
+  appIconSvg,
+  appIdentity,
+  calendarUidHost,
+  ConfirmationBackground,
+  ConfirmationMark,
+  EmptyMark,
+  fontVariables,
+  HeroBackground,
+  HeroMark,
+  PendingMark,
+} from "./mosca";

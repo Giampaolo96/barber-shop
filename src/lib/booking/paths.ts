@@ -21,3 +21,9 @@ export const timeStepUrl = (serviceId: string, barberId: string): string =>
 
 export const summaryStepUrl = (serviceId: string, barberId: string, startsAt: string): string =>
   withParams(BOOK_SUMMARY_PATH, { servizio: serviceId, barbiere: barberId, inizio: startsAt });
+
+/** Schermata dedicata dopo la conferma (fetta 8b). */
+export const confirmationPath = (bookingId: string): string => `${MY_BOOKINGS_PATH}/${bookingId}/confermata`;
+
+/** File iCalendar della prenotazione, "Aggiungi al calendario" (fetta 8b). */
+export const calendarFilePath = (bookingId: string): string => `${MY_BOOKINGS_PATH}/${bookingId}/calendario.ics`;

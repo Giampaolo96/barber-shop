@@ -61,7 +61,15 @@ export default async function StatsToUpdatePage({ searchParams }: { searchParams
           {t.error}
         </p>
       ) : result.bookings.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t.empty}</p>
+        <div className="flex flex-col items-start gap-3 border-y border-line py-6">
+          <p className="font-display text-2xl">{t.empty}</p>
+          <Link
+            href={statsPath(params)}
+            className="inline-flex h-11 items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface active:bg-ink active:text-surface"
+          >
+            {t.back}
+          </Link>
+        </div>
       ) : (
         <>
           <div className="overflow-x-auto">

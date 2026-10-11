@@ -14,6 +14,10 @@ export function canCancel(startsAt: Date, now: Date, cancelLimitMin: number): bo
 
 const time = (value: Date | string): number => new Date(value).getTime();
 
+/** Prenotazione in programma: confirmed con inizio ≥ now (home, conferma, file .ics). */
+export const isUpcoming = (booking: { startsAt: Date | string; status: string }, now: Date): boolean =>
+  booking.status === "confirmed" && time(booking.startsAt) >= now.getTime();
+
 /**
  * "Le mie prenotazioni": future = confirmed con inizio ≥ now, dalla più vicina; passate = tutto il
  * resto (anche le cancellate future), dalla più recente.
@@ -25,7 +29,7 @@ export function splitBookings<T extends { startsAt: Date | string; status: strin
   const upcoming: T[] = [];
   const past: T[] = [];
   for (const booking of bookings) {
-    if (booking.status === "confirmed" && time(booking.startsAt) >= now.getTime()) {
+    if (isUpcoming(booking, now)) {
       upcoming.push(booking);
     } else {
       past.push(booking);

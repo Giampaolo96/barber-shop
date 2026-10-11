@@ -3,11 +3,12 @@ import { CancelBookingButton } from "@/components/booking/cancel-booking-button"
 import { it } from "@/i18n/it";
 import { formatDateTime, telHref } from "@/lib/booking/format";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
-import { MY_BOOKINGS_PATH } from "@/lib/booking/paths";
+import { BOOK_PATH, MY_BOOKINGS_PATH } from "@/lib/booking/paths";
 import { getMyBookings, type MyBooking } from "@/lib/booking/queries";
 import { canCancel, splitBookings } from "@/lib/booking/rules";
 import { formatCents } from "@/lib/domain/money";
 import { fillText } from "@/lib/admin/text";
+import { EmptyMark } from "@/themes/active";
 
 // "Le mie prenotazioni" (SPEC §5.3): future e passate; cancellazione fino a cancel_limit_min prima,
 // poi "Chiama il negozio".
@@ -40,7 +41,6 @@ export default async function MyBookingsPage({
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-6">
       <h1 className="font-display text-4xl leading-tight">{t.title}</h1>
-      {esito === "confermata" && <p role="status" className="bg-ink p-4 text-surface">{t.confirmed}</p>}
       {esito === "cancellata" && <p role="status" className="border border-ink p-4">{t.cancelled}</p>}
 
       {bookings === null && (
@@ -55,10 +55,23 @@ export default async function MyBookingsPage({
         </div>
       )}
 
-      {bookings !== null && (
+      {bookings !== null && bookings.length === 0 && (
+        <div className="flex flex-col items-start gap-4 border-y-[3px] border-double border-ink py-8">
+          <EmptyMark className="size-10" />
+          <p className="font-display text-2xl leading-snug">{t.empty}</p>
+          <Link
+            href={BOOK_PATH}
+            className="inline-flex h-12 items-center border-[4px] border-double border-ink px-6 font-display text-xl transition-colors hover:bg-ink hover:text-surface active:bg-ink active:text-surface"
+          >
+            {t.emptyCta}
+          </Link>
+        </div>
+      )}
+
+      {bookings !== null && bookings.length > 0 && (
         <>
           <section className="flex flex-col gap-2">
-            <h2 className="font-display text-2xl">{t.upcoming}</h2>
+            <h2 className="border-b-[3px] border-double border-ink pb-2 font-display text-2xl">{t.upcoming}</h2>
             {upcoming.length === 0 ? (
               <p className="text-muted-foreground">{t.none}</p>
             ) : (
@@ -85,7 +98,7 @@ export default async function MyBookingsPage({
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="font-display text-2xl">{t.past}</h2>
+            <h2 className="border-b-[3px] border-double border-ink pb-2 font-display text-2xl">{t.past}</h2>
             {past.length === 0 ? (
               <p className="text-muted-foreground">{t.none}</p>
             ) : (
