@@ -14,7 +14,7 @@
 | 7 | da fare | | |
 | 8a | completata | 2026-10-06 | Vedi "Fetta 8a" sotto (identità visiva, prima della 8) |
 | 8 | completata | 2026-10-10 | Vedi "Fetta 8" sotto; review chiusa, manca la prova su iPhone |
-| 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto; manca il `db push` |
+| 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
 | 9b | da fare | | Privacy e account prima del go-live (SPEC §11) |
 
 Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli account): checklist in `docs/GO-LIVE.md`, da completare con il titolare del negozio.
@@ -841,7 +841,7 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 
 ## Fetta 9a – Statistiche
 
-**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 1–7 applicate su richiesta dell'utente, la 8 annotata). Hash di partenza `5902d18`; SPEC aggiornata nel commit `52d9043` (§11 divisa in 9a e 9b, §6.9 con le definizioni), test di accettazione nel commit `7310c2d`. Procede prima della fetta 7, su decisione dell'utente. Da fare: `db push` della migrazione `20261011090000`.
+**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie 1–7 applicate su richiesta dell'utente, la 8 annotata). Hash di partenza `5902d18`; SPEC aggiornata nel commit `52d9043` (§11 divisa in 9a e 9b, §6.9 con le definizioni), test di accettazione nel commit `7310c2d`. Procede prima della fetta 7, su decisione dell'utente. Migrazione `20261011090000` applicata a Supabase cloud (`db push` dell'utente, 2026-10-11, senza errori); CI da verificare dopo il push di `c32bc40`.
 
 **Fatto**
 - Migrazione `20261011090000_admin_booking_stats.sql`: `admin_booking_stats(p_from, p_to, p_exclude_demo)`, `security definer`, solo admin (42501, prima del controllo sul periodo), periodo massimo 366 giorni (22023). Restituisce un `jsonb` di gruppi per giorno locale, barbiere, servizio, stato e "già iniziata". Execute solo ad `authenticated`, revocato anche alla `service_role`.
