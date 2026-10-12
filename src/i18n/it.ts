@@ -252,6 +252,7 @@ export const it = {
       chart: { bookings: "Appuntamenti", revenue: "Incasso" },
       chartTitle: "Andamento: {metric}",
       chartEmpty: "Nessun appuntamento nel periodo.",
+      chartSummary: "Valore più alto: {max} ({bucket}). I valori di ogni periodo sono nella tabella «{table}».",
       trendTitle: "Andamento",
       byBarberTitle: "Per barbiere",
       byServiceTitle: "Per servizio",

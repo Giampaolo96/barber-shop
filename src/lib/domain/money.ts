@@ -19,12 +19,16 @@ export function parseEuroToCents(input: string): number | null {
   return cents <= MAX_CENTS ? cents : null;
 }
 
+/** Intero con il punto delle migliaia it-IT ("1.234"), anche sotto i 10.000. */
+export function groupThousands(value: number): string {
+  return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
 /** Centesimi → "1.234,50 €" (formato it-IT, sempre due decimali). */
 export function formatCents(cents: number): string {
   const euros = Math.floor(cents / 100);
   const rest = String(cents % 100).padStart(2, "0");
-  const grouped = String(euros).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `${grouped},${rest} €`;
+  return `${groupThousands(euros)},${rest} €`;
 }
 
 /** Centesimi → valore del campo prezzo ("12,50"), senza simbolo né migliaia. */
