@@ -1,71 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import {
-  DndContext,
-  type DragEndEvent,
-  type DragMoveEvent,
-  DragOverlay,
-  type DragStartEvent,
-  MouseSensor,
-  pointerWithin,
-  TouchSensor,
-  useDraggable,
-  useDroppable,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
+import { useRef } from "react";
+import { DndContext, type DragEndEvent, type DragMoveEvent, DragOverlay, pointerWithin } from "@dnd-kit/core";
 import { formatInTimeZone } from "date-fns-tz";
 import { it } from "@/i18n/it";
 import { blockPosition, busyRows, type DayGrid, type Interval } from "@/lib/calendar/grid";
 import { canDrag, dropTarget } from "@/lib/calendar/move";
 import { nowLineMinutes } from "@/lib/calendar/now-line";
-import { type LaneSlot, overlapLayout } from "@/lib/calendar/overlap-layout";
-import { bookingDetailPath, newBookingPath } from "@/lib/calendar/paths";
+import { overlapLayout } from "@/lib/calendar/overlap-layout";
+import { newBookingPath } from "@/lib/calendar/paths";
 import type { DayColumn } from "@/lib/calendar/page-data";
 import type { CalendarBooking } from "@/lib/calendar/queries";
-import { isCancelledStatus, type StaffRole } from "@/lib/calendar/transitions";
+import type { StaffRole } from "@/lib/calendar/transitions";
 import { cn } from "@/lib/utils";
+import { BookingCard, ColumnDropZone, DraggedCard, NowLine, placed, ROW_HEIGHT } from "./grid-parts";
 import { MoveFeedback } from "./move-feedback";
-import { type Position, useBookingMove } from "./use-booking-move";
+import { useBookingMove } from "./use-booking-move";
+import { AUTO_SCROLL, useCalendarDrag } from "./use-calendar-drag";
 
 const t = it.admin.calendar;
-const ROW_HEIGHT = "2.25rem";
-/**
- * Autoscroll solo vicino ai bordi estremi (5% in orizzontale): serve a raggiungere le colonne
- * fuori schermo, ma non deve far scorrere la griglia sotto un puntatore fermo su una colonna
- * visibile. L'anteprima della destinazione segue comunque lo scorrimento.
- */
-const AUTO_SCROLL = { threshold: { x: 0.05, y: 0.2 } };
 
 /** Destinazione mostrata durante il trascinamento. */
 type DropPreview = { bookingId: string; barberId: string; startsAt: Date };
 
-/**
- * Il rilascio di un trascinamento genera anche un click sulla scheda, che è un link al dettaglio.
- * dnd-kit ne ferma la propagazione (React non lo vede) ma non l'azione predefinita: senza questo
- * blocco il browser aprirebbe il dettaglio. Il click arriva nello stesso task del rilascio, quindi
- * il blocco si toglie subito dopo, così non ne intercetta altri.
- */
-const preventClick = (event: Event) => event.preventDefault();
-const blockClick = () => window.addEventListener("click", preventClick, { capture: true });
-const releaseClick = () => setTimeout(() => window.removeEventListener("click", preventClick, { capture: true }), 0);
-
 const covers = (interval: Interval, at: Date): boolean =>
   interval.startsAt.getTime() <= at.getTime() && at.getTime() < interval.endsAt.getTime();
 
-/** Prenotazione nella posizione mostrata (quella ottimistica durante uno spostamento). */
-const placed = (booking: CalendarBooking, position: Position | undefined): CalendarBooking => {
-  if (!position) return booking;
-  const shift = position.startsAt.getTime() - booking.startsAt.getTime();
-  return {
-    ...booking,
-    barberId: position.barberId,
-    startsAt: position.startsAt,
-    endsAt: new Date(booking.endsAt.getTime() + shift),
-    blockedUntil: new Date(booking.blockedUntil.getTime() + shift),
-  };
+/** Minuti locali dalla mezzanotte di `date` (24:00 se l'istante cade il giorno dopo). */
+const minutesOf = (instant: Date, date: string, timezone: string): number => {
+  if (formatInTimeZone(instant, timezone, "yyyy-MM-dd") !== date) return 24 * 60;
+  const [hours, minutes] = formatInTimeZone(instant, timezone, "HH:mm").split(":").map(Number);
+  return hours * 60 + minutes;
 };
 
 /**
@@ -96,13 +62,6 @@ export function DayGridView({
   const time = (instant: Date) => formatInTimeZone(instant, timezone, "HH:mm");
   const { positions, notice, dialog, busy, move, reject } = useBookingMove(columns);
   const gridRef = useRef<HTMLDivElement>(null);
-  const [preview, setPreview] = useState<DropPreview | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
-
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
-  );
 
   const bookings = columns.flatMap((column) => column.bookings).map((booking) => placed(booking, positions[booking.id]));
   const activeById = new Map(columns.map((column) => [column.barberId, column.isActive]));
@@ -135,43 +94,23 @@ export function DayGridView({
     return { booking, target };
   };
 
-  const onDragStart = (event: DragStartEvent) => {
-    blockClick();
-    setActiveId(String(event.active.id));
-  };
-
-  const onDragMove = (event: DragMoveEvent) => {
-    const result = targetOf(event);
-    setPreview(
-      result?.target.kind === "move"
-        ? { bookingId: result.booking.id, barberId: result.target.barberId, startsAt: result.target.startsAt }
-        : null,
-    );
-  };
-
-  const onDragEnd = (event: DragEndEvent) => {
-    releaseClick();
-    setPreview(null);
-    setActiveId(null);
-    const result = targetOf(event);
-    if (!result || result.target.kind === "none") return;
-    if (result.target.kind === "past") {
-      reject(t.move.pastTarget);
-      return;
-    }
-    const { booking, target } = result;
-    move(
-      booking.id,
-      { barberId: booking.barberId, startsAt: booking.startsAt },
-      { barberId: target.barberId, startsAt: target.startsAt },
-    );
-  };
-
-  const onDragCancel = () => {
-    releaseClick();
-    setPreview(null);
-    setActiveId(null);
-  };
+  const { sensors, activeId, preview, handlers } = useCalendarDrag({
+    resolve: targetOf,
+    previewOf: ({ booking, target }): DropPreview | null =>
+      target.kind === "move" ? { bookingId: booking.id, barberId: target.barberId, startsAt: target.startsAt } : null,
+    onDrop: ({ booking, target }) => {
+      if (target.kind === "none") return;
+      if (target.kind === "past") {
+        reject(t.move.pastTarget);
+        return;
+      }
+      move(
+        booking.id,
+        { barberId: booking.barberId, startsAt: booking.startsAt },
+        { barberId: target.barberId, startsAt: target.startsAt },
+      );
+    },
+  });
 
   const labelOf = (booking: CalendarBooking) =>
     `${time(booking.startsAt)}–${time(booking.endsAt)} ${booking.customerName}`;
@@ -182,11 +121,7 @@ export function DayGridView({
       sensors={sensors}
       collisionDetection={pointerWithin}
       autoScroll={AUTO_SCROLL}
-      onDragStart={onDragStart}
-      onDragMove={onDragMove}
-      onDragOver={onDragMove}
-      onDragEnd={onDragEnd}
-      onDragCancel={onDragCancel}
+      {...handlers}
     >
       <MoveFeedback notice={notice} dialog={dialog} busy={busy} />
       {bookings.length === 0 && <EmptyDay />}
@@ -256,7 +191,8 @@ export function DayGridView({
               </h2>,
               <ColumnDropZone
                 key={`${column.barberId}-drop`}
-                barberId={column.barberId}
+                id={column.barberId}
+                attributes={{ "data-barber-id": column.barberId }}
                 gridColumn={gridColumn}
                 highlighted={preview?.barberId === column.barberId}
               />,
@@ -319,7 +255,15 @@ export function DayGridView({
               )),
             ];
           })}
-          <NowLine grid={grid} date={date} timezone={timezone} serverNow={now} />
+          <NowLine
+            serverNow={now}
+            rows={grid.rows.length}
+            granularityMin={grid.granularityMin}
+            locate={(at) => {
+              const offset = nowLineMinutes(at, date, timezone, minutesOf(grid.startsAt, date, timezone), minutesOf(grid.endsAt, date, timezone));
+              return offset === null ? null : { offset, gridColumn: "1 / -1" };
+            }}
+          />
         </div>
       </div>
       {/* La copia trascinata sta fuori dal contenitore che scorre: spostare la scheda originale
@@ -349,175 +293,4 @@ export function DayGridView({
  */
 function EmptyDay() {
   return <p className="border-y border-line py-4 font-display text-xl">{t.emptyDay}</p>;
-}
-
-/**
- * Linea dell'ora attuale (fetta 8b): solo se il giorno mostrato è oggi nella timezone del negozio,
- * aggiornata ogni minuto. Parte dall'istante del server per non cambiare l'HTML all'idratazione.
- */
-function NowLine({ grid, date, timezone, serverNow }: { grid: DayGrid; date: string; timezone: string; serverNow: Date }) {
-  const [now, setNow] = useState(serverNow);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const minutesOf = (instant: Date): number => {
-    if (formatInTimeZone(instant, timezone, "yyyy-MM-dd") !== date) return 24 * 60;
-    const [hours, minutes] = formatInTimeZone(instant, timezone, "HH:mm").split(":").map(Number);
-    return hours * 60 + minutes;
-  };
-  const offset = nowLineMinutes(now, date, timezone, minutesOf(grid.startsAt), minutesOf(grid.endsAt));
-  if (offset === null) return null;
-
-  return (
-    <div
-      aria-hidden="true"
-      data-now-line
-      className="pointer-events-none relative z-10"
-      style={{ gridColumn: "1 / -1", gridRow: `2 / span ${grid.rows.length}` }}
-    >
-      <div
-        className="absolute inset-x-0 flex items-center"
-        style={{ top: `calc(${offset / grid.granularityMin} * ${ROW_HEIGHT})` }}
-      >
-        <span className="size-2 shrink-0 rounded-full bg-ink" />
-        <span className="h-0.5 flex-1 bg-ink" />
-      </div>
-    </div>
-  );
-}
-
-/**
- * Area della colonna su cui si rilascia una scheda; non intercetta i click sulle righe. Durante il
- * trascinamento la colonna di arrivo ha un contorno pieno (`data-drop-target`).
- */
-function ColumnDropZone({
-  barberId,
-  gridColumn,
-  highlighted,
-}: {
-  barberId: string;
-  gridColumn: number;
-  highlighted: boolean;
-}) {
-  const { setNodeRef } = useDroppable({ id: barberId });
-  return (
-    <div
-      ref={setNodeRef}
-      data-barber-id={barberId}
-      data-drop-target={highlighted ? "true" : undefined}
-      aria-hidden
-      className={cn("pointer-events-none", highlighted && "z-[5] outline-2 -outline-offset-2 outline-ink")}
-      style={{ gridColumn, gridRow: "2 / -1" }}
-    />
-  );
-}
-
-/**
- * Scheda di una prenotazione. Se si sovrappone ad altre (una cancellata nello stesso orario di una
- * confermata) occupa solo la sua corsia: larghezza 1/lanes, spostata di lane/lanes. Quando la
- * corsia è troppo stretta per il testo mostra l'ora e il nome del cliente troncato; il testo
- * completo resta nel titolo e nel nome accessibile. Una cancellata in corsia condivisa sta un livello
- * sotto le altre schede (ma sopra le righe), così la confermata resta in primo piano. Se è trascinabile non usa gli attributi ARIA di dnd-kit (resta un
- * link verso il dettaglio, dove c'è anche il modulo per spostarla) e niente menu del link né
- * selezione del testo alla pressione prolungata su iOS. Quando la si afferra si ricontrolla con
- * l'ora corrente (`canGrab`): con la pagina aperta a lungo l'appuntamento può essere iniziato.
- */
-function BookingCard({
-  booking,
-  label,
-  lane,
-  timeLabel,
-  draggable,
-  canGrab,
-  style,
-}: {
-  booking: CalendarBooking;
-  label: string;
-  /** Corsia nel gruppo di schede sovrapposte; assente o `lanes` = 1 se a larghezza piena. */
-  lane: LaneSlot | undefined;
-  timeLabel: string;
-  draggable: boolean;
-  canGrab: () => boolean;
-  style: React.CSSProperties;
-}) {
-  const { setNodeRef, listeners, isDragging } = useDraggable({ id: booking.id, disabled: !draggable });
-  const grabListeners =
-    draggable && listeners
-      ? Object.fromEntries(
-          Object.entries(listeners).map(([name, handler]) => [
-            name,
-            (event: React.SyntheticEvent) => {
-              if (canGrab()) handler(event);
-            },
-          ]),
-        )
-      : {};
-  const cancelled = isCancelledStatus(booking.status);
-  const details = `${booking.serviceName}${booking.status === "confirmed" ? "" : `, ${t.statusLabels[booking.status]}`}`;
-  const shared = lane !== undefined && lane.lanes > 1;
-  // Il margine di 1 px (m-px) resta su entrambi i lati della corsia.
-  const laneStyle: React.CSSProperties = shared
-    ? { width: `calc(100% / ${lane.lanes} - 2px)`, marginLeft: `calc(100% * ${lane.lane} / ${lane.lanes} + 1px)` }
-    : {};
-  return (
-    <Link
-      ref={setNodeRef}
-      href={bookingDetailPath(booking.id)}
-      draggable={false}
-      data-draggable={draggable ? "true" : undefined}
-      data-lane={shared ? `${lane.lane}/${lane.lanes}` : undefined}
-      aria-label={shared ? `${label}, ${details}` : undefined}
-      title={shared ? `${label}, ${details}` : undefined}
-      {...grabListeners}
-      className={cn(
-        "m-px flex flex-col overflow-hidden rounded-md border bg-surface px-2 py-1 text-xs",
-        booking.status === "confirmed" && "border-ink",
-        booking.status === "completed" && "border-line text-muted-foreground",
-        booking.status === "no_show" && "border-destructive text-destructive",
-        cancelled && "border-dashed border-line text-ink-disabled line-through",
-        draggable && "cursor-grab touch-manipulation select-none [-webkit-touch-callout:none]",
-        // Durante il trascinamento resta al suo posto, tratteggiata: si muove la copia.
-        isDragging && "border-dashed",
-        shared && "@container",
-        shared && cancelled ? "z-[9]" : "z-10",
-      )}
-      style={{ ...style, ...laneStyle }}
-    >
-      {shared ? (
-        <>
-          <span className="font-medium @max-[7rem]:hidden">{label}</span>
-          <span className="@max-[7rem]:hidden">{details}</span>
-          <span aria-hidden="true" className="hidden truncate font-medium @max-[7rem]:block">
-            {timeLabel} {booking.customerName}
-          </span>
-        </>
-      ) : (
-        <>
-          <span className="font-medium">{label}</span>
-          <span>{details}</span>
-        </>
-      )}
-    </Link>
-  );
-}
-
-/**
- * Copia della scheda che segue il puntatore, con barbiere e orario di arrivo (es. "Mario, 10:30"):
- * si aggiornano anche durante l'autoscroll, con la stessa funzione usata al rilascio.
- */
-function DraggedCard({ label, serviceName, preview }: { label: string; serviceName: string; preview: string | null }) {
-  return (
-    // Larghezza minima: trascinata da una corsia condivisa la copia sarebbe stretta come la corsia.
-    <div className="flex h-full min-w-[11rem] cursor-grabbing flex-col overflow-hidden rounded-md border border-ink bg-surface px-2 py-1 text-xs select-none">
-      {preview && (
-        <span data-drop-preview className="self-start bg-ink px-1 font-medium text-surface">
-          {preview}
-        </span>
-      )}
-      <span className="font-medium">{label}</span>
-      <span>{serviceName}</span>
-    </div>
-  );
 }

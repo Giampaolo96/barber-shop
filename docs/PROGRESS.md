@@ -15,7 +15,7 @@
 | 8a | completata | 2026-10-06 | Vedi "Fetta 8a" sotto (identità visiva, prima della 8) |
 | 8 | completata | 2026-10-10 | Vedi "Fetta 8" sotto; review chiusa, manca la prova su iPhone |
 | 8b | completata | 2026-10-12 | Vedi "Fetta 8b" sotto; manca la prova su iPhone di "Aggiungi al calendario" |
-| 8c | in corso | 2026-10-12 | Vista settimana a griglia (SPEC §6.1, §6.3); hash di partenza `e96e554` |
+| 8c | completata | 2026-10-12 | Vedi "Fetta 8c" sotto; manca la prova del tocco su iPhone |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
 | 9b | da fare | | Privacy e account prima del go-live (SPEC §11) |
 
@@ -977,3 +977,48 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 ## Fix calendario e assenze (2026-10-12)
 
 - Calendario, vista giorno con "mostra cancellate": una cancellata nello stesso orario di una confermata ora sta in una corsia affiancata invece di restare coperta (`src/lib/calendar/overlap-layout.ts`; a 390 px corsia compatta con ora e nome); tabella delle assenze (e chiusure) su telefono con le colonne distanziate come Clienti e pulsanti da 44 px. Test: `calendar-overlap-layout.test.ts`, e2e `admin-calendar-cancelled-overlap` e `admin-period-table-mobile`. Gate: Vitest 1752/1752, Playwright 120/120.
+
+## Fetta 8c – Vista settimana a griglia per singolo barbiere
+
+**Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie elencate sotto, non applicate). Hash di partenza `e96e554`, test di accettazione nel commit `84f3623`. Nessuna migrazione.
+
+**Fatto**
+- `src/lib/calendar/week-grid.ts` (puro): `weekGrid` (asse comune ai 7 giorni sull'orologio locale, stesso passo della vista giorno), `slotInstant`, `daySlots`, `isClosedDay`, `weekDropTarget`, `dayBlockPosition`.
+- `loadWeekView`: prenotazioni, orari, assenze e chiusure con una query per tabella su [lunedì, lunedì successivo), in parallelo.
+- Dalla vista giorno, senza cambiarne il comportamento: `grid-parts.tsx` (`BookingCard`, `DraggedCard`, `NowLine` con `locate`, `ColumnDropZone`, `placed`, `ROW_HEIGHT`) e `use-calendar-drag.ts` (sensori, blocco del click, anteprima, gestori di dnd-kit).
+- `week-grid.tsx` (`WeekGridView`):
+  - 7 colonne `[data-date]` (`data-closed`, `data-today`, `data-drop-target`);
+  - righe libere come link precompilati; fuori orario, assenze e chiusure come sfondo ma cliccabili, come nella vista giorno;
+  - "mostra cancellate" con `overlapLayout`; linea dell'ora solo nella colonna di oggi;
+  - trascinamento su un altro giorno o orario, sempre per lo stesso barbiere;
+  - contenitore `[data-week-scroll]` alto al massimo `100dvh - 6rem`, ore e intestazioni `sticky`, all'apertura scorre fino a oggi;
+  - collision detection che non dà destinazione sopra le parti fisse o fuori dal contenitore.
+- Rimossa la vecchia vista a elenco (`week-view.tsx`) e i testi `dayOff`, `noBookings`; nuovi `week.newAt`, `move.dropPreviewDay`. Pulsante "Nuova prenotazione" anche nella settimana.
+- Documentazione: SPEC §6.1, §6.3, §11 (riga 8c); ADR 008 (sezione "Vista settimana").
+- Test:
+  - accettazione (commit `84f3623`): `calendar-week-grid.test.ts` (34), e2e `admin-calendar-week.spec.ts` (6);
+  - implementazione: `calendar-week-block.test.ts` (3).
+
+**Esiti**: lint ok, typecheck ok, Vitest 1789/1789, Playwright 126/126 ("eseguiti 126 su 126"). Screenshot con Playwright MCP a 1280 e 390 px controllati, con dati demo temporanei poi rimossi.
+
+**Decisioni dell'utente**
+- Nessuna opzione "Tutti i barbieri": la settimana è sempre per un barbiere e sempre a griglia. Nessun test esistente rimosso o modificato (nessuno descriveva la vecchia vista a elenco in modo incompatibile).
+- Permessi, avvisi e rifiuti identici alla vista giorno; rifiutati solo slot occupato (server) e passato (client).
+- Una query per tabella sulla settimana.
+- Prenotazione oltre la mezzanotte ritagliata alle 24:00 nel giorno di inizio; settimana con sole prenotazioni: asse sulle sole prenotazioni; intestazione del giorno che mantiene "mostra cancellate"; ora ripetuta del ritorno all'ora solare = limite noto.
+- Mobile: altezza in dvh, nessun `touch-action: none`, trascinamento solo dopo 250 ms.
+
+**Da provare a mano su iPhone**
+- Il dito scorre la griglia in orizzontale e in verticale senza afferrare le schede; la pagina non scorre di lato.
+- Pressione di 250 ms su una scheda confermata futura: parte il trascinamento, senza menu del link né selezione del testo; rilascio su un altro giorno → "Prenotazione spostata."; "Annulla spostamento" la riporta.
+- Trascinando verso il bordo destro o sinistro la griglia scorre e l'anteprima "giorno, ora" segue; rilasciando sopra la colonna delle ore o le intestazioni non succede nulla.
+- All'apertura con data di oggi la colonna di oggi è accanto alle ore; tocco su uno slot libero apre la nuova prenotazione precompilata.
+
+**Migliorie della review** (non applicate, decide l'utente)
+1. Linea dell'ora della settimana senza test: estrarre `locate` in una funzione pura e testarla.
+2. Nei giorni del cambio d'ora la linea dell'ora è sfasata di un'ora se l'asse parte prima delle 02:00–03:00 (minuti reali su asse a orologio): usare il minuto locale o annotarlo come limite noto.
+3. Duplicazioni: `hhmm` in `week-grid.ts` e `week-grid.tsx`, `covers` in due varianti, link "Nuova prenotazione" ripetuto nei due rami della pagina.
+4. Intestazioni dei giorni sotto i 44 px di tap target su telefono.
+5. `cancelledCount` conta anche cancellate iniziate la domenica precedente e non mostrate; una confermata iniziata domenica sera non segna occupate le prime righe del lunedì (il server rifiuta comunque).
+6. Campo `past` di `daySlots` non usato dall'interfaccia.
+7. Riga vuota doppia in `week-grid.ts`.

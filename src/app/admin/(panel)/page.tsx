@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CalendarToolbar } from "@/components/admin/calendar/calendar-toolbar";
 import { DayGridView } from "@/components/admin/calendar/day-grid";
-import { WeekView } from "@/components/admin/calendar/week-view";
+import { WeekGridView } from "@/components/admin/calendar/week-grid";
 import { it } from "@/i18n/it";
 import type { CurrentUser } from "@/lib/auth/profile";
 import { requireRole } from "@/lib/auth/current-user";
@@ -53,8 +53,8 @@ async function loadCalendar(user: CurrentUser, params: SearchParams): Promise<Ca
   }
 }
 
-// Calendario dello staff (SPEC §6.1): vista giorno con una colonna per barbiere, vista settimana
-// per un barbiere alla volta. Il barbiere vede solo la propria scheda.
+// Calendario dello staff (SPEC §6.1): vista giorno con una colonna per barbiere, vista settimana a
+// griglia per un barbiere alla volta (fetta 8c). Il barbiere vede solo la propria scheda.
 export default async function AdminCalendarPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   // I layout non si rieseguono a ogni navigazione: ogni pagina ricontrolla il ruolo.
   const user = await requireRole(["barber", "admin"]);
@@ -74,6 +74,7 @@ export default async function AdminCalendarPage({ searchParams }: { searchParams
   const { settings, today, query, week, day } = data;
   if (week) {
     const dates = weekDates(query.date);
+    const weekBarberActive = data.barbers.some((barber) => barber.id === week.barberId && barber.isActive);
     return (
       <div className="flex flex-col gap-4">
         <CalendarToolbar
@@ -84,13 +85,26 @@ export default async function AdminCalendarPage({ searchParams }: { searchParams
           weekBarberId={week.barberId}
           cancelledCount={week.cancelledCount}
         />
-        {week.barberId ? (
-          <WeekView
-            barberId={week.barberId}
-            barberActive={data.barbers.some((barber) => barber.id === week.barberId && barber.isActive)}
+        {week.barberId && weekBarberActive && (
+          <Link
+            href={newBookingPath({ barberId: week.barberId, date: dates.includes(today) ? today : dates[0] })}
+            className="inline-flex min-h-11 items-center self-start rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
+          >
+            {t.newBooking}
+          </Link>
+        )}
+        {week.barberId && week.grid ? (
+          <WeekGridView
+            grid={week.grid}
             days={week.days}
+            barberId={week.barberId}
+            barberActive={weekBarberActive}
             timezone={settings.timezone}
+            today={today}
             showCancelled={query.showCancelled}
+            role={user.role === "admin" ? "admin" : "barber"}
+            ownBarberId={data.ownBarberId}
+            now={new Date()}
           />
         ) : (
           <p className="text-sm">{t.noBarbers}</p>

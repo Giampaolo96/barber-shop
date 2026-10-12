@@ -503,13 +503,15 @@ export const it = {
       newBooking: "Nuova prenotazione",
       /** Nome accessibile di uno slot vuoto della griglia. */
       newAt: "Nuova prenotazione con {barber} alle {time}",
+      week: {
+        /** Nome accessibile di uno slot vuoto della griglia settimanale. */
+        newAt: "Nuova prenotazione {day} alle {time}",
+      },
       cancelledCount: "Prenotazioni cancellate in questo periodo: {count}",
       showCancelled: "Mostra le cancellate",
       hideCancelled: "Nascondi le cancellate",
       timeOffBlock: "Assenza",
       closureBlock: "Chiusura del negozio",
-      dayOff: "Riposo",
-      noBookings: "Nessuna prenotazione",
       emptyDay: "Nessun appuntamento in questo giorno",
       loadError: "Non è stato possibile caricare il calendario. Riprova tra poco.",
       pageError: "Non è stato possibile caricare la pagina. Riprova tra poco.",
@@ -608,6 +610,8 @@ export const it = {
         cancel: "Annulla",
         /** Destinazione mostrata sulla scheda durante il trascinamento. */
         dropPreview: "{barber}, {time}",
+        /** Destinazione nella vista settimana: giorno e orario. */
+        dropPreviewDay: "{day}, {time}",
         formTitle: "Sposta orario",
         submit: "Sposta",
         pastTarget: "Non si può spostare una prenotazione su un orario già passato.",

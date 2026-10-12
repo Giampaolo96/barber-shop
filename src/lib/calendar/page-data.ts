@@ -19,6 +19,7 @@ import {
   getWorkingBands,
 } from "./queries";
 import { type CalendarQuery, defaultWeekBarber } from "./view";
+import { isClosedDay, weekGrid, type WeekGrid } from "./week-grid";
 
 type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -33,7 +34,16 @@ export type DayColumn = {
   periods: Array<CalendarPeriod & { kind: "timeOff" | "closure" }>;
 };
 
-export type WeekDay = { date: string; working: boolean; bookings: CalendarBooking[] };
+/** Colonna di un giorno nella vista settimana (fetta 8c). */
+export type WeekDay = {
+  date: string;
+  bands: Interval[];
+  bookings: CalendarBooking[];
+  /** Assenze del barbiere e chiusure del negozio che toccano il giorno. */
+  periods: Array<CalendarPeriod & { kind: "timeOff" | "closure" }>;
+  /** Il negozio è chiuso per l'intera giornata. */
+  closed: boolean;
+};
 
 const isCancelled = (booking: CalendarBooking): boolean => booking.status.startsWith("cancelled");
 
@@ -104,9 +114,17 @@ export async function loadDayView(
   return { grid, columns, cancelledCount: bookings.filter(isCancelled).length };
 }
 
-export type WeekViewData = { barberId: string | null; days: WeekDay[]; cancelledCount: number };
+export type WeekViewData = {
+  barberId: string | null;
+  grid: WeekGrid | null;
+  days: WeekDay[];
+  cancelledCount: number;
+};
 
-/** Vista settimana di un barbiere: il barbiere sempre il proprio, l'admin quello scelto. */
+/**
+ * Vista settimana di un barbiere (fetta 8c): il barbiere sempre il proprio, l'admin quello scelto.
+ * Una query per tabella su tutta la settimana [lunedì, lunedì successivo), mai una per giorno.
+ */
 export async function loadWeekView(
   supabase: ServerClient,
   settings: CalendarSettings,
@@ -114,31 +132,54 @@ export async function loadWeekView(
   barbers: CalendarBarber[],
   ownBarberId: string | null,
 ): Promise<WeekViewData> {
+  const { timezone } = settings;
   const chosen = barbers.find((barber) => barber.id === query.barberId)?.id;
   const barberId = chosen ?? defaultWeekBarber({ ownBarberId, barbers });
   const dates = weekDates(query.date);
-  if (!barberId) return { barberId: null, days: [], cancelledCount: 0 };
+  if (!barberId) return { barberId: null, grid: null, days: [], cancelledCount: 0 };
 
-  const from = startOfLocalDay(dates[0], settings.timezone);
-  const to = startOfLocalDay(addDays(dates[6], 1), settings.timezone);
-  const [bookings, bands] = await Promise.all([
+  const from = startOfLocalDay(dates[0], timezone);
+  const to = startOfLocalDay(addDays(dates[6], 1), timezone);
+  const [bookings, bands, timeOff, closures] = await Promise.all([
     getBookingsInRange(supabase, [barberId], from, to),
     getWorkingBands(supabase, [barberId]),
+    getTimeOff(supabase, [barberId], from, to),
+    getClosures(supabase, from, to),
   ]);
 
+  const shown = bookings.filter((booking) => query.showCancelled || !isCancelled(booking));
+  const touches = (period: Interval, dayStart: Date, dayEnd: Date): boolean =>
+    period.startsAt.getTime() < dayEnd.getTime() && period.endsAt.getTime() > dayStart.getTime();
+
   const days = dates.map((date) => {
-    const dayStart = startOfLocalDay(date, settings.timezone).getTime();
-    const dayEnd = startOfLocalDay(addDays(date, 1), settings.timezone).getTime();
+    const dayStart = startOfLocalDay(date, timezone);
+    const dayEnd = startOfLocalDay(addDays(date, 1), timezone);
+    const dayClosures = closures.filter((period) => touches(period, dayStart, dayEnd));
     return {
       date,
-      working: bandsOn(bands, barberId, date).length > 0,
-      bookings: bookings.filter(
-        (booking) =>
-          booking.startsAt.getTime() >= dayStart &&
-          booking.startsAt.getTime() < dayEnd &&
-          (query.showCancelled || !isCancelled(booking)),
+      bands: localBandsToIntervals(date, bandsOn(bands, barberId, date), timezone),
+      // Una prenotazione sta nel giorno in cui inizia (oltre la mezzanotte si ritaglia alle 24:00).
+      bookings: shown.filter(
+        (booking) => booking.startsAt.getTime() >= dayStart.getTime() && booking.startsAt.getTime() < dayEnd.getTime(),
       ),
+      periods: [
+        ...timeOff
+          .filter((period) => touches(period, dayStart, dayEnd))
+          .map((period) => ({ ...period, kind: "timeOff" as const })),
+        ...dayClosures.map((period) => ({ ...period, kind: "closure" as const })),
+      ],
+      closed: isClosedDay(date, dayClosures, timezone),
     };
   });
-  return { barberId, days, cancelledCount: bookings.filter(isCancelled).length };
+
+  const grid = weekGrid({
+    dates,
+    tz: timezone,
+    granularityMin: settings.granularityMin,
+    bands: Object.fromEntries(dates.map((date) => [date, bandsOn(bands, barberId, date)])),
+    // Solo le prenotazioni che iniziano nella settimana: le altre non si disegnano.
+    bookings: days.flatMap((day) => day.bookings),
+  });
+
+  return { barberId, grid, days, cancelledCount: bookings.filter(isCancelled).length };
 }
