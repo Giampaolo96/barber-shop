@@ -46,7 +46,7 @@ Con la fetta 6 lo spostamento (SPEC §6.3) passava solo dal modulo di modifica d
 - Limiti noti, accettati perché riguardano la notte o la domenica sera, con il negozio chiuso:
   - nei giorni del cambio d'ora la linea dell'ora attuale è sfasata di un'ora se l'asse parte prima delle 02:00–03:00 (`weekNowLine` conta minuti reali, l'asse segue l'orologio);
   - a cavallo fra due settimane il conteggio delle cancellate include quelle iniziate la domenica sera precedente (non mostrate), e una confermata iniziata domenica sera e finita dopo la mezzanotte non segna occupate le prime righe del lunedì. Il server rifiuta comunque lo slot.
-- Le intestazioni dei giorni hanno un'area di tocco di 44 px solo sui dispositivi touch (`pointer: coarse`), che si estende un po' sopra la prima riga, senza cambiarne l'aspetto.
+- Sui dispositivi touch (`pointer: coarse`) le intestazioni dei giorni sono alte 44 px, così il link alla vista giorno ha un'area di tocco adeguata senza coprire la prima riga; su desktop restano compatte.
 - Nessun `touch-action: none`: il dito scorre il contenitore, il trascinamento parte solo dopo la pressione di 250 ms; le schede trascinabili hanno `touch-action: manipulation`.
 
 ## Conseguenze

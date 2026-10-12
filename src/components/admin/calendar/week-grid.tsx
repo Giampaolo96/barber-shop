@@ -234,17 +234,17 @@ export function WeekGridView({
               <h2
                 key={`${day.date}-head`}
                 className={cn(
-                  "sticky top-0 z-20 border-b bg-surface px-1 pb-2 text-sm font-semibold first-letter:uppercase",
+                  // Sui dispositivi touch il link occupa tutta l'intestazione, alta 44 px (riga di 20 px + py-3);
+                  // su desktop resta compatta. Link block, non flex: ::first-letter (maiuscola) passa solo nei blocchi.
+                  "sticky top-0 z-20 border-b bg-surface px-1 pb-2 text-sm font-semibold first-letter:uppercase pointer-coarse:pb-0",
                   isToday ? "border-ink" : "border-transparent",
                   day.closed && "text-muted-foreground",
                 )}
                 style={{ gridColumn, gridRow: 1 }}
               >
-                {/* Area di tocco di 44 px sui dispositivi touch senza cambiare l'aspetto: larga quanto
-                    la colonna (l'intestazione sticky la contiene) e un po' sopra l'inizio della prima riga. */}
                 <Link
                   href={calendarHref({ date: day.date, showCancelled })}
-                  className="hover:underline pointer-coarse:after:absolute pointer-coarse:after:inset-x-0 pointer-coarse:after:top-0 pointer-coarse:after:h-11"
+                  className="hover:underline pointer-coarse:block pointer-coarse:py-3"
                 >
                   {dayLabel}
                 </Link>

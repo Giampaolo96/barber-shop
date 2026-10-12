@@ -1030,3 +1030,8 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 7. Riga vuota doppia rimossa.
 
 **Esiti dopo le migliorie**: lint ok, typecheck ok, Vitest 1791/1791, Playwright 126/126 ("eseguiti 126 su 126"). Nessun test di accettazione modificato.
+
+**Intestazioni dei giorni su touch** (richiesta dell'utente, commit "fix: intestazioni giorni 44 px su touch")
+- Al posto dell'area di tocco che sbordava sulla prima riga: con `pointer: coarse` il link del giorno è un blocco alto 44 px (`py-3`), che occupa tutta l'intestazione; su desktop l'intestazione resta alta 29 px. Link `block` e non `flex`, perché `::first-letter` (maiuscola) non entra nei flex container.
+- Nuovo e2e della 8c in `admin-calendar-week.spec.ts` (390 px, touch del Pixel 7): intestazione ≥ 44 px e sopra la prima riga; un tocco 3 px sotto il bordo alto della prima riga apre la nuova prenotazione di quello slot, e sulla prenotazione della prima riga ne apre il dettaglio, mai la vista giorno.
+- ADR 008 aggiornato. Esiti: lint ok, typecheck ok, Vitest 1791/1791, Playwright 127/127 ("eseguiti 127 su 127").

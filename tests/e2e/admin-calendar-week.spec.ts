@@ -575,6 +575,57 @@ test.describe('Vista settimana su telefono (390 px)', () => {
       await cleanup(api, { bookings: [bookingId] });
     }
   });
+
+  // Rifinitura della 8c (richiesta dell'utente dopo la review): sui dispositivi touch le intestazioni dei
+  // giorni sono alte 44 px e non coprono la prima riga, che resta toccabile fino al bordo superiore.
+  test('touch: intestazioni alte 44 px; il tocco in cima alla prima riga apre lo slot o la prenotazione, non la vista giorno', async ({
+    page,
+  }) => {
+    const api = await adminApi(page.request);
+    const week = futureWinterWeek();
+    const guestName = uniqueName('Ospite prima riga');
+    // Prima riga dell'asse: le fasce di Luca partono alle 09:00
+    const bookingId = await createGuestBooking(api, { barberId: SEED.luca, guestName, startsAt: romeWinter(week.thu, '09:00') });
+
+    try {
+      await loginAsAdmin(page);
+      await page.goto(weekUrl(week.wed, SEED.luca));
+      expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), 'touch emulato').toBe(true);
+      await expect(page.locator('main [data-week-hours]').first()).toHaveText('09:00');
+
+      // Porta mercoledì e giovedì in vista, con la griglia in cima
+      await column(page, week.wed).evaluate((element) => element.scrollIntoView({ block: 'nearest', inline: 'start' }));
+      await scroller(page).evaluate((element) => {
+        element.scrollTop = 0;
+      });
+
+      // Intestazione alta davvero 44 px, e sopra la prima riga (nessuna sovrapposizione)
+      const header = page.locator('main').getByRole('link', { name: dayLabel(week.wed), exact: true });
+      const headerBox = await box(header);
+      expect(headerBox.height, 'area di tocco dell\'intestazione').toBeGreaterThanOrEqual(44);
+      const slot = weekSlot(page, week.wed, '09:00');
+      const slotBox = await box(slot);
+      expect(slotBox.y, 'la prima riga inizia sotto l\'intestazione').toBeGreaterThanOrEqual(headerBox.y + headerBox.height - 1);
+
+      // Tocco in cima alla prima riga libera → nuova prenotazione di quello slot
+      await page.touchscreen.tap(centerX(slotBox), slotBox.y + 3);
+      await expectPath(page, '/admin/calendario/nuova');
+      expect(Object.fromEntries(new URL(page.url()).searchParams)).toMatchObject({ barbiere: SEED.luca, data: week.wed, ora: '09:00' });
+
+      // Tocco in cima alla prenotazione della prima riga → il suo dettaglio
+      await page.goBack();
+      await expect(scroller(page)).toHaveCount(1);
+      await column(page, week.wed).evaluate((element) => element.scrollIntoView({ block: 'nearest', inline: 'start' }));
+      await scroller(page).evaluate((element) => {
+        element.scrollTop = 0;
+      });
+      const cardBox = await box(card(page, guestName));
+      await page.touchscreen.tap(centerX(cardBox), cardBox.y + 3);
+      await expectPath(page, `/admin/calendario/${bookingId}`);
+    } finally {
+      await cleanup(api, { bookings: [bookingId] });
+    }
+  });
 });
 
 /** Giorno della settimana ISO (1 = lunedì … 7 = domenica) di una data `YYYY-MM-DD`. */
