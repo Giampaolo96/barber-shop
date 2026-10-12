@@ -5,9 +5,9 @@
 // ripetuta compare una volta sola e vale la prima occorrenza.
 import { formatInTimeZone } from "date-fns-tz";
 import { addDays, exactLocalDateTimeToUtc, localDateOf, startOfLocalDay } from "@/lib/domain/local-time";
-import { covers, type Interval, type LocalBand } from "./grid";
+import { covers, type Interval, isoWeekday, type LocalBand } from "./grid";
 import { nowLineMinutes } from "./now-line";
-import type { BookingStatus, StaffRole } from "./transitions";
+import { type BookingStatus, isCancelledStatus, type StaffRole } from "./transitions";
 
 /** Asse delle righe: minuti locali da `startMin` (incluso) a `endMin` (escluso), ogni `granularityMin`. */
 export type WeekGrid = { granularityMin: number; startMin: number; endMin: number; rows: number[] };
@@ -193,9 +193,37 @@ export function dayBlockPosition(
 }
 
 /**
+ * Giorni della settimana da disegnare: quelli in cui il negozio ha orari di apertura (`openWeekdays`,
+ * weekday ISO di shop_opening_hours) più quelli con prenotazioni da mostrare (le stesse che si
+ * disegnano: tutte tranne le cancellate, che contano solo con `showCancelled`). Le chiusure straordinarie non nascondono il giorno. Ordine di `dates`.
+ */
+export function visibleWeekDays(input: {
+  dates: string[];
+  openWeekdays: number[];
+  bookings: Array<{ status: BookingStatus; startsAt: Date }>;
+  showCancelled: boolean;
+  tz: string;
+}): string[] {
+  const withBookings = new Set(
+    input.bookings
+      .filter((booking) => input.showCancelled || !isCancelledStatus(booking.status))
+      .map((booking) => localDateOf(booking.startsAt, input.tz)),
+  );
+  return input.dates.filter((date) => input.openWeekdays.includes(isoWeekday(date)) || withBookings.has(date));
+}
+
+/**
+ * Colonna da portare accanto alla colonna delle ore all'apertura: oggi, se è fra i giorni disegnati;
+ * altrimenti null e il contenitore parte dalla prima colonna.
+ */
+export function initialWeekColumn(dates: string[], today: string): string | null {
+  return dates.includes(today) ? today : null;
+}
+
+/**
  * Linea dell'ora attuale nella vista settimana: colonna del giorno (indice in `dates`) e minuti
- * dall'inizio dell'asse, con nowLineMinutes come nella vista giorno; null se oggi non è nella
- * settimana o l'ora è fuori dall'asse. Nei giorni del cambio d'ora i minuti sono reali mentre l'asse
+ * dall'inizio dell'asse, con nowLineMinutes come nella vista giorno; null se oggi non è fra i giorni
+ * disegnati (`dates`, anche se nascosto perché il negozio è chiuso) o l'ora è fuori dall'asse. Nei giorni del cambio d'ora i minuti sono reali mentre l'asse
  * segue l'orologio: limite noto (ADR 008), riguarda solo la notte.
  */
 export function weekNowLine(

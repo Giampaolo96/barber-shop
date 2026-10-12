@@ -15,11 +15,12 @@ import {
   getBarbers,
   getBookingsInRange,
   getClosures,
+  getOpenWeekdays,
   getTimeOff,
   getWorkingBands,
 } from "./queries";
 import { type CalendarQuery, defaultWeekBarber } from "./view";
-import { isClosedDay, weekGrid, type WeekGrid } from "./week-grid";
+import { isClosedDay, visibleWeekDays, weekGrid, type WeekGrid } from "./week-grid";
 
 type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -117,13 +118,15 @@ export async function loadDayView(
 export type WeekViewData = {
   barberId: string | null;
   grid: WeekGrid | null;
+  /** Solo i giorni da disegnare (visibleWeekDays), da lunedì a domenica. */
   days: WeekDay[];
   cancelledCount: number;
 };
 
 /**
  * Vista settimana di un barbiere (fetta 8c): il barbiere sempre il proprio, l'admin quello scelto.
- * Una query per tabella su tutta la settimana [lunedì, lunedì successivo), mai una per giorno.
+ * Una query per tabella su tutta la settimana [lunedì, lunedì successivo), mai una per giorno. I giorni
+ * di chiusura settimanale fissa del negozio senza prenotazioni da mostrare non si disegnano.
  */
 export async function loadWeekView(
   supabase: ServerClient,
@@ -140,18 +143,26 @@ export async function loadWeekView(
 
   const from = startOfLocalDay(dates[0], timezone);
   const to = startOfLocalDay(addDays(dates[6], 1), timezone);
-  const [bookings, bands, timeOff, closures] = await Promise.all([
+  const [bookings, bands, timeOff, closures, openWeekdays] = await Promise.all([
     getBookingsInRange(supabase, [barberId], from, to),
     getWorkingBands(supabase, [barberId]),
     getTimeOff(supabase, [barberId], from, to),
     getClosures(supabase, from, to),
+    getOpenWeekdays(supabase),
   ]);
 
   const shown = bookings.filter((booking) => query.showCancelled || !isCancelled(booking));
   const touches = (period: Interval, dayStart: Date, dayEnd: Date): boolean =>
     period.startsAt.getTime() < dayEnd.getTime() && period.endsAt.getTime() > dayStart.getTime();
 
-  const days = dates.map((date) => {
+  const visible = visibleWeekDays({
+    dates,
+    openWeekdays,
+    bookings,
+    showCancelled: query.showCancelled,
+    tz: timezone,
+  });
+  const days = visible.map((date) => {
     const dayStart = startOfLocalDay(date, timezone);
     const dayEnd = startOfLocalDay(addDays(date, 1), timezone);
     const dayClosures = closures.filter((period) => touches(period, dayStart, dayEnd));
@@ -173,10 +184,10 @@ export async function loadWeekView(
   });
 
   const grid = weekGrid({
-    dates,
+    dates: visible,
     tz: timezone,
     granularityMin: settings.granularityMin,
-    bands: Object.fromEntries(dates.map((date) => [date, bandsOn(bands, barberId, date)])),
+    bands: Object.fromEntries(visible.map((date) => [date, bandsOn(bands, barberId, date)])),
     // Solo le prenotazioni che iniziano nella settimana: le altre non si disegnano.
     bookings: days.flatMap((day) => day.bookings),
   });

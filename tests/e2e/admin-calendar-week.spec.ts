@@ -223,10 +223,12 @@ test.describe('Vista settimana a griglia (SPEC §6.1, §6.3, fetta 8c)', () => {
       await loginAsAdmin(page);
       await page.goto(weekUrl(week.wed, SEED.luca));
 
-      // Decisione 1: una griglia, una colonna per ciascuno dei 7 giorni
+      // Decisione 1: una griglia, una colonna per giorno; lunedì e domenica (negozio chiuso nel seed,
+      // nessuna prenotazione) non si disegnano (modifica approvata: giorni di chiusura fissa nascosti)
       await expect(scroller(page)).toHaveCount(1);
-      for (const date of week.all) await expect(column(page, date), date).toHaveCount(1);
-      await expect(page.locator('main [data-date]')).toHaveCount(7);
+      for (const date of [week.tue, week.wed, week.thu, week.fri, week.sat]) await expect(column(page, date), date).toHaveCount(1);
+      for (const date of [week.mon, week.sun]) await expect(column(page, date), date).toHaveCount(0);
+      await expect(page.locator('main [data-date]')).toHaveCount(5);
 
       // Intestazione del giorno: link alla vista giorno
       const header = page.locator('main').getByRole('link', { name: dayLabel(week.thu), exact: true });
@@ -236,8 +238,7 @@ test.describe('Vista settimana a griglia (SPEC §6.1, §6.3, fetta 8c)', () => {
       expect(headerHref.searchParams.get('data')).toBe(week.thu);
       expect(headerHref.searchParams.get('vista')).not.toBe('settimana');
 
-      // Decisione 3: lunedì (riposo di Luca) e pausa pranzo sono sfondo ma restano cliccabili
-      await expect(weekSlot(page, week.mon, '10:00')).toHaveCount(1);
+      // Decisione 3: la pausa pranzo (fuori orario) è sfondo ma resta cliccabile
       await expect(weekSlot(page, week.thu, '13:30')).toHaveCount(1);
 
       // Click su uno slot vuoto → nuova manuale precompilata (barbiere, data, ora)
@@ -283,6 +284,9 @@ test.describe('Vista settimana a griglia (SPEC §6.1, §6.3, fetta 8c)', () => {
     const blockerName = uniqueName('Ospite che occupa');
     const id = await createGuestBooking(api, { barberId: SEED.luca, guestName, startsAt: romeWinter(week.wed, '10:30') });
     const blockerId = await createGuestBooking(api, { barberId: SEED.luca, guestName: blockerName, startsAt: romeWinter(week.fri, '11:00') });
+    // Una prenotazione di lunedì (negozio chiuso nel seed) fa disegnare la colonna del lunedì, destinazione
+    // del passo 3 (modifica approvata: giorni di chiusura fissa nascosti senza prenotazioni)
+    const mondayId = await createGuestBooking(api, { barberId: SEED.luca, guestName: uniqueName('Ospite del lunedì'), startsAt: romeWinter(week.mon, '17:00') });
 
     try {
       await loginAsAdmin(page);
@@ -336,7 +340,7 @@ test.describe('Vista settimana a griglia (SPEC §6.1, §6.3, fetta 8c)', () => {
         .toEqual([Math.round(before.x), Math.round(before.y)]);
       expect(await position(api, id)).toEqual([SEED.luca, instant(romeWinter(week.thu, '11:15'))]);
     } finally {
-      await cleanup(api, { bookings: [id, blockerId] });
+      await cleanup(api, { bookings: [id, blockerId, mondayId] });
     }
   });
 
@@ -355,7 +359,7 @@ test.describe('Vista settimana a griglia (SPEC §6.1, §6.3, fetta 8c)', () => {
       await page.goto(weekUrl(week.wed, SEED.luca));
 
       await expect(column(page, week.thu)).toHaveAttribute('data-closed', 'true');
-      for (const date of [week.mon, week.wed, week.fri, week.sun]) {
+      for (const date of [week.wed, week.fri]) {
         await expect(column(page, date), date).not.toHaveAttribute('data-closed', 'true');
       }
       await expect(
@@ -469,11 +473,13 @@ test.describe('Vista settimana a griglia (SPEC §6.1, §6.3, fetta 8c)', () => {
   });
 });
 
-// SPEC §6.1 + decisioni 9, 11: su telefono la griglia scorre nel proprio contenitore e apre su oggi
+// SPEC §6.1 + decisioni 9, 11: su telefono la griglia scorre nel proprio contenitore. L'apertura su oggi
+// dipende dal giorno in cui gira il test (oggi può essere un giorno nascosto): la coprono i test Vitest
+// di initialWeekColumn e weekNowLine in calendar-week-closed-days.test.ts (modifica approvata).
 test.describe('Vista settimana su telefono (390 px)', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('scorrimento nel contenitore, oggi visibile all\'apertura, ore e giorni fissi, tocco, navigazione fra settimane', async ({
+  test('scorrimento nel contenitore, ore e giorni fissi, tocco, navigazione fra settimane', async ({
     page,
   }) => {
     const api = await adminApi(page.request);
@@ -515,21 +521,7 @@ test.describe('Vista settimana su telefono (390 px)', () => {
       expect(overflow.x, 'la settimana scorre in orizzontale nel contenitore').toBeGreaterThan(0);
       expect(overflow.y, 'la settimana scorre in verticale nel contenitore').toBeGreaterThan(0);
 
-      // Oggi: una sola colonna data-today, visibile accanto alla colonna delle ore già all'apertura
-      await expect(page.locator('main [data-today="true"]')).toHaveCount(1);
-      await expect(column(page, today)).toHaveAttribute('data-today', 'true');
       const hours = page.locator('main [data-week-hours]').first();
-      await expect
-        .poll(async () => {
-          const area = await box(container);
-          const hoursBox = await box(hours);
-          const todayBox = await box(column(page, today));
-          return (
-            todayBox.x >= hoursBox.x + hoursBox.width - 2 &&
-            todayBox.x + todayBox.width <= area.x + area.width + 2
-          );
-        }, { message: 'la colonna di oggi è interamente visibile, a destra della colonna delle ore' })
-        .toBe(true);
 
       // Colonna delle ore fissa a sinistra anche dopo lo scorrimento orizzontale fino in fondo
       await container.evaluate((element) => {
@@ -540,15 +532,17 @@ test.describe('Vista settimana su telefono (390 px)', () => {
         .toBeLessThanOrEqual(4);
       expect((await box(hours)).x).toBeGreaterThanOrEqual((await box(container)).x - 1);
 
-      // Intestazioni dei giorni fisse in alto anche dopo lo scorrimento verticale fino in fondo
-      const sundayHeader = page.locator('main').getByRole('link', { name: dayLabel(plusDays(today, 7 - isoWeekday(today))), exact: true });
+      // Intestazioni dei giorni fisse in alto anche dopo lo scorrimento verticale fino in fondo (ultima
+      // colonna disegnata: i giorni di chiusura fissa senza prenotazioni non ci sono)
+      const lastDate = (await page.locator('main [data-date]').last().getAttribute('data-date')) ?? '';
+      const lastHeader = page.locator('main').getByRole('link', { name: dayLabel(lastDate), exact: true });
       await container.evaluate((element) => {
         element.scrollTop = element.scrollHeight;
       });
       await expect
         .poll(async () => {
           const area = await box(container);
-          const headerBox = await box(sundayHeader);
+          const headerBox = await box(lastHeader);
           return headerBox.y >= area.y - 1 && headerBox.y + headerBox.height <= area.y + 80;
         }, { message: 'intestazione del giorno fissa in alto nel contenitore' })
         .toBe(true);
@@ -570,7 +564,7 @@ test.describe('Vista settimana su telefono (390 px)', () => {
       await expect
         .poll(() => Object.fromEntries(new URL(page.url()).searchParams))
         .toMatchObject({ data: today, vista: 'settimana', barbiere: SEED.luca });
-      await expect(column(page, today)).toHaveAttribute('data-today', 'true');
+      await expect(scroller(page)).toHaveCount(1);
     } finally {
       await cleanup(api, { bookings: [bookingId] });
     }
@@ -627,8 +621,3 @@ test.describe('Vista settimana su telefono (390 px)', () => {
     }
   });
 });
-
-/** Giorno della settimana ISO (1 = lunedì … 7 = domenica) di una data `YYYY-MM-DD`. */
-function isoWeekday(date: string): number {
-  return ((new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7) + 1;
-}

@@ -20,7 +20,15 @@ import { newBookingPath } from "@/lib/calendar/paths";
 import type { CalendarBooking } from "@/lib/calendar/queries";
 import type { StaffRole } from "@/lib/calendar/transitions";
 import { calendarHref } from "@/lib/calendar/view";
-import { dayBlockPosition, daySlots, hhmm, type WeekGrid, weekDropTarget, weekNowLine } from "@/lib/calendar/week-grid";
+import {
+  dayBlockPosition,
+  daySlots,
+  hhmm,
+  initialWeekColumn,
+  type WeekGrid,
+  weekDropTarget,
+  weekNowLine,
+} from "@/lib/calendar/week-grid";
 import { localDateOf } from "@/lib/domain/local-time";
 import { cn } from "@/lib/utils";
 import { BookingCard, ColumnDropZone, DraggedCard, NowLine, placed, ROW_HEIGHT } from "./grid-parts";
@@ -34,8 +42,9 @@ const t = it.admin.calendar;
 type DropPreview = { bookingId: string; date: string; startsAt: Date };
 
 /**
- * Vista settimana di un barbiere (SPEC §6.1, fetta 8c): 7 colonne (lunedì–domenica) con le stesse
- * righe della vista giorno, su un asse comune sull'orologio locale. Si comporta come la vista giorno:
+ * Vista settimana di un barbiere (SPEC §6.1, fetta 8c): una colonna per giorno da lunedì a domenica,
+ * senza i giorni di chiusura settimanale fissa del negozio che non hanno prenotazioni da mostrare
+ * (visibleWeekDays, li sceglie il server in `days`), con le stesse righe della vista giorno, su un asse comune sull'orologio locale. Si comporta come la vista giorno:
  * ogni riga libera è un link alla nuova prenotazione (fuori orario, assenze e chiusure sono solo
  * sfondo, gli avvisi arrivano dopo, §3.7.5), le righe occupate fino a blocked_until no; le confirmed
  * non iniziate si trascinano (§6.3, ADR 008) su un altro giorno o orario, sempre per lo stesso barbiere.
@@ -86,15 +95,21 @@ export function WeekGridView({
     !busy &&
     canDrag({ role, status: booking.status, startsAt: booking.startsAt, now: at, isOwn: booking.barberId === ownBarberId });
 
-  // All'apertura la colonna di oggi, se è in questa settimana, si porta accanto alla colonna delle ore.
+  // All'apertura la colonna di oggi, se è fra quelle disegnate, si porta accanto alla colonna delle
+  // ore; altrimenti (oggi fuori settimana o nascosto) il contenitore parte dalla prima colonna.
+  const initialColumn = initialWeekColumn(dates, today);
   const firstDate = dates[0];
   useEffect(() => {
     const container = scrollRef.current;
-    const todayColumn = container?.querySelector<HTMLElement>('[data-today="true"]');
     const corner = cornerRef.current;
-    if (!container || !todayColumn || !corner) return;
-    container.scrollLeft += todayColumn.getBoundingClientRect().left - corner.getBoundingClientRect().right;
-  }, [firstDate, today]);
+    if (!container || !corner) return;
+    const column = initialColumn && container.querySelector<HTMLElement>(`[data-date="${initialColumn}"]`);
+    if (!column) {
+      container.scrollLeft = 0;
+      return;
+    }
+    container.scrollLeft += column.getBoundingClientRect().left - corner.getBoundingClientRect().right;
+  }, [firstDate, initialColumn]);
 
   /**
    * Solo ciò che si vede: fuori dal contenitore, sopra la colonna delle ore o sopra le intestazioni

@@ -137,6 +137,16 @@ export async function getWorkingBands(
   return bands;
 }
 
+/**
+ * Giorni ISO in cui il negozio ha orari di apertura, dalla stessa fonte degli orari della home
+ * (shop_opening_hours: unione delle fasce dei barbieri attivi).
+ */
+export async function getOpenWeekdays(supabase: ServerClient): Promise<number[]> {
+  const { data, error } = await supabase.rpc("shop_opening_hours");
+  if (error || !data) return fail("orari del negozio", error);
+  return [...new Set(data.map((row) => row.weekday))];
+}
+
 /** Fasce di un barbiere nel giorno locale `date`. */
 export const bandsOn = (
   bands: Map<string, Map<number, LocalBand[]>>,
