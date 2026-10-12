@@ -56,37 +56,42 @@ export function PeriodTable({
 }) {
   if (rows.length === 0) return <p className="text-sm text-muted-foreground">{it.admin.common.empty}</p>;
 
+  // Stesso schema delle altre tabelle admin (Clienti): spazio fra le colonne e, se non basta,
+  // scorrimento orizzontale della sola tabella. Pulsanti a dimensione piena: tocco ≥ 44 px.
   return (
-    <table className="w-full text-left text-sm">
-      <thead>
-        <tr className="border-b">
-          {barberNames && <th className="py-2">{it.admin.timeOff.barberLabel}</th>}
-          <th className="py-2">{it.admin.period.periodColumn}</th>
-          <th className="py-2">{it.admin.period.reasonLabel}</th>
-          <th className="py-2">{it.admin.common.actions}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.id} className="border-b align-top">
-            {barberNames && <td className="py-2">{barberNames[row.barber_id ?? ""] ?? ""}</td>}
-            <td className="py-2">{periodLabel(row, tz)}</td>
-            <td className="py-2">{row.reason}</td>
-            <td className="flex flex-wrap gap-2 py-2">
-              <Link href={editHref(row.id)} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                {it.admin.common.edit}
-              </Link>
-              <RowAction
-                action={deleteAction}
-                fields={{ id: row.id }}
-                label={it.admin.common.delete}
-                confirmText={it.admin.common.confirmDelete}
-                variant="destructive"
-              />
-            </td>
+    <div className="overflow-x-auto">
+      <table className="w-full text-left text-sm">
+        <thead>
+          <tr className="border-b">
+            {barberNames && <th className="py-2 pr-4">{it.admin.timeOff.barberLabel}</th>}
+            <th className="py-2 pr-4">{it.admin.period.periodColumn}</th>
+            <th className="py-2 pr-4">{it.admin.period.reasonLabel}</th>
+            <th className="py-2">{it.admin.common.actions}</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id} className="border-b align-top">
+              {barberNames && <td className="py-2 pr-4">{barberNames[row.barber_id ?? ""] ?? ""}</td>}
+              <td className="py-2 pr-4">{periodLabel(row, tz)}</td>
+              <td className="py-2 pr-4">{row.reason}</td>
+              <td className="flex flex-wrap gap-2 py-2">
+                <Link href={editHref(row.id)} className={buttonVariants({ variant: "outline" })}>
+                  {it.admin.common.edit}
+                </Link>
+                <RowAction
+                  action={deleteAction}
+                  fields={{ id: row.id }}
+                  label={it.admin.common.delete}
+                  confirmText={it.admin.common.confirmDelete}
+                  variant="destructive"
+                  size="default"
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

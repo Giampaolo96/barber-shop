@@ -10,6 +10,9 @@ export const BOOKING_STATUSES = [
   "cancelled_by_shop",
 ] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
+
+/** Stati di annullamento (dal cliente o dal negozio). */
+export const isCancelledStatus = (status: BookingStatus): boolean => status.startsWith("cancelled");
 export type StaffRole = "barber" | "admin";
 
 /**

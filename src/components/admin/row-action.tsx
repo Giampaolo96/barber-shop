@@ -17,6 +17,7 @@ export function RowAction({
   confirmText,
   messages = {},
   variant = "outline",
+  size = "sm",
 }: {
   // Firma a metodo: accetta server action con stati più specifici (ServiceRowState...).
   action(previous: ActionState, formData: FormData): Promise<ActionState>;
@@ -25,6 +26,7 @@ export function RowAction({
   confirmText?: string;
   messages?: Partial<Record<string, string>>;
   variant?: "outline" | "destructive" | "ghost";
+  size?: "sm" | "default";
 }) {
   const [state, formAction, pending] = useActionState(action, { status: "idle" });
   const message = messages[state.status] ?? (state.status === "error" ? it.admin.common.error : null);
@@ -40,7 +42,7 @@ export function RowAction({
       {Object.entries(fields).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
-      <Button type="submit" size="sm" variant={variant} disabled={pending}>
+      <Button type="submit" size={size} variant={variant} disabled={pending}>
         {label}
       </Button>
       {message && (

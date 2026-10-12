@@ -972,3 +972,7 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 
 **Esiti dopo le migliorie**: lint ok, typecheck ok, Vitest 1739/1739 (due giri), pgTAP 1211/1211, Playwright 117/117.
 
+
+## Fix calendario e assenze (2026-10-12)
+
+- Calendario, vista giorno con "mostra cancellate": una cancellata nello stesso orario di una confermata ora sta in una corsia affiancata invece di restare coperta (`src/lib/calendar/overlap-layout.ts`; a 390 px corsia compatta con ora e nome); tabella delle assenze (e chiusure) su telefono con le colonne distanziate come Clienti e pulsanti da 44 px. Test: `calendar-overlap-layout.test.ts`, e2e `admin-calendar-cancelled-overlap` e `admin-period-table-mobile`. Gate: Vitest 1752/1752, Playwright 120/120.

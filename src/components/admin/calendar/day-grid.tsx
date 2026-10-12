@@ -21,10 +21,11 @@ import { it } from "@/i18n/it";
 import { blockPosition, busyRows, type DayGrid, type Interval } from "@/lib/calendar/grid";
 import { canDrag, dropTarget } from "@/lib/calendar/move";
 import { nowLineMinutes } from "@/lib/calendar/now-line";
+import { type LaneSlot, overlapLayout } from "@/lib/calendar/overlap-layout";
 import { bookingDetailPath, newBookingPath } from "@/lib/calendar/paths";
 import type { DayColumn } from "@/lib/calendar/page-data";
 import type { CalendarBooking } from "@/lib/calendar/queries";
-import type { StaffRole } from "@/lib/calendar/transitions";
+import { isCancelledStatus, type StaffRole } from "@/lib/calendar/transitions";
 import { cn } from "@/lib/utils";
 import { MoveFeedback } from "./move-feedback";
 import { type Position, useBookingMove } from "./use-booking-move";
@@ -219,6 +220,19 @@ export function DayGridView({
           {columns.map((column, columnIndex) => {
             const gridColumn = columnIndex + 2;
             const columnBookings = bookings.filter((booking) => booking.barberId === column.barberId);
+            const placedBookings = columnBookings.flatMap((booking) => {
+              const position = blockPosition(grid, booking);
+              return position ? [{ booking, position }] : [];
+            });
+            // Corsie calcolate sulle righe occupate (quelle che si vedono), non sui minuti esatti.
+            const lanes = overlapLayout(
+              placedBookings.map(({ booking, position }) => ({
+                id: booking.id,
+                start: position.row,
+                end: position.row + position.span,
+                status: booking.status,
+              })),
+            );
             // Occupato fino a blocked_until: anche le righe del buffer non sono prenotabili.
             const busyRow = busyRows(
               grid,
@@ -291,20 +305,18 @@ export function DayGridView({
                   </div>
                 );
               }),
-              ...columnBookings.map((booking) => {
-                const position = blockPosition(grid, booking);
-                if (!position) return null;
-                return (
-                  <BookingCard
-                    key={booking.id}
-                    booking={booking}
-                    label={labelOf(booking)}
-                    draggable={draggableAt(booking, now)}
-                    canGrab={() => draggableAt(booking, new Date())}
-                    style={{ gridColumn, gridRow: `${position.row + 2} / span ${position.span}` }}
-                  />
-                );
-              }),
+              ...placedBookings.map(({ booking, position }) => (
+                <BookingCard
+                  key={booking.id}
+                  booking={booking}
+                  label={labelOf(booking)}
+                  lane={lanes.get(booking.id)}
+                  timeLabel={time(booking.startsAt)}
+                  draggable={draggableAt(booking, now)}
+                  canGrab={() => draggableAt(booking, new Date())}
+                  style={{ gridColumn, gridRow: `${position.row + 2} / span ${position.span}` }}
+                />
+              )),
             ];
           })}
           <NowLine grid={grid} date={date} timezone={timezone} serverNow={now} />
@@ -403,7 +415,11 @@ function ColumnDropZone({
 }
 
 /**
- * Scheda di una prenotazione. Se è trascinabile non usa gli attributi ARIA di dnd-kit (resta un
+ * Scheda di una prenotazione. Se si sovrappone ad altre (una cancellata nello stesso orario di una
+ * confermata) occupa solo la sua corsia: larghezza 1/lanes, spostata di lane/lanes. Quando la
+ * corsia è troppo stretta per il testo mostra l'ora e il nome del cliente troncato; il testo
+ * completo resta nel titolo e nel nome accessibile. Una cancellata in corsia condivisa sta un livello
+ * sotto le altre schede (ma sopra le righe), così la confermata resta in primo piano. Se è trascinabile non usa gli attributi ARIA di dnd-kit (resta un
  * link verso il dettaglio, dove c'è anche il modulo per spostarla) e niente menu del link né
  * selezione del testo alla pressione prolungata su iOS. Quando la si afferra si ricontrolla con
  * l'ora corrente (`canGrab`): con la pagina aperta a lungo l'appuntamento può essere iniziato.
@@ -411,12 +427,17 @@ function ColumnDropZone({
 function BookingCard({
   booking,
   label,
+  lane,
+  timeLabel,
   draggable,
   canGrab,
   style,
 }: {
   booking: CalendarBooking;
   label: string;
+  /** Corsia nel gruppo di schede sovrapposte; assente o `lanes` = 1 se a larghezza piena. */
+  lane: LaneSlot | undefined;
+  timeLabel: string;
   draggable: boolean;
   canGrab: () => boolean;
   style: React.CSSProperties;
@@ -433,16 +454,25 @@ function BookingCard({
           ]),
         )
       : {};
-  const cancelled = booking.status.startsWith("cancelled");
+  const cancelled = isCancelledStatus(booking.status);
+  const details = `${booking.serviceName}${booking.status === "confirmed" ? "" : `, ${t.statusLabels[booking.status]}`}`;
+  const shared = lane !== undefined && lane.lanes > 1;
+  // Il margine di 1 px (m-px) resta su entrambi i lati della corsia.
+  const laneStyle: React.CSSProperties = shared
+    ? { width: `calc(100% / ${lane.lanes} - 2px)`, marginLeft: `calc(100% * ${lane.lane} / ${lane.lanes} + 1px)` }
+    : {};
   return (
     <Link
       ref={setNodeRef}
       href={bookingDetailPath(booking.id)}
       draggable={false}
       data-draggable={draggable ? "true" : undefined}
+      data-lane={shared ? `${lane.lane}/${lane.lanes}` : undefined}
+      aria-label={shared ? `${label}, ${details}` : undefined}
+      title={shared ? `${label}, ${details}` : undefined}
       {...grabListeners}
       className={cn(
-        "z-10 m-px flex flex-col overflow-hidden rounded-md border bg-surface px-2 py-1 text-xs",
+        "m-px flex flex-col overflow-hidden rounded-md border bg-surface px-2 py-1 text-xs",
         booking.status === "confirmed" && "border-ink",
         booking.status === "completed" && "border-line text-muted-foreground",
         booking.status === "no_show" && "border-destructive text-destructive",
@@ -450,14 +480,25 @@ function BookingCard({
         draggable && "cursor-grab touch-manipulation select-none [-webkit-touch-callout:none]",
         // Durante il trascinamento resta al suo posto, tratteggiata: si muove la copia.
         isDragging && "border-dashed",
+        shared && "@container",
+        shared && cancelled ? "z-[9]" : "z-10",
       )}
-      style={style}
+      style={{ ...style, ...laneStyle }}
     >
-      <span className="font-medium">{label}</span>
-      <span>
-        {booking.serviceName}
-        {booking.status === "confirmed" ? "" : `, ${t.statusLabels[booking.status]}`}
-      </span>
+      {shared ? (
+        <>
+          <span className="font-medium @max-[7rem]:hidden">{label}</span>
+          <span className="@max-[7rem]:hidden">{details}</span>
+          <span aria-hidden="true" className="hidden truncate font-medium @max-[7rem]:block">
+            {timeLabel} {booking.customerName}
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="font-medium">{label}</span>
+          <span>{details}</span>
+        </>
+      )}
     </Link>
   );
 }
@@ -468,7 +509,8 @@ function BookingCard({
  */
 function DraggedCard({ label, serviceName, preview }: { label: string; serviceName: string; preview: string | null }) {
   return (
-    <div className="flex h-full cursor-grabbing flex-col overflow-hidden rounded-md border border-ink bg-surface px-2 py-1 text-xs select-none">
+    // Larghezza minima: trascinata da una corsia condivisa la copia sarebbe stretta come la corsia.
+    <div className="flex h-full min-w-[11rem] cursor-grabbing flex-col overflow-hidden rounded-md border border-ink bg-surface px-2 py-1 text-xs select-none">
       {preview && (
         <span data-drop-preview className="self-start bg-ink px-1 font-medium text-surface">
           {preview}
