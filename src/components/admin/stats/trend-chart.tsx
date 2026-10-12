@@ -2,7 +2,7 @@ import { it } from "@/i18n/it";
 import { fillText } from "@/lib/admin/text";
 import { formatCents } from "@/lib/domain/money";
 import type { Granularity, StatsBucket } from "@/lib/stats/aggregate";
-import { alternateLabels, chartAxis, formatAxisValue, niceScale } from "@/lib/stats/axes";
+import { alternateLabels, chartAxis, formatAxisValue, niceScale, spacedLabels } from "@/lib/stats/axes";
 import { bucketLabel } from "@/lib/stats/format";
 import type { StatsChart } from "@/lib/stats/schemas";
 
@@ -10,18 +10,24 @@ const t = it.admin.stats;
 
 // Spazio fra le barre: 0.125rem, ma mai più di un quarto dello spazio di una barra, altrimenti con
 // molte barre (un anno per giorno a 390 px) gli spazi da soli superano la larghezza del grafico.
-// `unit` è "%" sotto un elemento largo quanto l'area delle barre, "cqw" dentro l'area stessa (che è
-// un container), dove le percentuali si riferirebbero alla singola barra.
+// `unit` è "cqw" dentro l'area delle barre, che è un container: vale per lo spazio fra le barre e per
+// la linea di confine, figlia di una barra, dove una percentuale si riferirebbe alla barra stessa.
+// "%" per la riga delle etichette, che è larga quanto l'area.
 const barGap = (count: number, unit: "%" | "cqw"): string => `min(0.125rem, ${25 / count}${unit})`;
 
 // Posizione orizzontale delle etichette sotto le barre: `p` 0 è il bordo sinistro, i confini fra
 // due bucket cadono a metà dello spazio fra le barre.
 const xAt = (p: number, gap: string): string => `calc(${p} * (100% + ${gap}) - ${gap} / 2)`;
 
-// Oltre queste etichette sull'asse X, sotto i 640 px se ne mostra una sì e una no. I nomi dei
-// giorni (al massimo 10, di tre lettere) ci stanno sempre. Le date dei lunedì fino a 5: con 6
-// (periodi da 36 giorni in su) a 390 px restano circa 45 px fra l'una e l'altra, non bastano.
-const MOBILE_X_LABELS = { day: 10, week: 5, month: 6, year: 6 } as const;
+// Oltre queste etichette sull'asse X, sotto i 640 px se ne mostra una sì e una no. Le date dei
+// lunedì fino a 5: con 6 (periodi da 36 giorni in su) a 390 px restano circa 45 px fra l'una e
+// l'altra, non bastano.
+const MOBILE_X_LABELS = { week: 5, month: 6, year: 6 } as const;
+
+// I nomi dei giorni (tre lettere) sotto i 640 px stanno ad almeno un decimo della larghezza l'uno
+// dall'altro, circa 30 px a 390: dieci giorni per giorno ci stanno tutti, su barre per settimana
+// tagliate dal periodo si diradano.
+const MOBILE_DAY_LABEL_GAP = 0.1;
 
 /**
  * Grafico a barre dell'andamento (SPEC §6.9), solo HTML e CSS con i token del tema: una serie,
@@ -54,7 +60,14 @@ export function TrendChart({
   const labelGap = barGap(Math.max(series.length, 1), "%");
   const xAxis = chartAxis(series, granularity);
   const mobileVisible =
-    xAxis.marks.length > MOBILE_X_LABELS[xAxis.unit] ? alternateLabels(xAxis.marks.map((mark) => mark.label)) : null;
+    xAxis.unit === "day"
+      ? spacedLabels(
+          xAxis.marks.map((mark) => mark.at),
+          MOBILE_DAY_LABEL_GAP,
+        )
+      : xAxis.marks.length > MOBILE_X_LABELS[xAxis.unit]
+        ? alternateLabels(xAxis.marks.map((mark) => mark.label))
+        : null;
   const lineBefore = new Set(xAxis.marks.flatMap((mark) => (mark.line === null ? [] : [mark.line])));
 
   return (
@@ -114,10 +127,10 @@ export function TrendChart({
                         {lineBefore.has(index) && (
                           <div
                             data-axis-line={bucket.start}
-                            className="absolute inset-y-0 right-full flex justify-center"
+                            className="pointer-events-none absolute inset-y-0 right-full flex justify-center"
                             style={{ width: gap }}
                           >
-                            <div className="h-full max-w-full bg-line" style={{ width: "1px" }} />
+                            <div className="h-full w-px max-w-full bg-line" />
                           </div>
                         )}
                         {amount > 0 && (

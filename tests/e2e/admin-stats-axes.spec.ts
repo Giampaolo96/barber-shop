@@ -125,12 +125,26 @@ test.describe('Statistiche: assi di riferimento del grafico', () => {
       for (let day = mondayFrom(`${year}-01-01`); day <= `${year}-01-31`; day = plusDays(day, 7)) {
         mondaysOfJanuary.push(`${Number(day.slice(8))} gen`);
       }
+      // Un lunedì 1° gennaio è il bordo sinistro del grafico: etichetta sì, linea no
+      const januaryLines = mondaysOfJanuary.filter((text) => text !== '1 gen').length;
 
       const periods = [
-        { name: 'settimana', from: monday, to: plusDays(monday, 6), labels: ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'] },
-        { name: 'mese', from: `${year}-01-01`, to: `${year}-01-31`, labels: mondaysOfJanuary },
-        { name: '3 mesi', from: `${year}-01-01`, to: `${year}-03-31`, labels: [`gen ${year}`, 'feb', 'mar'] },
-        { name: 'anno', from: `${year}-01-01`, to: `${year}-12-31`, labels: [`gen ${year}`, ...MONTHS.slice(1)] },
+        {
+          name: 'settimana',
+          from: monday,
+          to: plusDays(monday, 6),
+          labels: ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'],
+          lines: 0,
+        },
+        { name: 'mese', from: `${year}-01-01`, to: `${year}-01-31`, labels: mondaysOfJanuary, lines: januaryLines },
+        { name: '3 mesi', from: `${year}-01-01`, to: `${year}-03-31`, labels: [`gen ${year}`, 'feb', 'mar'], lines: 2 },
+        {
+          name: 'anno',
+          from: `${year}-01-01`,
+          to: `${year}-12-31`,
+          labels: [`gen ${year}`, ...MONTHS.slice(1)],
+          lines: 11,
+        },
       ];
 
       await loginAsAdmin(page);
@@ -146,7 +160,8 @@ test.describe('Statistiche: assi di riferimento del grafico', () => {
             const max = await trendMax(page, column);
             expect(max).toBeGreaterThan(0);
             expect(await lastYTick(page)).toBeGreaterThanOrEqual(max);
-            await expectLinesBetweenBars(page);
+            // Il numero esatto: se le linee sparissero il controllo sulla posizione passerebbe a vuoto
+            expect(await expectLinesBetweenBars(page)).toBe(period.lines);
           });
         }
       }
@@ -184,17 +199,20 @@ test.describe('Statistiche: assi di riferimento del grafico', () => {
       bookings.push(...(await completedBookings(api, monday, 12, '+02:00')));
       await loginAsAdmin(page);
 
-      // 41 giorni: 5 lunedì tutti visibili; 47 giorni: 6 lunedì, uno sì e uno no; un anno: mesi alternati
+      // 41 giorni: 5 lunedì tutti visibili; 47 giorni: 6 lunedì, uno sì e uno no; un anno (per mese,
+      // predefinito): mesi alternati, nessuna linea; 10 giorni per settimana, tagliati in tre barre
+      // (sab–dom, lun–dom, lun): i nomi dei giorni si diradano
       const periods = [
-        [plusDays(monday, -20), plusDays(monday, 20)],
-        [plusDays(monday, -20), plusDays(monday, 26)],
-        [`${year}-01-01`, `${year}-12-31`],
+        { from: plusDays(monday, -20), to: plusDays(monday, 20), grouping: '', lines: 5 },
+        { from: plusDays(monday, -20), to: plusDays(monday, 26), grouping: '', lines: 6 },
+        { from: `${year}-01-01`, to: `${year}-12-31`, grouping: '', lines: 0 },
+        { from: plusDays(monday, -2), to: plusDays(monday, 7), grouping: '&raggruppa=settimana', lines: 0 },
       ];
-      for (const [from, to] of periods) {
+      for (const { from, to, grouping, lines } of periods) {
         for (const chart of ['prenotazioni', 'incasso']) {
-          await test.step(`${from} – ${to}, ${chart}`, async () => {
-            await page.goto(`/admin/statistiche?dal=${from}&al=${to}&grafico=${chart}`);
-            await expectLinesBetweenBars(page);
+          await test.step(`${from} – ${to}${grouping}, ${chart}`, async () => {
+            await page.goto(`/admin/statistiche?dal=${from}&al=${to}&grafico=${chart}${grouping}`);
+            expect(await expectLinesBetweenBars(page)).toBe(lines);
             const area = await page.getByTestId('trend-chart').boundingBox();
             expect(area).not.toBeNull();
             const boxes = [];

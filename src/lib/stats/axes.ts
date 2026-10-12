@@ -17,8 +17,6 @@ export type TimeAxisTick = {
   /** Giorno "YYYY-MM-DD" a cui si riferisce la tacca. */
   day: string;
   label: string;
-  /** Linea verticale all'inizio del giorno; senza linea l'etichetta sta al centro del giorno. */
-  line: boolean;
 };
 
 // Mezzogiorno UTC: lo stesso giorno di calendario per un processo fra UTC-11 e UTC+11 (come in
@@ -32,14 +30,14 @@ export function timeAxisTicks(start: string, end: string): { unit: TimeAxisUnit;
 
   if (days <= AXIS_MAX_DAYS.day) {
     const ticks: TimeAxisTick[] = [];
-    for (let day = start; day <= end; day = addDays(day, 1)) ticks.push({ day, label: label(day, "EEE"), line: false });
+    for (let day = start; day <= end; day = addDays(day, 1)) ticks.push({ day, label: label(day, "EEE") });
     return { unit: "day", ticks };
   }
 
   if (days <= AXIS_MAX_DAYS.week) {
     const ticks: TimeAxisTick[] = [];
     const firstMonday = startOfWeek(start) === start ? start : addDays(startOfWeek(start), 7);
-    for (let day = firstMonday; day <= end; day = addDays(day, 7)) ticks.push({ day, label: label(day, "d LLL"), line: true });
+    for (let day = firstMonday; day <= end; day = addDays(day, 7)) ticks.push({ day, label: label(day, "d LLL") });
     return { unit: "week", ticks };
   }
 
@@ -48,7 +46,7 @@ export function timeAxisTicks(start: string, end: string): { unit: TimeAxisUnit;
     const firstMonth = start.endsWith("-01") ? start : addMonths(start, 1);
     for (let day = firstMonth; day <= end; day = addMonths(day, 1)) {
       const withYear = ticks.length === 0 || day.slice(5, 7) === "01";
-      ticks.push({ day, label: label(day, withYear ? "LLL yyyy" : "LLL"), line: true });
+      ticks.push({ day, label: label(day, withYear ? "LLL yyyy" : "LLL") });
     }
     return { unit: "month", ticks };
   }
@@ -56,7 +54,7 @@ export function timeAxisTicks(start: string, end: string): { unit: TimeAxisUnit;
   const ticks: TimeAxisTick[] = [];
   const firstYear = Number(start.slice(0, 4)) + (start.endsWith("-01-01") ? 0 : 1);
   for (let year = firstYear; `${year}-01-01` <= end; year += 1) {
-    ticks.push({ day: `${year}-01-01`, label: String(year), line: true });
+    ticks.push({ day: `${year}-01-01`, label: String(year) });
   }
   return { unit: "year", ticks };
 }
@@ -162,6 +160,20 @@ export function alternateLabels(labels: readonly string[]): boolean[] {
     visible.push(pinned[index] || (!visible[index - 1] && !pinned[index + 1]));
   });
   return visible;
+}
+
+/**
+ * Etichette da tenere quando sono posizionate in modo irregolare (nomi dei giorni su barre di durata
+ * diversa, per esempio una settimana tagliata dal periodo): ognuna resta solo se dista almeno
+ * `minGap` (frazione della larghezza) dall'ultima visibile. `positions` in ordine crescente.
+ */
+export function spacedLabels(positions: readonly number[], minGap: number): boolean[] {
+  let last = -Infinity;
+  return positions.map((position) => {
+    const visible = position - last >= minGap - 1e-9;
+    if (visible) last = position;
+    return visible;
+  });
 }
 
 /** Tipo di valore sull'asse Y: conteggi interi, centesimi mostrati in euro interi, tassi 0..1. */

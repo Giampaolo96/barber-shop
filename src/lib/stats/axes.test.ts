@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { alternateLabels, bucketPosition, chartAxis, formatAxisValue, niceScale, timeAxisTicks } from "./axes";
+import { alternateLabels, bucketPosition, chartAxis, formatAxisValue, niceScale, spacedLabels, timeAxisTicks } from "./axes";
 import { buildStats, type Granularity } from "./aggregate";
 
 const labels = (start: string, end: string) => timeAxisTicks(start, end).ticks.map((tick) => tick.label);
@@ -9,7 +9,6 @@ describe("timeAxisTicks", () => {
     const axis = timeAxisTicks("2026-10-05", "2026-10-11");
     expect(axis.unit).toBe("day");
     expect(axis.ticks.map((tick) => tick.label)).toEqual(["lun", "mar", "mer", "gio", "ven", "sab", "dom"]);
-    expect(axis.ticks.every((tick) => !tick.line)).toBe(true);
   });
 
   test("la settimana del 25 ottobre (cambio d'ora): sette giorni, nessuno doppio o mancante", () => {
@@ -37,11 +36,10 @@ describe("timeAxisTicks", () => {
     const axis = timeAxisTicks("2026-10-01", "2026-10-31");
     expect(axis.unit).toBe("week");
     expect(axis.ticks.map((tick) => tick.label)).toEqual(["5 ott", "12 ott", "19 ott", "26 ott"]);
-    expect(axis.ticks.every((tick) => tick.line)).toBe(true);
   });
 
   test("un periodo che inizia di lunedì ha la prima linea sul primo giorno", () => {
-    expect(timeAxisTicks("2026-06-01", "2026-06-30").ticks[0]).toEqual({ day: "2026-06-01", label: "1 giu", line: true });
+    expect(timeAxisTicks("2026-06-01", "2026-06-30").ticks[0]).toEqual({ day: "2026-06-01", label: "1 giu" });
   });
 
   test("un mese a cavallo dell'anno: i lunedì di dicembre e gennaio", () => {
@@ -85,10 +83,10 @@ describe("timeAxisTicks", () => {
     const axis = timeAxisTicks("2024-06-15", "2028-03-01");
     expect(axis.unit).toBe("year");
     expect(axis.ticks).toEqual([
-      { day: "2025-01-01", label: "2025", line: true },
-      { day: "2026-01-01", label: "2026", line: true },
-      { day: "2027-01-01", label: "2027", line: true },
-      { day: "2028-01-01", label: "2028", line: true },
+      { day: "2025-01-01", label: "2025" },
+      { day: "2026-01-01", label: "2026" },
+      { day: "2027-01-01", label: "2027" },
+      { day: "2028-01-01", label: "2028" },
     ]);
   });
 });
@@ -219,6 +217,27 @@ describe("alternateLabels", () => {
   test("gennaio a metà: le etichette accanto si nascondono", () => {
     const months = ["giu 2026", "lug", "ago", "set", "ott", "nov", "dic", "gen 2027", "feb", "mar"];
     expect(visibleOf(months)).toEqual(["giu 2026", "ago", "ott", "gen 2027", "mar"]);
+  });
+});
+
+describe("spacedLabels", () => {
+  test("dieci giorni su barre per giorno: restano tutti", () => {
+    const positions = Array.from({ length: 10 }, (_, index) => (index + 0.5) / 10);
+    expect(spacedLabels(positions, 0.1).every(Boolean)).toBe(true);
+  });
+
+  test("dieci giorni per settimana tagliati in tre barre: i nomi troppo vicini si nascondono", () => {
+    // sab–dom, lun–dom, lun: la settimana intera sta in un terzo della larghezza
+    const series = buckets("2026-10-10", "2026-10-19", "settimana");
+    const axis = chartAxis(series, "settimana");
+    expect(axis.unit).toBe("day");
+    const visible = spacedLabels(axis.marks.map((mark) => mark.at), 0.1);
+    const shown = axis.marks.filter((_, index) => visible[index]);
+    expect(shown.length).toBeLessThan(axis.marks.length);
+    for (let index = 1; index < shown.length; index += 1) {
+      expect((shown[index]?.at ?? 0) - (shown[index - 1]?.at ?? 0)).toBeGreaterThanOrEqual(0.1 - 1e-9);
+    }
+    expect(visible[0]).toBe(true);
   });
 });
 
