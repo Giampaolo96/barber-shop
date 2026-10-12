@@ -78,6 +78,92 @@ export function bucketPosition(
   return (index + offset) / buckets.length;
 }
 
+export type ChartAxisMark = {
+  /** Giorno "YYYY-MM-DD" della tacca. */
+  day: string;
+  label: string;
+  /** Centro (0..1) della barra a cui appartiene l'etichetta. */
+  at: number;
+  /** Indice della barra alla cui sinistra, sul confine con la precedente, passa la linea; null senza linea. */
+  line: number | null;
+};
+
+/**
+ * Asse X sopra le barre dell'andamento. Le linee cadono sempre sul confine fra due bucket, mai
+ * dentro una barra; l'etichetta sta sotto la barra che inizia sulla linea.
+ * - Barre per mese: un'etichetta sotto ogni barra, una linea solo fra due anni diversi.
+ * - Nomi dei giorni: al centro del loro giorno, senza linee.
+ * - Lunedì e mesi su barre per giorno o per settimana: sul bucket che inizia in quel giorno; se non
+ *   ce n'è uno (inizio mese a metà settimana) sul confine più vicino, e la tacca salta se è la fine
+ *   del periodo o un confine già usato.
+ * `perBar` dice se le etichette vanno centrate ciascuna sotto la propria barra.
+ */
+export function chartAxis(
+  buckets: readonly { start: string; end: string }[],
+  granularity: "giorno" | "settimana" | "mese",
+): { unit: TimeAxisUnit; perBar: boolean; marks: ChartAxisMark[] } {
+  const first = buckets[0];
+  const last = buckets[buckets.length - 1];
+  if (!first || !last) return { unit: "day", perBar: true, marks: [] };
+  const count = buckets.length;
+
+  if (granularity === "mese") {
+    const marks = buckets.map((bucket, index) => {
+      const january = bucket.start.slice(5, 7) === "01";
+      return {
+        day: bucket.start,
+        label: label(bucket.start, index === 0 || january ? "LLL yyyy" : "LLL"),
+        at: (index + 0.5) / count,
+        line: index > 0 && january ? index : null,
+      };
+    });
+    return { unit: "month", perBar: true, marks };
+  }
+
+  const { unit, ticks } = timeAxisTicks(first.start, last.end);
+  if (unit === "day") {
+    const marks = ticks.flatMap((tick) => {
+      const at = bucketPosition(tick.day, buckets, 0.5);
+      return at === null ? [] : [{ day: tick.day, label: tick.label, at, line: null }];
+    });
+    return { unit, perBar: true, marks };
+  }
+
+  // Confini possibili: l'inizio di ogni bucket e la fine del periodo (indice `count`).
+  const boundaries = [...buckets.map((bucket) => bucket.start), addDays(last.end, 1)];
+  const distance = (a: string, b: string): number => Math.abs(daysInclusive(a, b) - 1);
+  const used = new Set<number>();
+  const marks: ChartAxisMark[] = [];
+  for (const tick of ticks) {
+    let index = boundaries.indexOf(tick.day);
+    if (index === -1) {
+      index = 0;
+      boundaries.forEach((boundary, candidate) => {
+        if (distance(tick.day, boundary) <= distance(tick.day, boundaries[index])) index = candidate;
+      });
+    }
+    if (index === count || used.has(index)) continue;
+    used.add(index);
+    marks.push({ day: tick.day, label: tick.label, at: (index + 0.5) / count, line: index > 0 ? index : null });
+  }
+  return { unit, perBar: false, marks };
+}
+
+/**
+ * Etichette dell'asse X da tenere quando non ci stanno tutte (una sì e una no). Le etichette con
+ * l'anno ("gen 2027") restano sempre; le altre si alternano senza mai stare accanto a una visibile.
+ * La prima etichetta perde la precedenza se la seconda ha l'anno: due anni vicini non ci stanno.
+ */
+export function alternateLabels(labels: readonly string[]): boolean[] {
+  const hasYear = (index: number): boolean => /\s\d{4}$/.test(labels[index] ?? "");
+  const pinned = labels.map((_, index) => hasYear(index) && !(index === 0 && hasYear(1)));
+  const visible: boolean[] = [];
+  labels.forEach((_, index) => {
+    visible.push(pinned[index] || (!visible[index - 1] && !pinned[index + 1]));
+  });
+  return visible;
+}
+
 /** Tipo di valore sull'asse Y: conteggi interi, centesimi mostrati in euro interi, tassi 0..1. */
 export type ValueKind = "count" | "cents" | "rate";
 

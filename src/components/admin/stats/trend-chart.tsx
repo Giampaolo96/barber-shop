@@ -2,16 +2,21 @@ import { it } from "@/i18n/it";
 import { fillText } from "@/lib/admin/text";
 import { formatCents } from "@/lib/domain/money";
 import type { Granularity, StatsBucket } from "@/lib/stats/aggregate";
-import { bucketPosition, formatAxisValue, niceScale, timeAxisTicks } from "@/lib/stats/axes";
+import { alternateLabels, chartAxis, formatAxisValue, niceScale } from "@/lib/stats/axes";
 import { bucketLabel } from "@/lib/stats/format";
 import type { StatsChart } from "@/lib/stats/schemas";
 
 const t = it.admin.stats;
 
-// Posizione orizzontale nell'area delle barre, che hanno uno spazio di 0.125rem fra l'una e l'altra:
-// `p` 0 è il bordo sinistro, i bordi fra due bucket cadono a metà dello spazio.
-const BAR_GAP = "0.125rem";
-const xAt = (p: number): string => `calc(${p} * (100% + ${BAR_GAP}) - ${BAR_GAP} / 2)`;
+// Spazio fra le barre: 0.125rem, ma mai più di un quarto dello spazio di una barra, altrimenti con
+// molte barre (un anno per giorno a 390 px) gli spazi da soli superano la larghezza del grafico.
+// `unit` è "%" sotto un elemento largo quanto l'area delle barre, "cqw" dentro l'area stessa (che è
+// un container), dove le percentuali si riferirebbero alla singola barra.
+const barGap = (count: number, unit: "%" | "cqw"): string => `min(0.125rem, ${25 / count}${unit})`;
+
+// Posizione orizzontale delle etichette sotto le barre: `p` 0 è il bordo sinistro, i confini fra
+// due bucket cadono a metà dello spazio fra le barre.
+const xAt = (p: number, gap: string): string => `calc(${p} * (100% + ${gap}) - ${gap} / 2)`;
 
 // Oltre queste etichette sull'asse X, sotto i 640 px se ne mostra una sì e una no. I nomi dei
 // giorni (al massimo 10, di tre lettere) ci stanno sempre. Le date dei lunedì fino a 5: con 6
@@ -39,20 +44,18 @@ export function TrendChart({
   const kind = chart === "incasso" ? "cents" : "count";
   const max = Math.max(0, ...series.map(value));
   const peak = series.find((bucket) => value(bucket) === max);
-  const first = series[0];
-  const last = series[series.length - 1];
 
   const { ticks: yTicks, top } = niceScale(max, kind);
   const yLabels = yTicks.map((tick) => formatAxisValue(tick, kind));
   // Larghezza dell'etichetta più lunga più lo spazio fino alle linee (right-2)
   const yWidth = `calc(${Math.max(...yLabels.map((text) => text.length))}ch + 0.75rem)`;
 
-  const xAxis = first && last ? timeAxisTicks(first.start, last.end) : { unit: "day" as const, ticks: [] };
-  const xTicks = xAxis.ticks.flatMap((tick) => {
-    const p = bucketPosition(tick.day, series, tick.line ? 0 : 0.5);
-    return p === null ? [] : [{ ...tick, p }];
-  });
-  const alternate = xTicks.length > MOBILE_X_LABELS[xAxis.unit];
+  const gap = barGap(Math.max(series.length, 1), "cqw");
+  const labelGap = barGap(Math.max(series.length, 1), "%");
+  const xAxis = chartAxis(series, granularity);
+  const mobileVisible =
+    xAxis.marks.length > MOBILE_X_LABELS[xAxis.unit] ? alternateLabels(xAxis.marks.map((mark) => mark.label)) : null;
+  const lineBefore = new Set(xAxis.marks.flatMap((mark) => (mark.line === null ? [] : [mark.line])));
 
   return (
     <figure className="flex flex-col gap-2">
@@ -85,7 +88,7 @@ export function TrendChart({
               ))}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="relative h-48 border-b border-ink">
+              <div className="relative h-48 border-b border-ink @container">
                 {yTicks
                   .filter((tick) => tick > 0)
                   .map((tick) => (
@@ -95,20 +98,28 @@ export function TrendChart({
                       style={{ bottom: `${(tick / top) * 100}%` }}
                     />
                   ))}
-                {xTicks
-                  .filter((tick) => tick.line && tick.p > 0)
-                  .map((tick) => (
-                    <div
-                      key={tick.day}
-                      className="absolute inset-y-0 w-px -translate-x-1/2 bg-line"
-                      style={{ left: xAt(tick.p) }}
-                    />
-                  ))}
-                <div className="relative flex h-full items-end gap-0.5">
-                  {series.map((bucket) => {
+                <div className="relative flex h-full items-end" style={{ columnGap: gap }}>
+                  {series.map((bucket, index) => {
                     const amount = value(bucket);
                     return (
-                      <div key={bucket.start} className="group relative flex h-full min-w-0 flex-1 items-end">
+                      <div
+                        key={bucket.start}
+                        data-bar={bucket.start}
+                        className="group relative flex h-full min-w-0 flex-1 items-end"
+                      >
+                        {/*
+                          Linea sul confine con la barra precedente: sta nello spazio fra le due
+                          barre, larga al massimo quanto lo spazio, quindi non le tocca mai.
+                        */}
+                        {lineBefore.has(index) && (
+                          <div
+                            data-axis-line={bucket.start}
+                            className="absolute inset-y-0 right-full flex justify-center"
+                            style={{ width: gap }}
+                          >
+                            <div className="h-full max-w-full bg-line" style={{ width: "1px" }} />
+                          </div>
+                        )}
                         {amount > 0 && (
                           <div
                             className="w-full bg-ink group-hover:bg-muted-foreground"
@@ -124,21 +135,25 @@ export function TrendChart({
                 </div>
               </div>
               {/*
-                Asse X: l'etichetta di una linea si sposta a sinistra della propria larghezza per la
-                sua posizione (0 a sinistra, metà al centro, tutta a destra), così ai bordi resta
-                dentro; i nomi dei giorni stanno al centro del loro giorno, largo abbastanza.
+                Asse X: ogni etichetta sta sotto la sua barra. Quelle dei giorni e dei mesi (una per
+                barra) sono centrate; quelle dei lunedì e dei mesi sui confini si spostano a sinistra
+                della propria larghezza per la loro posizione (0 a sinistra, metà al centro, tutta a
+                destra), così ai bordi restano dentro.
               */}
               <div className={`relative h-6 ${xAxis.unit === "month" ? "max-sm:h-10" : ""}`}>
-                {xTicks.map((tick, index) => {
-                  const [main, ...rest] = xAxis.unit === "month" ? tick.label.split(" ") : [tick.label];
+                {xAxis.marks.map((mark, index) => {
+                  const [main, ...rest] = xAxis.unit === "month" ? mark.label.split(" ") : [mark.label];
                   return (
                     <span
-                      key={tick.day}
-                      data-axis-x={tick.day}
+                      key={mark.day}
+                      data-axis-x={mark.day}
                       className={`absolute top-1.5 text-center leading-tight whitespace-nowrap ${
-                        alternate && index % 2 === 1 ? "max-sm:hidden" : ""
+                        mobileVisible && !mobileVisible[index] ? "max-sm:hidden" : ""
                       }`}
-                      style={{ left: tick.p === 0 ? 0 : xAt(tick.p), transform: `translateX(${tick.line ? -tick.p * 100 : -50}%)` }}
+                      style={{
+                        left: xAt(mark.at, labelGap),
+                        transform: `translateX(${xAxis.perBar ? -50 : -mark.at * 100}%)`,
+                      }}
                     >
                       {main}
                       {/* Su mobile l'anno va a capo sotto il mese, per lasciare spazio alle altre etichette */}

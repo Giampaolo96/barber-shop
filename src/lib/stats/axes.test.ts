@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { bucketPosition, formatAxisValue, niceScale, timeAxisTicks } from "./axes";
+import { alternateLabels, bucketPosition, chartAxis, formatAxisValue, niceScale, timeAxisTicks } from "./axes";
+import { buildStats, type Granularity } from "./aggregate";
 
 const labels = (start: string, end: string) => timeAxisTicks(start, end).ticks.map((tick) => tick.label);
 
@@ -114,6 +115,110 @@ describe("bucketPosition", () => {
 
   test("fuori dai bucket: null", () => {
     expect(bucketPosition("2026-10-12", weeks)).toBeNull();
+  });
+});
+
+/** Bucket dell'andamento come li costruisce la pagina (bordi tagliati al periodo). */
+const buckets = (from: string, to: string, granularity: Granularity) =>
+  buildStats([], { from, to, granularity }).series.map(({ start, end }) => ({ start, end }));
+
+describe("chartAxis: le linee cadono sui confini fra due barre", () => {
+  test("barre per giorno: la linea del lunedì è il confine fra domenica e lunedì", () => {
+    const series = buckets("2026-10-01", "2026-10-31", "giorno");
+    const axis = chartAxis(series, "giorno");
+    expect(axis.unit).toBe("week");
+    const monday = axis.marks[0];
+    expect(monday).toMatchObject({ day: "2026-10-05", label: "5 ott", line: 4, at: 4.5 / 31 });
+    // Ogni linea coincide con l'inizio di una barra
+    for (const mark of axis.marks) expect(series[mark.line ?? -1]?.start).toBe(mark.day);
+  });
+
+  test("barre per settimana in un mese: una linea a ogni lunedì, sul confine fra due settimane", () => {
+    const series = buckets("2026-10-01", "2026-10-31", "settimana"); // 1–4, 5–11, 12–18, 19–25, 26–31
+    expect(chartAxis(series, "settimana").marks.map((mark) => mark.line)).toEqual([1, 2, 3, 4]);
+  });
+
+  test("barre per settimana su tre mesi: l'inizio del mese va sul lunedì più vicino", () => {
+    const series = buckets("2026-08-01", "2026-10-31", "settimana");
+    const axis = chartAxis(series, "settimana");
+    expect(axis.marks.map((mark) => mark.label)).toEqual(["ago 2026", "set", "ott"]);
+    // 1 ago (sab) è l'inizio del periodo: nessuna linea; 1 set (mar) → lunedì 31 ago; 1 ott (gio) → lunedì 28 set
+    expect(axis.marks.map((mark) => (mark.line === null ? null : series[mark.line]?.start))).toEqual([
+      null,
+      "2026-08-31",
+      "2026-09-28",
+    ]);
+  });
+
+  test("barre per settimana su un anno: dodici mesi, ognuno su un confine diverso", () => {
+    const series = buckets("2026-01-01", "2026-12-31", "settimana");
+    const axis = chartAxis(series, "settimana");
+    expect(axis.marks).toHaveLength(12);
+    const lines = axis.marks.flatMap((mark) => (mark.line === null ? [] : [mark.line]));
+    expect(lines).toHaveLength(11);
+    expect(new Set(lines).size).toBe(lines.length);
+  });
+
+  test("un inizio mese più vicino alla fine del periodo che a un lunedì non ha tacca", () => {
+    // 1 nov 2026 è domenica: il confine più vicino è la fine del periodo
+    const series = buckets("2026-08-03", "2026-11-01", "settimana");
+    expect(chartAxis(series, "settimana").marks.map((mark) => mark.label)).toEqual(["set 2026", "ott"]);
+  });
+
+  test("barre per mese: un'etichetta sotto ogni barra, una linea solo fra due anni", () => {
+    const series = buckets("2026-11-01", "2027-02-28", "mese");
+    const axis = chartAxis(series, "mese");
+    expect(axis.perBar).toBe(true);
+    expect(axis.marks).toEqual([
+      { day: "2026-11-01", label: "nov 2026", at: 0.5 / 4, line: null },
+      { day: "2026-12-01", label: "dic", at: 1.5 / 4, line: null },
+      { day: "2027-01-01", label: "gen 2027", at: 2.5 / 4, line: 2 },
+      { day: "2027-02-01", label: "feb", at: 3.5 / 4, line: null },
+    ]);
+  });
+
+  test("barre per mese in un mese solo: nessuna linea dentro la barra", () => {
+    const axis = chartAxis(buckets("2026-10-01", "2026-10-31", "mese"), "mese");
+    expect(axis.marks).toEqual([{ day: "2026-10-01", label: "ott 2026", at: 0.5, line: null }]);
+  });
+
+  test("una settimana: i nomi dei giorni al centro, anche su una sola barra settimanale", () => {
+    expect(chartAxis(buckets("2026-10-19", "2026-10-25", "giorno"), "giorno").marks[0]).toEqual({
+      day: "2026-10-19",
+      label: "lun",
+      at: 0.5 / 7,
+      line: null,
+    });
+    const week = chartAxis(buckets("2026-10-19", "2026-10-25", "settimana"), "settimana");
+    expect(week.marks.map((mark) => mark.label)).toEqual(["lun", "mar", "mer", "gio", "ven", "sab", "dom"]);
+    expect(week.marks.every((mark) => mark.line === null)).toBe(true);
+  });
+
+  test("nessun bucket: nessuna tacca", () => {
+    expect(chartAxis([], "giorno").marks).toEqual([]);
+  });
+});
+
+describe("alternateLabels", () => {
+  const visibleOf = (labels: string[]) => labels.filter((_, index) => alternateLabels(labels)[index]);
+
+  test("una sì e una no, partendo dalla prima", () => {
+    expect(visibleOf(["5 ott", "12 ott", "19 ott", "26 ott", "2 nov", "9 nov"])).toEqual(["5 ott", "19 ott", "2 nov"]);
+  });
+
+  test("un anno da gennaio: l'anno sul primo resta, poi un mese sì e uno no", () => {
+    const months = ["gen 2026", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+    expect(visibleOf(months)).toEqual(["gen 2026", "mar", "mag", "lug", "set", "nov"]);
+  });
+
+  test("da dicembre: gennaio con l'anno resta visibile e il primo mese lascia il posto", () => {
+    const months = ["dic 2025", "gen 2026", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov"];
+    expect(visibleOf(months)).toEqual(["gen 2026", "mar", "mag", "lug", "set", "nov"]);
+  });
+
+  test("gennaio a metà: le etichette accanto si nascondono", () => {
+    const months = ["giu 2026", "lug", "ago", "set", "ott", "nov", "dic", "gen 2027", "feb", "mar"];
+    expect(visibleOf(months)).toEqual(["giu 2026", "ago", "ott", "gen 2027", "mar"]);
   });
 });
 

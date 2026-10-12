@@ -2,7 +2,9 @@
 // periodo offerto dalla pagina (settimana, mese, 3 mesi, anno) compaiono le etichette attese
 // sull'asse X (nomi dei giorni, date dei lunedì, mesi con l'anno sul primo) e l'ultima tacca
 // dell'asse Y è ≥ del valore più alto della serie, letto dalla tabella dell'andamento. A 390 px
-// le etichette visibili non si sovrappongono e restano dentro il grafico.
+// le etichette visibili non si sovrappongono e restano dentro il grafico. Ogni linea verticale cade
+// sul confine fra due barre (nello spazio fra la barra precedente e quella che inizia lì) e non le
+// interseca, con qualunque raggruppamento.
 //
 // Dati: prenotazioni completate su Luca / Taglio in un lunedì di gennaio fra il 1991 e il 1999,
 // anni che nessun altro e2e usa. Pulizia nel finally.
@@ -48,6 +50,37 @@ const lastYTick = async (page: Page): Promise<number> => {
   expect(values.length).toBeGreaterThanOrEqual(3);
   expect(values.length).toBeLessThanOrEqual(5);
   return Math.max(...values);
+};
+
+/**
+ * Ogni linea verticale [data-axis-line] sta fra la barra precedente e la barra del giorno indicato,
+ * senza toccarle. Restituisce il numero di linee.
+ */
+const expectLinesBetweenBars = async (page: Page): Promise<number> => {
+  const lines = await page.getByTestId('trend-chart').evaluate((chart) => {
+    const bars = [...chart.querySelectorAll('[data-bar]')];
+    return [...chart.querySelectorAll('[data-axis-line]')].map((line) => {
+      const day = line.getAttribute('data-axis-line');
+      const index = bars.findIndex((bar) => bar.getAttribute('data-bar') === day);
+      const drawn = (line.firstElementChild ?? line).getBoundingClientRect();
+      return {
+        day,
+        index,
+        left: drawn.left,
+        right: drawn.right,
+        width: drawn.width,
+        previousRight: bars[index - 1]?.getBoundingClientRect().right ?? Number.NaN,
+        nextLeft: bars[index]?.getBoundingClientRect().left ?? Number.NaN,
+      };
+    });
+  });
+  for (const line of lines) {
+    expect(line.index, `linea ${line.day} senza la sua barra`).toBeGreaterThan(0);
+    expect(line.width, `linea ${line.day} invisibile`).toBeGreaterThan(0);
+    expect(line.left, `linea ${line.day} dentro la barra precedente`).toBeGreaterThanOrEqual(line.previousRight - 0.01);
+    expect(line.right, `linea ${line.day} dentro la barra del confine`).toBeLessThanOrEqual(line.nextLeft + 0.01);
+  }
+  return lines.length;
 };
 
 /**
@@ -113,8 +146,25 @@ test.describe('Statistiche: assi di riferimento del grafico', () => {
             const max = await trendMax(page, column);
             expect(max).toBeGreaterThan(0);
             expect(await lastYTick(page)).toBeGreaterThanOrEqual(max);
+            await expectLinesBetweenBars(page);
           });
         }
+      }
+
+      // Barre per settimana (l'inizio del mese cade a metà settimana) e per mese (una linea fra due
+      // anni): le linee restano sui confini fra due barre.
+      const grouped = [
+        { from: `${year}-01-01`, to: `${year}-03-31`, granularity: 'settimana', lines: 2 },
+        { from: `${year}-01-01`, to: `${year}-12-31`, granularity: 'settimana', lines: 11 },
+        { from: `${year - 1}-11-01`, to: `${year}-02-28`, granularity: 'mese', lines: 1 },
+        { from: `${year}-01-01`, to: `${year}-01-31`, granularity: 'mese', lines: 0 },
+      ];
+      for (const period of grouped) {
+        await test.step(`${period.from} – ${period.to} per ${period.granularity}`, async () => {
+          await page.goto(`/admin/statistiche?dal=${period.from}&al=${period.to}&raggruppa=${period.granularity}`);
+          await expect(page.getByTestId('trend-chart')).toBeVisible();
+          expect(await expectLinesBetweenBars(page)).toBe(period.lines);
+        });
       }
     } finally {
       await cleanup(api, { bookings });
@@ -144,6 +194,7 @@ test.describe('Statistiche: assi di riferimento del grafico', () => {
         for (const chart of ['prenotazioni', 'incasso']) {
           await test.step(`${from} – ${to}, ${chart}`, async () => {
             await page.goto(`/admin/statistiche?dal=${from}&al=${to}&grafico=${chart}`);
+            await expectLinesBetweenBars(page);
             const area = await page.getByTestId('trend-chart').boundingBox();
             expect(area).not.toBeNull();
             const boxes = [];
