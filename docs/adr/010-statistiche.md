@@ -33,7 +33,7 @@ SPEC §6.9 chiede prenotazioni e incasso stimato per giorno, settimana e mese, p
 - La lettura dal database sta in `src/lib/db/stats.ts`.
 
 **Pagina** `/admin/statistiche`, solo admin (il barbiere non vede neppure le proprie)
-- Modulo GET con periodo, scorciatoie (settimana, mese, ultimi 3 mesi di calendario, anno), raggruppamento, barbiere e casella demo; riquadri dei totali; grafico a barre dell'andamento (prenotazioni o incasso) in HTML e CSS con i token del tema, nascosto agli screen reader; tabella dell'andamento sotto come versione accessibile; tabelle per barbiere e per servizio.
+- Modulo GET con periodo, scorciatoie (settimana, mese, ultimi 3 mesi di calendario, anno), raggruppamento (predefinito in base all'ampiezza del periodo se l'admin non lo sceglie, SPEC §6.9), barbiere e casella demo; riquadri dei totali; grafico a barre dell'andamento (prenotazioni o incasso) in HTML e CSS con i token del tema, nascosto agli screen reader; tabella dell'andamento sotto come versione accessibile; tabelle per barbiere e per servizio.
 
 ## Conseguenze
 

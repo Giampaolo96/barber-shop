@@ -126,6 +126,7 @@ Il calcolo avviene lato server (funzione Postgres `security definer` o server ac
 8. **Impostazioni**: i parametri della sezione 3.1.
 9. **Statistiche base** (solo admin, ADR 010): prenotazioni e incasso stimato per giorno/settimana/mese, per barbiere e per servizio, tasso di no-show.
    - Ogni prenotazione conta nel giorno dell'appuntamento (`starts_at` nella timezone del negozio); settimane da lunedì; periodo scelto dall'admin (predefinito il mese corrente), al massimo 366 giorni.
+   - Raggruppamento dell'andamento ("Mostra per"): se l'admin non lo sceglie dipende dall'ampiezza del periodo, fino a 62 giorni per giorno, fino a 120 per settimana, oltre per mese (quindi settimana e mese per giorno, ultimi 3 mesi per settimana, anno per mese). Una scelta esplicita (anche nell'URL) vale su qualunque periodo e resta passando da un periodo rapido all'altro; "Automatico" torna al predefinito.
    - **Prenotazioni**: stati `confirmed`, `completed` e `no_show`; le cancellate si contano a parte (dal cliente e dal negozio).
    - **Incasso stimato**: somma di `price_cents` delle `completed` e `confirmed`.
    - **Tasso di no-show**: `no_show` diviso le prenotazioni non cancellate già iniziate ("—" se nessuna).

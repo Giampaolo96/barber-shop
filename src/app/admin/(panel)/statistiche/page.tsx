@@ -16,10 +16,12 @@ import { formatCents } from "@/lib/domain/money";
 import { buildStats, type Stats, type StatsRow } from "@/lib/stats/aggregate";
 import { bucketLabel, formatRate } from "@/lib/stats/format";
 import { STATS_PATH, statsPath, statsToUpdatePath } from "@/lib/stats/paths";
-import { periodShortcut, STATS_SHORTCUTS } from "@/lib/stats/periods";
-import { type StatsParams, statsSearchParamsSchema } from "@/lib/stats/schemas";
+import { defaultGranularity, periodShortcut, STATS_SHORTCUTS } from "@/lib/stats/periods";
+import { chosenGranularity, type StatsParams, statsSearchParamsSchema } from "@/lib/stats/schemas";
 
 const t = it.admin.stats;
+
+const granularityLabel = { giorno: t.granularity.day, settimana: t.granularity.week, mese: t.granularity.month } as const;
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -87,6 +89,9 @@ export default async function AdminStatsPage({ searchParams }: { searchParams: P
     grafico: first(raw.grafico),
   });
   const data = await loadStats(supabase, params);
+  // Raggruppamento scelto dall'admin: vale anche cambiando periodo o grafico. Senza scelta ogni
+  // periodo usa il proprio predefinito (defaultGranularity).
+  const keepGranularity = chosenGranularity(first(raw.raggruppa)) !== null;
 
   return (
     <>
@@ -104,7 +109,15 @@ export default async function AdminStatsPage({ searchParams }: { searchParams: P
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="statsGroupBy">{t.groupByLabel}</Label>
-            <select id="statsGroupBy" name="raggruppa" defaultValue={params.granularity} className={selectClass}>
+            <select
+              id="statsGroupBy"
+              name="raggruppa"
+              defaultValue={keepGranularity ? params.granularity : ""}
+              className={selectClass}
+            >
+              <option value="">
+                {fillText(t.granularity.auto, { granularity: granularityLabel[params.granularity] })}
+              </option>
               <option value="giorno">{t.granularity.day}</option>
               <option value="settimana">{t.granularity.week}</option>
               <option value="mese">{t.granularity.month}</option>
@@ -143,7 +156,7 @@ export default async function AdminStatsPage({ searchParams }: { searchParams: P
           {STATS_SHORTCUTS.map((key) => (
             <Link
               key={key}
-              href={statsPath({ ...params, ...periodShortcut(key, today) })}
+              href={shortcutPath(params, periodShortcut(key, today), keepGranularity)}
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               {t.shortcuts[key]}
@@ -161,13 +174,27 @@ export default async function AdminStatsPage({ searchParams }: { searchParams: P
           {t.error}
         </p>
       ) : (
-        <StatsContent data={data} params={params} />
+        <StatsContent data={data} params={params} keepGranularity={keepGranularity} />
       )}
     </>
   );
 }
 
-function StatsContent({ data, params }: { data: StatsData; params: StatsParams }) {
+/** Periodo rapido: tiene il raggruppamento scelto, altrimenti prende il predefinito del nuovo periodo. */
+function shortcutPath(params: StatsParams, period: { from: string; to: string }, keepGranularity: boolean): string {
+  const granularity = keepGranularity ? params.granularity : defaultGranularity(period);
+  return statsPath({ ...params, ...period, granularity }, { keepGranularity });
+}
+
+function StatsContent({
+  data,
+  params,
+  keepGranularity,
+}: {
+  data: StatsData;
+  params: StatsParams;
+  keepGranularity: boolean;
+}) {
   const { stats, barbers, services } = data;
   const { totals } = stats;
   const tiles = [
@@ -232,7 +259,7 @@ function StatsContent({ data, params }: { data: StatsData; params: StatsParams }
           {(["prenotazioni", "incasso"] as const).map((chart) => (
             <Link
               key={chart}
-              href={statsPath({ ...params, chart })}
+              href={statsPath({ ...params, chart }, { keepGranularity })}
               aria-current={params.chart === chart ? "true" : undefined}
               className={buttonVariants({ variant: params.chart === chart ? "default" : "outline", size: "sm" })}
             >

@@ -3,7 +3,7 @@
 import { z } from "zod";
 import type { Granularity } from "./aggregate";
 import { daysInclusive, isValidLocalDate } from "./dates";
-import { periodShortcut } from "./periods";
+import { defaultGranularity, periodShortcut } from "./periods";
 
 export const STATS_MAX_DAYS = 366;
 
@@ -21,10 +21,18 @@ export type StatsParams = {
 };
 
 const optionalText = z.string().optional().catch(undefined);
+
+/** Raggruppamento scelto dall'admin (nell'URL), o null se manca o non è valido. */
+export function chosenGranularity(value: string | undefined): Granularity | null {
+  return STATS_GRANULARITIES.find((candidate) => candidate === value) ?? null;
+}
 const pick = <T extends string>(allowed: readonly T[], value: string | undefined, fallback: T): T =>
   allowed.find((candidate) => candidate === value) ?? fallback;
 
-/** `today` è il giorno locale del negozio: il periodo predefinito è il suo mese di calendario. */
+/**
+ * `today` è il giorno locale del negozio: il periodo predefinito è il suo mese di calendario. Senza
+ * un raggruppamento scelto vale quello predefinito del periodo (defaultGranularity).
+ */
 export function statsSearchParamsSchema(today: string) {
   return z
     .object({
@@ -47,7 +55,7 @@ export function statsSearchParamsSchema(today: string) {
       const period = validPeriod ? { from: dal, to: al } : periodShortcut("thisMonth", today);
       return {
         ...period,
-        granularity: pick(STATS_GRANULARITIES, raggruppa, "giorno"),
+        granularity: chosenGranularity(raggruppa) ?? defaultGranularity(period),
         barberId: barbiere !== undefined && z.uuid().safeParse(barbiere).success ? barbiere : null,
         excludeDemo: escludi_demo === "1" || escludi_demo === "on",
         chart: pick(STATS_CHARTS, grafico, "prenotazioni"),

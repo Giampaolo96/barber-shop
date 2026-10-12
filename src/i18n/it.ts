@@ -220,7 +220,7 @@ export const it = {
       fromLabel: "Dal",
       toLabel: "Al",
       groupByLabel: "Mostra per",
-      granularity: { day: "Giorno", week: "Settimana", month: "Mese" },
+      granularity: { day: "Giorno", week: "Settimana", month: "Mese", auto: "Automatico ({granularity})" },
       barberLabel: "Barbiere",
       allBarbers: "Tutti i barbieri",
       excludeDemo: "Escludi prenotazioni demo",
