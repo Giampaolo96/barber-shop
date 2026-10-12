@@ -5,7 +5,8 @@
 // ripetuta compare una volta sola e vale la prima occorrenza.
 import { formatInTimeZone } from "date-fns-tz";
 import { addDays, exactLocalDateTimeToUtc, localDateOf, startOfLocalDay } from "@/lib/domain/local-time";
-import type { Interval, LocalBand } from "./grid";
+import { covers, type Interval, type LocalBand } from "./grid";
+import { nowLineMinutes } from "./now-line";
 import type { BookingStatus, StaffRole } from "./transitions";
 
 /** Asse delle righe: minuti locali da `startMin` (incluso) a `endMin` (escluso), ogni `granularityMin`. */
@@ -23,7 +24,8 @@ const minutesOf = (time: string): number => {
   return hours * 60 + minutes;
 };
 
-const hhmm = (minutes: number): string =>
+/** Minuti dalla mezzanotte → "HH:MM" (etichette delle righe e parametro `ora`). */
+export const hhmm = (minutes: number): string =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
 /** Minuto locale dell'istante (orologio del negozio). */
@@ -77,9 +79,6 @@ export function slotInstant(date: string, minutes: number, tz: string): Date | n
   return same ? earlier : instant;
 }
 
-const covers = (interval: Interval, at: number): boolean =>
-  interval.startsAt.getTime() <= at && at < interval.endsAt.getTime();
-
 /**
  * Stato di ogni riga del giorno (stesso ordine di `grid.rows`), come nella vista giorno: occupate
  * fino a `blocked_until` solo dalle confirmed; fuori orario, assenze e chiusure sono sfondo ma restano
@@ -103,17 +102,16 @@ export function daySlots(input: {
   return input.grid.rows.map((minutes) => {
     const instant = slotInstant(input.date, minutes, input.tz);
     if (!instant) return { kind: "nonexistent", past: false, clickable: false };
-    const at = instant.getTime();
-    const kind: SlotKind = busy.some((interval) => covers(interval, at))
+    const kind: SlotKind = busy.some((interval) => covers(interval, instant))
       ? "busy"
-      : input.closures.some((interval) => covers(interval, at))
+      : input.closures.some((interval) => covers(interval, instant))
         ? "closure"
-        : input.timeOff.some((interval) => covers(interval, at))
+        : input.timeOff.some((interval) => covers(interval, instant))
           ? "timeOff"
-          : input.bands.some((interval) => covers(interval, at))
+          : input.bands.some((interval) => covers(interval, instant))
             ? "free"
             : "outside";
-    return { kind, past: at <= input.now.getTime(), clickable: input.barberActive && kind !== "busy" };
+    return { kind, past: instant.getTime() <= input.now.getTime(), clickable: input.barberActive && kind !== "busy" };
   });
 }
 
@@ -169,7 +167,6 @@ export function weekDropTarget(input: {
   return { kind: "move", date: overDate, startsAt };
 }
 
-
 /**
  * Riga di inizio e righe occupate da un blocco nella colonna del giorno `date`, ritagliato al giorno
  * (00:00–24:00 locali) e all'asse; null se non si vede. Come blockPosition della vista giorno, ma
@@ -193,4 +190,22 @@ export function dayBlockPosition(
   const row = Math.floor((start - grid.startMin) / grid.granularityMin);
   const last = Math.ceil((end - grid.startMin) / grid.granularityMin);
   return { row, span: Math.max(last - row, 1) };
+}
+
+/**
+ * Linea dell'ora attuale nella vista settimana: colonna del giorno (indice in `dates`) e minuti
+ * dall'inizio dell'asse, con nowLineMinutes come nella vista giorno; null se oggi non è nella
+ * settimana o l'ora è fuori dall'asse. Nei giorni del cambio d'ora i minuti sono reali mentre l'asse
+ * segue l'orologio: limite noto (ADR 008), riguarda solo la notte.
+ */
+export function weekNowLine(
+  now: Date,
+  dates: string[],
+  grid: WeekGrid,
+  tz: string,
+): { index: number; offset: number } | null {
+  const index = dates.indexOf(localDateOf(now, tz));
+  if (index < 0) return null;
+  const offset = nowLineMinutes(now, dates[index], tz, grid.startMin, grid.endMin);
+  return offset === null ? null : { index, offset };
 }

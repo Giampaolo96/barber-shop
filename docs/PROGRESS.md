@@ -1014,7 +1014,7 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 - Trascinando verso il bordo destro o sinistro la griglia scorre e l'anteprima "giorno, ora" segue; rilasciando sopra la colonna delle ore o le intestazioni non succede nulla.
 - All'apertura con data di oggi la colonna di oggi è accanto alle ore; tocco su uno slot libero apre la nuova prenotazione precompilata.
 
-**Migliorie della review** (non applicate, decide l'utente)
+**Migliorie della review** (1, 3, 4, 7 applicate su richiesta dell'utente nel commit "refactor: rifiniture vista settimana"; 2 e 5 annotate come limiti noti nell'ADR 008; 6 lasciata, perché `past` è asserito dai test di accettazione)
 1. Linea dell'ora della settimana senza test: estrarre `locate` in una funzione pura e testarla.
 2. Nei giorni del cambio d'ora la linea dell'ora è sfasata di un'ora se l'asse parte prima delle 02:00–03:00 (minuti reali su asse a orologio): usare il minuto locale o annotarlo come limite noto.
 3. Duplicazioni: `hhmm` in `week-grid.ts` e `week-grid.tsx`, `covers` in due varianti, link "Nuova prenotazione" ripetuto nei due rami della pagina.
@@ -1022,3 +1022,11 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 5. `cancelledCount` conta anche cancellate iniziate la domenica precedente e non mostrate; una confermata iniziata domenica sera non segna occupate le prime righe del lunedì (il server rifiuta comunque).
 6. Campo `past` di `daySlots` non usato dall'interfaccia.
 7. Riga vuota doppia in `week-grid.ts`.
+
+**Come sono state applicate le migliorie**
+1. Linea dell'ora della settimana: funzione pura `weekNowLine` in `week-grid.ts` (usa `nowLineMinutes`), test in `calendar-week-block.test.ts` (+2).
+3. `hhmm` esportata da `week-grid.ts`; `covers` unica in `grid.ts` (vista giorno e settimana); pulsante `NewBookingLink` usato nei due rami della pagina.
+4. Intestazioni dei giorni: area di tocco 44 px solo con `pointer: coarse` (pseudo-elemento larga quanto la colonna), aspetto invariato (intestazione sempre alta 29 px, verificato con Playwright MCP a 390 px in un contesto touch).
+7. Riga vuota doppia rimossa.
+
+**Esiti dopo le migliorie**: lint ok, typecheck ok, Vitest 1791/1791, Playwright 126/126 ("eseguiti 126 su 126"). Nessun test di accettazione modificato.

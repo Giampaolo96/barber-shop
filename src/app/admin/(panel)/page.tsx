@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { CalendarToolbar } from "@/components/admin/calendar/calendar-toolbar";
 import { DayGridView } from "@/components/admin/calendar/day-grid";
+import { NewBookingLink } from "@/components/admin/calendar/new-booking-link";
 import { WeekGridView } from "@/components/admin/calendar/week-grid";
 import { it } from "@/i18n/it";
 import type { CurrentUser } from "@/lib/auth/profile";
@@ -14,7 +14,6 @@ import {
   loadWeekView,
   type WeekViewData,
 } from "@/lib/calendar/page-data";
-import { newBookingPath } from "@/lib/calendar/paths";
 import { type CalendarBarber, type CalendarSettings, getCalendarSettings } from "@/lib/calendar/queries";
 import { type CalendarQuery, parseCalendarQuery } from "@/lib/calendar/view";
 import { createClient } from "@/lib/db/server";
@@ -86,12 +85,7 @@ export default async function AdminCalendarPage({ searchParams }: { searchParams
           cancelledCount={week.cancelledCount}
         />
         {week.barberId && weekBarberActive && (
-          <Link
-            href={newBookingPath({ barberId: week.barberId, date: dates.includes(today) ? today : dates[0] })}
-            className="inline-flex min-h-11 items-center self-start rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
-          >
-            {t.newBooking}
-          </Link>
+          <NewBookingLink barberId={week.barberId} date={dates.includes(today) ? today : dates[0]} />
         )}
         {week.barberId && week.grid ? (
           <WeekGridView
@@ -125,14 +119,7 @@ export default async function AdminCalendarPage({ searchParams }: { searchParams
         weekBarberId={null}
         cancelledCount={day.cancelledCount}
       />
-      {firstBarber && (
-        <Link
-          href={newBookingPath({ barberId: firstBarber, date: query.date })}
-          className="inline-flex min-h-11 items-center self-start rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
-        >
-          {t.newBooking}
-        </Link>
-      )}
+      {firstBarber && <NewBookingLink barberId={firstBarber} date={query.date} />}
       <DayGridView
         grid={day.grid}
         date={query.date}

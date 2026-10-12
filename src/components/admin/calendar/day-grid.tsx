@@ -5,7 +5,7 @@ import { useRef } from "react";
 import { DndContext, type DragEndEvent, type DragMoveEvent, DragOverlay, pointerWithin } from "@dnd-kit/core";
 import { formatInTimeZone } from "date-fns-tz";
 import { it } from "@/i18n/it";
-import { blockPosition, busyRows, type DayGrid, type Interval } from "@/lib/calendar/grid";
+import { blockPosition, busyRows, covers, type DayGrid } from "@/lib/calendar/grid";
 import { canDrag, dropTarget } from "@/lib/calendar/move";
 import { nowLineMinutes } from "@/lib/calendar/now-line";
 import { overlapLayout } from "@/lib/calendar/overlap-layout";
@@ -23,9 +23,6 @@ const t = it.admin.calendar;
 
 /** Destinazione mostrata durante il trascinamento. */
 type DropPreview = { bookingId: string; barberId: string; startsAt: Date };
-
-const covers = (interval: Interval, at: Date): boolean =>
-  interval.startsAt.getTime() <= at.getTime() && at.getTime() < interval.endsAt.getTime();
 
 /** Minuti locali dalla mezzanotte di `date` (24:00 se l'istante cade il giorno dopo). */
 const minutesOf = (instant: Date, date: string, timezone: string): number => {

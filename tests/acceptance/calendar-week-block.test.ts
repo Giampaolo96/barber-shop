@@ -1,7 +1,8 @@
 // Fetta 8c: posizione di prenotazioni, assenze e chiusure nella colonna di un giorno della vista
-// settimana (dayBlockPosition, src/lib/calendar/week-grid.ts). Test di implementazione, non di accettazione.
+// settimana (dayBlockPosition) e linea dell'ora attuale (weekNowLine), src/lib/calendar/week-grid.ts.
+// Test di implementazione, non di accettazione.
 import { describe, expect, test } from 'vitest';
-import { dayBlockPosition, weekGrid } from '@/lib/calendar/week-grid';
+import { dayBlockPosition, weekGrid, weekNowLine } from '@/lib/calendar/week-grid';
 
 const TZ = 'Europe/Rome';
 const WEEK = ['2047-01-14', '2047-01-15', '2047-01-16', '2047-01-17', '2047-01-18', '2047-01-19', '2047-01-20'];
@@ -25,5 +26,20 @@ describe('dayBlockPosition (fetta 8c)', () => {
     expect(dayBlockPosition(grid, '2047-01-15', holidays, TZ)).toEqual({ row: 12, span: 28 });
     expect(dayBlockPosition(grid, '2047-01-16', holidays, TZ)).toEqual({ row: 0, span: 40 });
     expect(dayBlockPosition(grid, '2047-01-17', holidays, TZ)).toEqual({ row: 0, span: 12 });
+  });
+});
+
+describe('weekNowLine (fetta 8c)', () => {
+  test("solo nella colonna di oggi, ai minuti dall'inizio dell'asse", () => {
+    expect(weekNowLine(winter('2047-01-16', '10:20'), WEEK, grid, TZ)).toEqual({ index: 2, offset: 80 });
+    expect(weekNowLine(winter('2047-01-20', '09:00'), WEEK, grid, TZ)).toEqual({ index: 6, offset: 0 });
+  });
+
+  test("bordi dell'asse inclusi; fuori dall'asse o fuori dalla settimana → null", () => {
+    expect(weekNowLine(winter('2047-01-15', '19:00'), WEEK, grid, TZ)).toEqual({ index: 1, offset: 600 });
+    expect(weekNowLine(winter('2047-01-15', '08:59'), WEEK, grid, TZ)).toBeNull();
+    expect(weekNowLine(winter('2047-01-15', '19:01'), WEEK, grid, TZ)).toBeNull();
+    expect(weekNowLine(winter('2047-01-21', '10:00'), WEEK, grid, TZ)).toBeNull();
+    expect(weekNowLine(winter('2047-01-13', '10:00'), WEEK, grid, TZ)).toBeNull();
   });
 });

@@ -14,14 +14,13 @@ import { formatInTimeZone } from "date-fns-tz";
 import { it } from "@/i18n/it";
 import { formatDayLabel } from "@/lib/booking/format";
 import { canDrag } from "@/lib/calendar/move";
-import { nowLineMinutes } from "@/lib/calendar/now-line";
 import { overlapLayout } from "@/lib/calendar/overlap-layout";
 import type { WeekDay } from "@/lib/calendar/page-data";
 import { newBookingPath } from "@/lib/calendar/paths";
 import type { CalendarBooking } from "@/lib/calendar/queries";
 import type { StaffRole } from "@/lib/calendar/transitions";
 import { calendarHref } from "@/lib/calendar/view";
-import { dayBlockPosition, daySlots, type WeekGrid, weekDropTarget } from "@/lib/calendar/week-grid";
+import { dayBlockPosition, daySlots, hhmm, type WeekGrid, weekDropTarget, weekNowLine } from "@/lib/calendar/week-grid";
 import { localDateOf } from "@/lib/domain/local-time";
 import { cn } from "@/lib/utils";
 import { BookingCard, ColumnDropZone, DraggedCard, NowLine, placed, ROW_HEIGHT } from "./grid-parts";
@@ -157,8 +156,6 @@ export function WeekGridView({
   const labelOf = (booking: CalendarBooking) =>
     `${time(booking.startsAt)}–${time(booking.endsAt)} ${booking.customerName}`;
   const dragged = bookings.find((booking) => booking.id === activeId);
-  const hhmm = (minutes: number) =>
-    `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
   return (
     <DndContext sensors={sensors} collisionDetection={visibleOnly} autoScroll={AUTO_SCROLL} {...handlers}>
@@ -243,7 +240,12 @@ export function WeekGridView({
                 )}
                 style={{ gridColumn, gridRow: 1 }}
               >
-                <Link href={calendarHref({ date: day.date, showCancelled })} className="hover:underline">
+                {/* Area di tocco di 44 px sui dispositivi touch senza cambiare l'aspetto: larga quanto
+                    la colonna (l'intestazione sticky la contiene) e un po' sopra l'inizio della prima riga. */}
+                <Link
+                  href={calendarHref({ date: day.date, showCancelled })}
+                  className="hover:underline pointer-coarse:after:absolute pointer-coarse:after:inset-x-0 pointer-coarse:after:top-0 pointer-coarse:after:h-11"
+                >
                   {dayLabel}
                 </Link>
               </h2>,
@@ -325,11 +327,8 @@ export function WeekGridView({
             rows={grid.rows.length}
             granularityMin={grid.granularityMin}
             locate={(at) => {
-              const date = localDateOf(at, timezone);
-              const index = dates.indexOf(date);
-              if (index < 0) return null;
-              const offset = nowLineMinutes(at, date, timezone, grid.startMin, grid.endMin);
-              return offset === null ? null : { offset, gridColumn: index + 2 };
+              const line = weekNowLine(at, dates, grid, timezone);
+              return line && { offset: line.offset, gridColumn: line.index + 2 };
             }}
           />
         </div>

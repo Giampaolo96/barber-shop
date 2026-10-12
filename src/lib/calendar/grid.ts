@@ -15,6 +15,10 @@ const FALLBACK: LocalBand = { start: "09:00", end: "19:00" };
 
 const hhmm = (time: string): string => time.slice(0, 5);
 
+/** L'istante cade nell'intervallo semiaperto [inizio, fine). */
+export const covers = (interval: Interval, at: Date): boolean =>
+  interval.startsAt.getTime() <= at.getTime() && at.getTime() < interval.endsAt.getTime();
+
 /** Fasce locali del giorno `date` → intervalli reali. */
 export function localBandsToIntervals(date: string, bands: LocalBand[], tz: string): Interval[] {
   return bands.map((band) => ({
