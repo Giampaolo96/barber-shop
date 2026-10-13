@@ -2,7 +2,14 @@ import { it } from "@/i18n/it";
 import { fillText } from "@/lib/admin/text";
 import { formatCents } from "@/lib/domain/money";
 import type { Granularity, StatsBucket } from "@/lib/stats/aggregate";
-import { alternateLabels, chartAxis, formatAxisValue, niceScale, spacedLabels } from "@/lib/stats/axes";
+import {
+  alternateLabels,
+  chartAxis,
+  formatAxisValue,
+  MOBILE_LABEL_GAP,
+  niceScale,
+  spacedLabels,
+} from "@/lib/stats/axes";
 import { bucketLabel } from "@/lib/stats/format";
 import type { StatsChart } from "@/lib/stats/schemas";
 
@@ -19,15 +26,9 @@ const barGap = (count: number, unit: "%" | "cqw"): string => `min(0.125rem, ${25
 // due bucket cadono a metà dello spazio fra le barre.
 const xAt = (p: number, gap: string): string => `calc(${p} * (100% + ${gap}) - ${gap} / 2)`;
 
-// Oltre queste etichette sull'asse X, sotto i 640 px se ne mostra una sì e una no. Le date dei
-// lunedì fino a 5: con 6 (periodi da 36 giorni in su) a 390 px restano circa 45 px fra l'una e
-// l'altra, non bastano.
-const MOBILE_X_LABELS = { week: 5, month: 6, year: 6 } as const;
-
-// I nomi dei giorni (tre lettere) sotto i 640 px stanno ad almeno un decimo della larghezza l'uno
-// dall'altro, circa 30 px a 390: dieci giorni per giorno ci stanno tutti, su barre per settimana
-// tagliate dal periodo si diradano.
-const MOBILE_DAY_LABEL_GAP = 0.1;
+// Mesi e anni: oltre queste etichette sull'asse X, sotto i 640 px se ne mostra una sì e una no.
+// Nomi dei giorni e date dei lunedì si diradano invece in base alla distanza (MOBILE_LABEL_GAP).
+const MOBILE_X_LABELS = { month: 6, year: 6 } as const;
 
 /**
  * Grafico a barre dell'andamento (SPEC §6.9), solo HTML e CSS con i token del tema: una serie,
@@ -60,10 +61,10 @@ export function TrendChart({
   const labelGap = barGap(Math.max(series.length, 1), "%");
   const xAxis = chartAxis(series, granularity);
   const mobileVisible =
-    xAxis.unit === "day"
+    xAxis.unit === "day" || xAxis.unit === "week"
       ? spacedLabels(
           xAxis.marks.map((mark) => mark.at),
-          MOBILE_DAY_LABEL_GAP,
+          MOBILE_LABEL_GAP[xAxis.unit],
         )
       : xAxis.marks.length > MOBILE_X_LABELS[xAxis.unit]
         ? alternateLabels(xAxis.marks.map((mark) => mark.label))

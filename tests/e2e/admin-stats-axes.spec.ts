@@ -199,7 +199,7 @@ test.describe('Statistiche: assi di riferimento del grafico', () => {
       bookings.push(...(await completedBookings(api, monday, 12, '+02:00')));
       await loginAsAdmin(page);
 
-      // 41 giorni: 5 lunedì tutti visibili; 47 giorni: 6 lunedì, uno sì e uno no; un anno (per mese,
+      // 41 giorni: 5 lunedì vicini come 6 in 36 giorni, uno sì e uno no; 47 giorni: 6 lunedì, idem; un anno (per mese,
       // predefinito): mesi alternati, nessuna linea; 10 giorni per settimana, tagliati in tre barre
       // (sab–dom, lun–dom, lun): i nomi dei giorni si diradano
       const periods = [

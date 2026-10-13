@@ -163,6 +163,19 @@ export function alternateLabels(labels: readonly string[]): boolean[] {
 }
 
 /**
+ * Distanza minima (frazione della larghezza dell'area delle barre) fra due etichette visibili sotto
+ * i 640 px, per le unità in cui conta la posizione e non il numero di etichette.
+ * - Nomi dei giorni (tre lettere): un decimo, circa 30 px a 390. Dieci giorni per giorno ci stanno
+ *   tutti; su barre per settimana tagliate dal periodo si diradano.
+ * - Date dei lunedì ("29 mag", circa 40 px): un quinto. Con l'asse Y dell'incasso in migliaia di
+ *   euro l'area è larga circa 280 px e, poiché le date si spostano verso il bordo in proporzione alla
+ *   loro posizione, ne restano circa 240 per le distanze: 0.2 lascia almeno 4 px fra due date.
+ *   Cinque lunedì su un mese stanno tutti; da 36 giorni in su (5 o 6 lunedì) uno sì e uno no. Non
+ *   basta contare le etichette: cinque lunedì in 41 giorni distano come sei in 36.
+ */
+export const MOBILE_LABEL_GAP = { day: 0.1, week: 0.2 } as const;
+
+/**
  * Etichette da tenere quando sono posizionate in modo irregolare (nomi dei giorni su barre di durata
  * diversa, per esempio una settimana tagliata dal periodo): ognuna resta solo se dista almeno
  * `minGap` (frazione della larghezza) dall'ultima visibile. `positions` in ordine crescente.

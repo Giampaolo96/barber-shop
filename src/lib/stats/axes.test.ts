@@ -1,5 +1,14 @@
 import { describe, expect, test } from "vitest";
-import { alternateLabels, bucketPosition, chartAxis, formatAxisValue, niceScale, spacedLabels, timeAxisTicks } from "./axes";
+import {
+  alternateLabels,
+  bucketPosition,
+  chartAxis,
+  formatAxisValue,
+  MOBILE_LABEL_GAP,
+  niceScale,
+  spacedLabels,
+  timeAxisTicks,
+} from "./axes";
 import { buildStats, type Granularity } from "./aggregate";
 
 const labels = (start: string, end: string) => timeAxisTicks(start, end).ticks.map((tick) => tick.label);
@@ -238,6 +247,27 @@ describe("spacedLabels", () => {
       expect((shown[index]?.at ?? 0) - (shown[index - 1]?.at ?? 0)).toBeGreaterThanOrEqual(0.1 - 1e-9);
     }
     expect(visible[0]).toBe(true);
+  });
+});
+
+describe("MOBILE_LABEL_GAP: date dei lunedì su mobile", () => {
+  const shownMondays = (from: string, to: string): number => {
+    const axis = chartAxis(buckets(from, to, "giorno"), "giorno");
+    expect(axis.unit).toBe("week");
+    return spacedLabels(
+      axis.marks.map((mark) => mark.at),
+      MOBILE_LABEL_GAP.week,
+    ).filter(Boolean).length;
+  };
+
+  test("un mese con cinque lunedì: restano tutti", () => {
+    expect(shownMondays("2026-06-01", "2026-06-30")).toBe(5);
+    expect(shownMondays("2026-08-01", "2026-08-31")).toBe(5);
+  });
+
+  test("cinque lunedì in 41 giorni sono vicini come sei in 36: uno sì e uno no", () => {
+    expect(shownMondays("2026-04-28", "2026-06-07")).toBe(3);
+    expect(shownMondays("2026-04-28", "2026-06-13")).toBe(3);
   });
 });
 
