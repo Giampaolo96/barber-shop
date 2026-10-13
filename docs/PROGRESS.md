@@ -978,6 +978,10 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 
 - Calendario, vista giorno con "mostra cancellate": una cancellata nello stesso orario di una confermata ora sta in una corsia affiancata invece di restare coperta (`src/lib/calendar/overlap-layout.ts`; a 390 px corsia compatta con ora e nome); tabella delle assenze (e chiusure) su telefono con le colonne distanziate come Clienti e pulsanti da 44 px. Test: `calendar-overlap-layout.test.ts`, e2e `admin-calendar-cancelled-overlap` e `admin-period-table-mobile`. Gate: Vitest 1752/1752, Playwright 120/120.
 
+## Fix tabella servizi su telefono (2026-10-13)
+
+- Tabella dei servizi a 390 px con lo stesso schema delle assenze: colonne distanziate (prima "DurataPrezzo" attaccate e "15,00 €" su due righe), durata e prezzo su una riga, scorrimento orizzontale della sola tabella se serve, pulsanti Modifica/Su/Giù/Elimina da 44 px. Test: e2e `admin-services-mobile`.
+
 ## Fetta 8c – Vista settimana a griglia per singolo barbiere
 
 **Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie elencate sotto, non applicate). Hash di partenza `e96e554`, test di accettazione nel commit `84f3623`. Nessuna migrazione.

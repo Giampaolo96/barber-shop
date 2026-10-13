@@ -31,59 +31,76 @@ export default async function ServicesPage() {
       {services.length === 0 ? (
         <p className="text-sm text-muted-foreground">{it.admin.common.empty}</p>
       ) : (
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b">
-              <th className="py-2">{t.nameLabel}</th>
-              <th className="py-2">{t.durationColumn}</th>
-              <th className="py-2">{t.priceColumn}</th>
-              <th className="py-2">{it.admin.common.actions}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {services.map((service, index) => (
-              <tr key={service.id} className="border-b align-top">
-                <td className="py-2">
-                  {service.name}
-                  {!service.is_active && (
-                    <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs">{it.admin.common.inactive}</span>
-                  )}
-                </td>
-                <td className="py-2">{fillText(t.minutes, { count: service.duration_min })}</td>
-                <td className="py-2">{formatCents(service.price_cents)}</td>
-                <td className="flex flex-wrap gap-2 py-2">
-                  <Link href={`/admin/servizi/${service.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                    {it.admin.common.edit}
-                  </Link>
-                  {index > 0 && (
-                    <RowAction
-                      action={moveService}
-                      fields={{ id: service.id, direction: "up" }}
-                      label={it.admin.common.moveUp}
-                      messages={{ stale: t.reorderFailed }}
-                    />
-                  )}
-                  {index < services.length - 1 && (
-                    <RowAction
-                      action={moveService}
-                      fields={{ id: service.id, direction: "down" }}
-                      label={it.admin.common.moveDown}
-                      messages={{ stale: t.reorderFailed }}
-                    />
-                  )}
-                  <RowAction
-                    action={deleteService}
-                    fields={{ id: service.id }}
-                    label={it.admin.common.delete}
-                    confirmText={it.admin.common.confirmDelete}
-                    messages={{ has_bookings: t.deleteHasBookings }}
-                    variant="destructive"
-                  />
-                </td>
+        // Stesso schema delle altre tabelle admin (Assenze, Clienti): spazio fra le colonne e, se non
+        // basta, scorrimento orizzontale della sola tabella. Durata e prezzo su una riga; pulsanti a
+        // dimensione piena: tocco ≥ 44 px.
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="py-2 pr-4">{t.nameLabel}</th>
+                <th className="py-2 pr-4">{t.durationColumn}</th>
+                <th className="py-2 pr-4">{t.priceColumn}</th>
+                <th className="py-2">{it.admin.common.actions}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {services.map((service, index) => (
+                <tr key={service.id} className="border-b align-top">
+                  <td className="py-2 pr-4">
+                    {service.name}
+                    {!service.is_active && (
+                      <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs">
+                        {it.admin.common.inactive}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2 pr-4 whitespace-nowrap">
+                    {fillText(t.minutes, { count: service.duration_min })}
+                  </td>
+                  <td className="py-2 pr-4 whitespace-nowrap">
+                    {formatCents(service.price_cents)}
+                  </td>
+                  <td className="flex flex-wrap gap-2 py-2">
+                    <Link
+                      href={`/admin/servizi/${service.id}`}
+                      className={buttonVariants({ variant: "outline" })}
+                    >
+                      {it.admin.common.edit}
+                    </Link>
+                    {index > 0 && (
+                      <RowAction
+                        action={moveService}
+                        fields={{ id: service.id, direction: "up" }}
+                        label={it.admin.common.moveUp}
+                        messages={{ stale: t.reorderFailed }}
+                        size="default"
+                      />
+                    )}
+                    {index < services.length - 1 && (
+                      <RowAction
+                        action={moveService}
+                        fields={{ id: service.id, direction: "down" }}
+                        label={it.admin.common.moveDown}
+                        messages={{ stale: t.reorderFailed }}
+                        size="default"
+                      />
+                    )}
+                    <RowAction
+                      action={deleteService}
+                      fields={{ id: service.id }}
+                      label={it.admin.common.delete}
+                      confirmText={it.admin.common.confirmDelete}
+                      messages={{ has_bookings: t.deleteHasBookings }}
+                      variant="destructive"
+                      size="default"
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   );
