@@ -453,6 +453,8 @@ export const it = {
       phone: "Telefono",
       email: "Email",
       noShows: "No-show",
+      /** Contatore nell'elenco su telefono, solo se maggiore di zero. */
+      noShowsCount: "No-show: {count}",
       state: "Stato",
       noName: "(profilo incompleto)",
       empty: "Nessun cliente trovato.",

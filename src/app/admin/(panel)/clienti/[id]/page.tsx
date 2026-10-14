@@ -58,11 +58,12 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
       </Link>
       <h1 className="font-display text-4xl leading-tight">{customer.fullName ?? t.noName}</h1>
 
-      <dl className="grid max-w-lg grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+      {/* Su telefono etichetta sopra il valore: in due colonne le etichette lunghe schiacciavano l'email */}
+      <dl className="grid max-w-lg grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
         {rows.map(([label, value]) => (
           <div key={label} className="contents">
             <dt className="font-medium">{label}</dt>
-            <dd className="break-all">{value}</dd>
+            <dd className="mb-2 [overflow-wrap:anywhere] sm:mb-0">{value}</dd>
           </div>
         ))}
       </dl>
@@ -99,34 +100,56 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
         {bookings.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t.historyEmpty}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="py-2 pr-4">{t.when}</th>
-                  <th className="py-2 pr-4">{t.service}</th>
-                  <th className="py-2 pr-4">{t.barber}</th>
-                  <th className="py-2 pr-4">{t.price}</th>
-                  <th className="py-2">{t.bookingStatus}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bookings.map((booking) => (
-                  <tr key={booking.id} className="border-b align-top">
-                    <td className="py-2 pr-4">
-                      <Link href={bookingDetailPath(booking.id)} className="underline underline-offset-4">
-                        {dateTime(booking.startsAt)}
-                      </Link>
-                    </td>
-                    <td className="py-2 pr-4">{booking.serviceName}</td>
-                    <td className="py-2 pr-4">{booking.barberName}</td>
-                    <td className="py-2 pr-4">{formatCents(booking.priceCents)}</td>
-                    <td className="py-2">{it.admin.calendar.statusLabels[booking.status]}</td>
+          <>
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="py-2 pr-4">{t.when}</th>
+                    <th className="py-2 pr-4">{t.service}</th>
+                    <th className="py-2 pr-4">{t.barber}</th>
+                    <th className="py-2 pr-4">{t.price}</th>
+                    <th className="py-2">{t.bookingStatus}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {bookings.map((booking) => (
+                    <tr key={booking.id} className="border-b align-top">
+                      <td className="py-2 pr-4 whitespace-nowrap">
+                        <Link href={bookingDetailPath(booking.id)} className="underline underline-offset-4">
+                          {dateTime(booking.startsAt)}
+                        </Link>
+                      </td>
+                      <td className="py-2 pr-4">{booking.serviceName}</td>
+                      <td className="py-2 pr-4">{booking.barberName}</td>
+                      <td className="py-2 pr-4 whitespace-nowrap">{formatCents(booking.priceCents)}</td>
+                      <td className="py-2">{it.admin.calendar.statusLabels[booking.status]}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Su telefono un elenco a righe: data e prezzo in alto, servizio e barbiere sotto, poi lo stato */}
+            <ul className="flex flex-col border-t sm:hidden" data-testid="customer-history-list">
+              {bookings.map((booking) => (
+                <li key={booking.id} className="border-b">
+                  <Link
+                    href={bookingDetailPath(booking.id)}
+                    className="flex min-h-11 flex-col gap-0.5 py-3 text-sm focus-visible:outline-2 focus-visible:outline-ring"
+                  >
+                    <span className="flex items-baseline justify-between gap-3">
+                      <span className="font-medium tabular-nums">{dateTime(booking.startsAt)}</span>
+                      <span className="shrink-0 tabular-nums">{formatCents(booking.priceCents)}</span>
+                    </span>
+                    <span className="text-muted-foreground">
+                      {booking.serviceName} · {booking.barberName}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{it.admin.calendar.statusLabels[booking.status]}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
         {truncated && <p className="text-sm text-muted-foreground">{fillText(t.historyTruncated, { count: HISTORY_LIMIT })}</p>}
       </section>

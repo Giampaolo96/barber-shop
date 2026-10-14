@@ -982,6 +982,11 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 
 - Tabella dei servizi a 390 px con lo stesso schema delle assenze: colonne distanziate (prima "DurataPrezzo" attaccate e "15,00 €" su due righe), durata e prezzo su una riga, scorrimento orizzontale della sola tabella se serve, pulsanti Modifica/Su/Giù/Elimina da 44 px. Test: e2e `admin-services-mobile`.
 
+## Fix sezione Clienti su telefono (2026-10-14)
+
+- Elenco clienti sotto i 640 px come lista a righe invece della tabella a cinque colonne (l'email andava a capo lettera per lettera): nome, telefono, email su una riga troncata, etichette di blocco e no-show solo se servono; ogni riga è un link da almeno 44 px alla scheda. Da 640 px resta la tabella, con telefono ed email su una riga. Ricerca a tutta larghezza e paginazione con pulsanti da 44 px.
+- Scheda cliente: dati con l'etichetta sopra il valore su telefono (niente più `break-all` sull'email) e storico a righe (data e prezzo, servizio e barbiere, stato). Test: e2e `admin-customers-mobile`.
+
 ## Fetta 8c – Vista settimana a griglia per singolo barbiere
 
 **Stato**: completata, review chiusa (un giro, nessun bloccante; migliorie elencate sotto, non applicate). Hash di partenza `e96e554`, test di accettazione nel commit `84f3623`. Nessuna migrazione.
