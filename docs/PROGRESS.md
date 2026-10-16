@@ -1087,6 +1087,12 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 
 **CI**: il workflow avvia Supabase senza `storage-api`. Migrazione e pgTAP passano lo stesso (verificato in locale con la stessa configurazione), ma l'e2e `barber-photo.spec.ts` fallisce ("name resolution failed" sull'upload). Il workflow non è stato modificato: decide l'utente.
 
+**Caricamento più chiaro** (richiesta dell'utente dopo il merge, branch `fix/upload-ritratto`): il campo file nativo non sembrava cliccabile e "Carica foto" sembrava il caricamento ma serviva solo a confermare. Ora:
+- un pulsante pieno "Scegli una foto" (etichetta del campo file, nascosto ma raggiungibile da tastiera, con il focus del tema) apre galleria o fotocamera;
+- appena scelta, la foto si prepara nel browser e compare l'anteprima del quadrato che verrà salvato, con nome del file, "Salva ritratto" e "Annulla"; "Scegli una foto" passa a contorno;
+- dopo il salvataggio l'anteprima lascia il posto al ritratto vero e a "Ritratto aggiornato."; un errore del server resta visibile accanto all'anteprima.
+- Test di accettazione invariati (cambiano solo i testi delle chiavi `portraitLabel` e `portraitUpload`). Verificato con Playwright MCP a 390 px (vuoto, anteprima, salvato). Esiti: lint ok, typecheck ok, Vitest 1919/1919, Playwright 135/135.
+
 **Migliorie della review (elenco originale)**
 1. `sharp` senza `limitInputPixels`: un JPEG < 1 MB può dichiarare dimensioni enormi e far cadere la funzione. Proposta: `limitInputPixels: 4096 * 4096`.
 2. Se il ridimensionamento nel browser lancia un'eccezione, il pulsante resta su "Caricamento…": `try/catch/finally`.

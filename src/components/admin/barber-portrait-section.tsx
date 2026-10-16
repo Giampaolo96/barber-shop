@@ -3,13 +3,12 @@
 import { startTransition, useActionState, useState } from "react";
 import { BarberPortrait } from "@/components/barber-portrait";
 import { FormStatus } from "@/components/admin/form-status";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { it } from "@/i18n/it";
 import { removeBarberPhoto, uploadBarberPhoto } from "@/lib/admin/barber-photo-actions";
 import type { BarberPhotoRemoveState, BarberPhotoState } from "@/lib/admin/barber-photo-actions";
 import { PORTRAIT_SIZE, encodePortrait } from "@/lib/barbers/portrait-encoding";
+import { cn } from "@/lib/utils";
 
 const t = it.admin.barbers;
 
@@ -75,48 +74,118 @@ const uploadMessages: Partial<Record<string, string>> = {
 const initialUpload: BarberPhotoState = { status: "idle" };
 const initialRemove: BarberPhotoRemoveState = { status: "idle" };
 
+type Prepared = { id: number; blob: Blob; previewUrl: string; fileName: string };
+
+/**
+ * Scelta → anteprima del ritaglio → "Salva ritratto". La foto si prepara nel browser appena
+ * scelta, così l'anteprima mostra esattamente il quadrato che verrà salvato.
+ */
 function UploadForm({ barberId, hasPhoto }: { barberId: string; hasPhoto: boolean }) {
   const [state, formAction, pending] = useActionState(uploadBarberPhoto, initialUpload);
+  const [prepared, setPrepared] = useState<Prepared | null>(null);
+  const [sentId, setSentId] = useState<number | null>(null);
   const [localFailure, setLocalFailure] = useState<"not_image" | "encode_failed" | null>(null);
-  const [resizing, setResizing] = useState(false);
-  const busy = pending || resizing;
-  const status = localFailure ?? state.status;
+  const [preparing, setPreparing] = useState(false);
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const file = new FormData(event.currentTarget).get("photo");
-    if (!(file instanceof File) || file.size === 0) return;
+  const replacePrepared = (next: Prepared | null) => {
+    setPrepared((current) => {
+      if (current) URL.revokeObjectURL(current.previewUrl);
+      return next;
+    });
+  };
 
-    setResizing(true);
+  async function choose(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    // Svuotato subito: scegliere di nuovo lo stesso file rifà l'anteprima.
+    event.target.value = "";
+    if (!file || file.size === 0) return;
+
+    setPreparing(true);
     let result: ResizeResult;
     try {
       result = await resizePortrait(file);
     } finally {
-      setResizing(false);
+      setPreparing(false);
     }
-    // Il browser non ha potuto preparare il file: non si invia nulla.
+    // Il browser non ha potuto preparare il file: niente anteprima e niente invio.
     if ("failure" in result) {
       setLocalFailure(result.failure);
+      replacePrepared(null);
       return;
     }
     setLocalFailure(null);
+    replacePrepared({ id: Date.now(), blob: result.blob, previewUrl: URL.createObjectURL(result.blob), fileName: file.name });
+  }
 
-    const { blob } = result;
+  function save() {
+    if (!prepared) return;
+    const { blob } = prepared;
     const data = new FormData();
     data.set("barberId", barberId);
     data.set("photo", new File([blob], `ritratto.${blob.type === "image/webp" ? "webp" : "jpg"}`, { type: blob.type }));
+    setSentId(prepared.id);
     startTransition(() => formAction(data));
   }
 
+  // Dopo un salvataggio riuscito l'anteprima lascia il posto al ritratto vero.
+  const saved = !pending && state.status === "saved" && sentId === prepared?.id;
+  const choice = saved ? null : prepared;
+  // L'esito del server vale solo per la foto inviata: una scelta nuova riparte da zero.
+  const status = localFailure ?? (choice && sentId !== choice.id ? "idle" : state.status);
   const message = uploadMessages[status];
+
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-2">
-      <Label htmlFor="photo">{t.portraitLabel}</Label>
-      <Input id="photo" name="photo" type="file" accept="image/*" required />
-      <p className="text-sm text-muted-foreground">{t.portraitHint}</p>
-      <Button type="submit" disabled={busy} className="self-start">
-        {busy ? t.portraitWorking : t.portraitUpload}
-      </Button>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <input
+          id="photo"
+          name="photo"
+          type="file"
+          accept="image/*"
+          onChange={choose}
+          disabled={preparing || pending}
+          className="peer sr-only"
+        />
+        <label
+          htmlFor="photo"
+          className={cn(
+            buttonVariants({ variant: choice ? "outline" : "default" }),
+            "cursor-pointer self-start peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring peer-disabled:cursor-default",
+          )}
+        >
+          {t.portraitLabel}
+        </label>
+        <p className="text-sm text-muted-foreground">{t.portraitHint}</p>
+      </div>
+      {preparing && (
+        <p role="status" className="text-sm">
+          {t.portraitPreparing}
+        </p>
+      )}
+      {choice && (
+        <div className="flex items-start gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={choice.previewUrl}
+            alt={t.portraitPreviewAlt}
+            width={PORTRAIT_SIZE}
+            height={PORTRAIT_SIZE}
+            className="aspect-square w-32 shrink-0 border border-ink object-cover grayscale"
+          />
+          <div className="flex min-w-0 flex-col gap-2">
+            <p className="truncate text-sm font-medium">{choice.fileName}</p>
+            <p className="text-sm text-muted-foreground">{t.portraitPreviewHint}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" onClick={save} disabled={pending}>
+                {pending ? t.portraitWorking : t.portraitUpload}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => replacePrepared(null)} disabled={pending}>
+                {t.portraitCancel}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {status === "saved" ? (
         // Dopo "Rimuovi" la conferma del caricamento non vale più.
         hasPhoto && (
@@ -131,7 +200,7 @@ function UploadForm({ barberId, hasPhoto }: { barberId: string; hasPhoto: boolea
       ) : (
         <FormStatus status={status} />
       )}
-    </form>
+    </div>
   );
 }
 
