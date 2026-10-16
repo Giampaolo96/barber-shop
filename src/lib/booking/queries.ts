@@ -3,6 +3,7 @@ import { cache } from "react";
 
 // Letture per il flusso di prenotazione e "Le mie prenotazioni", con il client della richiesta:
 // la RLS limita il catalogo alle voci attive e le prenotazioni a quelle del cliente.
+import { barberPhotoUrl } from "@/lib/barbers/photo";
 import { createClient } from "@/lib/db/server";
 
 export type ShopInfo = {
@@ -91,12 +92,12 @@ export async function getBarbersForService(serviceId: string): Promise<BookableB
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("barber_services")
-    .select("barbers!inner(id, display_name, photo_url, bio, is_active)")
+    .select("barbers!inner(id, display_name, photo_path, bio, is_active)")
     .eq("service_id", serviceId)
     .eq("barbers.is_active", true);
   if (error) console.error("getBarbersForService", error);
   return (data ?? [])
-    .map(({ barbers: b }) => ({ id: b.id, name: b.display_name, photoUrl: b.photo_url, bio: b.bio }))
+    .map(({ barbers: b }) => ({ id: b.id, name: b.display_name, photoUrl: barberPhotoUrl(b.photo_path), bio: b.bio }))
     .sort((a, b) => a.name.localeCompare(b.name, "it"));
 }
 

@@ -16,6 +16,7 @@
 | 8 | completata | 2026-10-10 | Vedi "Fetta 8" sotto; review chiusa, manca la prova su iPhone |
 | 8b | completata | 2026-10-12 | Vedi "Fetta 8b" sotto; manca la prova su iPhone di "Aggiungi al calendario" |
 | 8c | completata | 2026-10-12 | Vedi "Fetta 8c" sotto; manca la prova del tocco su iPhone |
+| 8d | completata | 2026-10-16 | Vedi "Fetta 8d" sotto; manca la prova di caricamento da iPhone |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
 | 9b | da fare | | Privacy e account prima del go-live (SPEC §11) |
 
@@ -1052,3 +1053,46 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 - SPEC §6.1 e §11 (riga 8c), ADR 008 aggiornati. Verificato con Playwright MCP a 1280 e 390 px (settimana corrente, oggi lunedì nascosto: 5 colonne, nessuno scorrimento a 1280 px, partenza dalla prima colonna).
 - Esiti: lint ok, typecheck ok, Vitest 1800/1800; Playwright 129/129 ("eseguiti 129 su 129": nessun fallito, instabile o saltato). I 2 test in più rispetto al giro delle 14:20 (127/127) sono quelli di `admin-calendar-week-closed-days.spec.ts`.
 - Un primo giro completo dava 116 passati, 10 falliti e 3 non eseguiti (clienti, account staff, login con codice, sessione revocata; `admin-settings` non partito): `SUPABASE_SERVICE_ROLE_KEY` mancava in `.env.local`, falliva allo stesso modo anche su `main`. Aggiunta la chiave, la suite è verde.
+
+## Fetta 8d – Ritratti dei barbieri
+
+**Stato**: completata, review chiusa (nessun bloccante; migliorie elencate sotto, non applicate). Hash di partenza `8926a01`; `.gitignore` nel commit `c47184b`, test di accettazione nel commit `8ce1218`. Fetta fuori dal piano originale, aggiunta a SPEC §3.3 e §11. Migrazione `20261016090000_barber_photos`. Resta la prova a mano da iPhone (galleria e fotocamera).
+
+**Cosa è stato fatto**
+- `barbers.photo_url` eliminata; `barbers.photo_path` con check `barbers_photo_path_format` (`<id>/<32 hex>.webp`, prefisso legato all'id), grant di select di colonna ad `anon` e `authenticated`.
+- Bucket `barber-photos` pubblico in lettura, 1 MB, solo `image/webp`; policy su `storage.objects` solo admin e solo su questo bucket. Nessun `alter` sulle tabelle di `storage`.
+- Admin → Barbieri → scheda: sezione "Ritratto" con anteprima, caricamento/sostituzione e "Rimuovi" (con conferma). Il campo URL della foto non c'è più.
+- Browser: decodifica con `<img>`, ritaglio al centro 512×512, WebP 0,85 con ripiego JPEG 0,85 se il canvas non produce WebP (Safari iOS), funzione pura `encodePortrait`. File non decodificabile → errore senza invio.
+- Server (`uploadBarberPhoto`, `removeBarberPhoto`): `requireRole('admin')`, Zod (WebP o JPEG, poi ≤ 1 MB), controllo dei primi byte e del formato letto da `sharp`, ricodifica sempre in WebP 512×512; percorso generato dal server; ordine upload → update → cancellazione del vecchio file. `deleteBarber` cancella anche il file.
+- `BarberPortrait` condiviso: `<img>` con `loading="lazy"`, `decoding="async"`, alt "Ritratto di <nome>", iniziale come ripiego. Nessuna ottimizzazione di Next, nessun `remotePatterns`.
+- `experimental.serverActions.bodySizeLimit = "2mb"`; `sharp` `^0.35.5` in `dependencies`.
+- ADR 011, SPEC §3.3 e §11.
+
+**Decisioni** (dettaglio nell'ADR 011)
+- Barbiere inesistente al caricamento → `error` prima di caricare. Tipo non ammesso e peso oltre 1 MB insieme → `invalid` (il tipo si controlla prima). "Rimuovi" senza foto → `ok` senza toccare lo storage. Errore nel cancellare il file vecchio dopo un aggiornamento riuscito → resta `saved` (file orfano).
+- Prefisso con id maiuscolo rifiutato (confronto testuale).
+- Le illustrazioni della demo (`tmp-avatars/`, ignorata da git) si caricano dall'admin come le foto vere.
+
+**Esiti** (dopo le migliorie e la correzione del test del venerdì): lint ok, typecheck ok, Vitest 1917/1917, pgTAP 1273/1273, Playwright 133/133 ("eseguiti 133 su 133"). Prima della correzione l'e2e completo dava 129 su 130 per il test del venerdì.
+
+**Test del venerdì** (ok dell'utente a cambiare solo il setup, commit "test: prenotazione del test polish indipendente dal giorno"): in `tests/e2e/booking-polish.spec.ts:355` la prenotazione del cliente demo a oggi + 4 giorni passa dalle 10:00 alle 07:00. Di venerdì coincideva con quella del seed (martedì della settimana dopo alle 10:00, `bookings_customer_no_overlap`); il seed dà al cliente demo solo prenotazioni alle 10:00, quindi le 07:00 non collidono in nessun giorno. Verificato simulando i 7 giorni (10:00: collide solo il venerdì; 07:00: mai). Le asserzioni non cambiano.
+
+**Migliorie della review**: applicate su richiesta dell'utente la 1, 2, 3, 4, 6 e 7; la 5 e la 8 annotate come limiti noti nell'ADR 011.
+1. `sharp` con `limitInputPixels` 4096×4096.
+2. Ridimensionamento nel browser con `try/finally`: il pulsante non resta su "Caricamento…".
+3. L'URL del blob si revoca dopo il disegno sul canvas.
+4. "Ritratto rimosso." dopo "Rimuovi"; "Ritratto aggiornato." nascosto quando la foto non c'è più.
+6. `removePhotoFile` (modulo solo server `src/lib/barbers/photo-storage.ts`, usato anche da `deleteBarber`) controlla il percorso con `isBarberPhotoPath` prima di cancellare.
+7. Codifica fallita nel browser → messaggio distinto `portraitEncodeFailed`.
+
+**CI**: il workflow avvia Supabase senza `storage-api`. Migrazione e pgTAP passano lo stesso (verificato in locale con la stessa configurazione), ma l'e2e `barber-photo.spec.ts` fallisce ("name resolution failed" sull'upload). Il workflow non è stato modificato: decide l'utente.
+
+**Migliorie della review (elenco originale)**
+1. `sharp` senza `limitInputPixels`: un JPEG < 1 MB può dichiarare dimensioni enormi e far cadere la funzione. Proposta: `limitInputPixels: 4096 * 4096`.
+2. Se il ridimensionamento nel browser lancia un'eccezione, il pulsante resta su "Caricamento…": `try/catch/finally`.
+3. L'URL del blob si revoca prima di `drawImage`: spostarlo dopo, o usare `createImageBitmap`.
+4. `portraitRemoved` non usato e "Ritratto aggiornato." resta a schermo dopo "Rimuovi".
+5. Due caricamenti simultanei per lo stesso barbiere possono lasciare un file orfano: update condizionato sul percorso precedente.
+6. `isBarberPhotoPath` usata solo dai test: riusarla prima di `storage.remove`.
+7. Se `canvas.toBlob` fallisce per memoria, il messaggio "non è un'immagine leggibile" è fuorviante.
+8. Senza `NEXT_PUBLIC_SUPABASE_URL`, `barberPhotoUrl` produce un URL relativo che dà 404: meglio `null` o un log.

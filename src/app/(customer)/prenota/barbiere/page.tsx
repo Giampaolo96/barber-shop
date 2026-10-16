@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { BarberPortrait } from "@/components/barber-portrait";
 import { AccessNotice } from "@/components/booking/access-notice";
 import { RestartNotice } from "@/components/booking/restart-notice";
 import { StepHeader } from "@/components/booking/step-header";
@@ -11,7 +12,7 @@ import { ANY_BARBER, BOOK_PATH, barberStepUrl, timeStepUrl } from "@/lib/booking
 import { getBarbersForService, getBookableService } from "@/lib/booking/queries";
 import { EmptyMark } from "@/themes/active";
 
-// Passo 2 di 4 (SPEC §5.2): barbiere oppure "Nessuna preferenza", con i ritratti (fetta 8b).
+// Passo 2 di 4 (SPEC §5.2): barbiere oppure "Nessuna preferenza", con i ritratti (fetta 8b, 8d).
 export default async function ChooseBarberPage({
   searchParams,
 }: {
@@ -66,24 +67,12 @@ export default async function ChooseBarberPage({
                     href={timeStepUrl(service.id, barber.id)}
                     className="group flex flex-col gap-2 [&:active_img]:opacity-80"
                   >
-                    {barber.photoUrl ? (
-                      // Foto da URL https esterno (decisione fetta 3): niente ottimizzazione di Next.
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={barber.photoUrl}
-                        alt=""
-                        width={320}
-                        height={320}
-                        className="aspect-square w-full border border-ink object-cover grayscale transition-[border-width] group-hover:border-4 group-active:border-4"
-                      />
-                    ) : (
-                      <span
-                        aria-hidden
-                        className="flex aspect-square w-full items-center justify-center border border-dashed border-ink font-display text-6xl transition-colors group-hover:bg-ink group-hover:text-surface group-active:bg-ink group-active:text-surface"
-                      >
-                        {barber.name.charAt(0)}
-                      </span>
-                    )}
+                    <BarberPortrait
+                      name={barber.name}
+                      photoUrl={barber.photoUrl}
+                      className="transition-[border-width] group-hover:border-4 group-active:border-4"
+                      placeholderClassName="transition-colors group-hover:bg-ink group-hover:text-surface group-active:bg-ink group-active:text-surface"
+                    />
                     <span className="flex flex-col">
                       <span className="font-display text-xl leading-tight underline-offset-4 group-hover:underline">
                         {barber.name}

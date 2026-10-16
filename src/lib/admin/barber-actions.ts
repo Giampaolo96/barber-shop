@@ -5,6 +5,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
+import { removePhotoFile } from "@/lib/barbers/photo-storage";
 import { createClient } from "@/lib/db/server";
 import { countFutureConfirmed } from "./queries";
 import { barberIdSchema, barberSchema, idSchema, optionalIdSchema, weeklyHoursSchema } from "./schemas";
@@ -68,7 +69,6 @@ export async function saveBarber(
   const target = optionalIdSchema.safeParse({ id: formData.get("id") || null });
   const parsed = barberSchema.safeParse({
     displayName: formData.get("displayName"),
-    photoUrl: formData.get("photoUrl"),
     bio: formData.get("bio"),
     isActive: formData.get("isActive") === "on",
     serviceIds: formData.getAll("serviceIds"),
@@ -77,7 +77,6 @@ export async function saveBarber(
   const barber = parsed.data;
   const values = {
     display_name: barber.displayName,
-    photo_url: barber.photoUrl,
     bio: barber.bio,
     is_active: barber.isActive,
   };
@@ -110,7 +109,7 @@ export async function saveBarber(
   return { status: "saved", futureBookings };
 }
 
-/** Elimina un barbiere senza prenotazioni; con prenotazioni va disattivato (FK restrict). */
+/** Elimina un barbiere senza prenotazioni (e il suo ritratto); con prenotazioni va disattivato (FK restrict). */
 export async function deleteBarber(
   _previous: BarberRowState,
   formData: FormData,
@@ -125,9 +124,14 @@ export async function deleteBarber(
     .from("barbers")
     .delete()
     .eq("id", parsed.data.id)
-    .select("id");
+    .select("id, photo_path");
   if (error?.code === FOREIGN_KEY_VIOLATION) return { status: "has_bookings" };
   if (error || deleted.length !== 1) return { status: "error" };
+
+  // Il ritratto se ne va con il barbiere; se la cancellazione del file fallisce resta un file
+  // orfano nel bucket, ma il barbiere è già eliminato (fetta 8d).
+  const photoPath = deleted[0].photo_path;
+  if (photoPath) await removePhotoFile(supabase, parsed.data.id, photoPath);
 
   revalidatePath(BARBERS_PATH, "layout");
   return { status: "ok" };

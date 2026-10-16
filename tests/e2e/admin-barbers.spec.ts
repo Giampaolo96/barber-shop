@@ -39,7 +39,7 @@ import {
   uniqueName,
 } from './admin-helpers';
 
-type BarberRow = { id: string; display_name: string; photo_url: string | null; bio: string | null; is_active: boolean };
+type BarberRow = { id: string; display_name: string; bio: string | null; is_active: boolean };
 type HoursRow = { weekday: number; start_time: string; end_time: string };
 
 const servicesGroup = (page: Page) =>
@@ -50,7 +50,7 @@ const dayGroup = (page: Page, weekday: number) =>
 
 const findBarbers = (api: Awaited<ReturnType<typeof adminApi>>, name: string) =>
   api.get<BarberRow[]>(
-    `/rest/v1/barbers?select=id,display_name,photo_url,bio,is_active&display_name=eq.${encodeURIComponent(name)}`,
+    `/rest/v1/barbers?select=id,display_name,bio,is_active&display_name=eq.${encodeURIComponent(name)}`,
   );
 
 const hoursOf = async (api: Awaited<ReturnType<typeof adminApi>>, barberId: string): Promise<string[]> => {
@@ -63,11 +63,10 @@ const hoursOf = async (api: Awaited<ReturnType<typeof adminApi>>, barberId: stri
 test.describe('Admin – barbieri (SPEC §6.5)', () => {
   test.use({ viewport: DESKTOP });
 
-  // SPEC §3.3: nome, foto, bio, attivo, servizi abilitati
-  test('crea un barbiere con foto https e servizi abilitati, li ritrova modificandolo', async ({ page }) => {
+  // SPEC §3.3: nome, bio, attivo, servizi abilitati (il ritratto: tests/e2e/barber-photo.spec.ts)
+  test('crea un barbiere con servizi abilitati, li ritrova modificandolo', async ({ page }) => {
     const api = await adminApi(page.request);
     const name = uniqueName('Barbiere');
-    const photo = 'https://example.com/foto/e2e-barbiere.jpg';
 
     try {
       await loginAsAdmin(page);
@@ -76,7 +75,6 @@ test.describe('Admin – barbieri (SPEC §6.5)', () => {
       await linkOrButton(page, s('admin.barbers.new')).click();
 
       await field(page, 'admin.barbers.displayNameLabel').fill(name);
-      await field(page, 'admin.barbers.photoUrlLabel').fill(photo);
       await field(page, 'admin.barbers.bioLabel').fill('Barbiere creato dal test e2e');
       await servicesGroup(page).getByRole('checkbox', { name: 'Taglio', exact: true }).check();
       await servicesGroup(page).getByRole('checkbox', { name: 'Barba', exact: true }).check();
@@ -87,7 +85,7 @@ test.describe('Admin – barbieri (SPEC §6.5)', () => {
 
       await expect.poll(async () => (await findBarbers(api, name)).length, { message: 'barbiere non salvato' }).toBe(1);
       const [created] = await findBarbers(api, name);
-      expect(created).toMatchObject({ photo_url: photo, bio: 'Barbiere creato dal test e2e', is_active: true });
+      expect(created).toMatchObject({ bio:'Barbiere creato dal test e2e', is_active: true });
       const enabled = await api.get<Array<{ service_id: string }>>(
         `/rest/v1/barber_services?select=service_id&barber_id=eq.${created?.id}`,
       );
@@ -97,7 +95,6 @@ test.describe('Admin – barbieri (SPEC §6.5)', () => {
       await expect(rowWith(page, name)).toHaveCount(1);
       await rowWith(page, name).getByRole('link', { name: s('admin.common.edit'), exact: true }).click();
       await expect(field(page, 'admin.barbers.displayNameLabel')).toHaveValue(name);
-      await expect(field(page, 'admin.barbers.photoUrlLabel')).toHaveValue(photo);
       await expect(servicesGroup(page).getByRole('checkbox', { name: 'Taglio', exact: true })).toBeChecked();
       await expect(servicesGroup(page).getByRole('checkbox', { name: 'Barba', exact: true })).toBeChecked();
       await expect(servicesGroup(page).getByRole('checkbox', { name: 'Taglio bambino', exact: true })).not.toBeChecked();
@@ -114,27 +111,6 @@ test.describe('Admin – barbieri (SPEC §6.5)', () => {
           ).map((row) => row.service_id),
         )
         .toEqual([SEED.taglio]);
-    } finally {
-      await cleanup(api, { barbers: (await findBarbers(api, name)).map((row) => row.id) });
-    }
-  });
-
-  // Decisione fetta 3: foto solo https://
-  test('una foto con URL http viene rifiutata e il barbiere non viene salvato', async ({ page }) => {
-    const api = await adminApi(page.request);
-    const name = uniqueName('Barbiere http');
-    try {
-      await loginAsAdmin(page);
-      await page.goto('/admin/barbieri');
-      await linkOrButton(page, s('admin.barbers.new')).click();
-      for (const photo of ['http://example.com/foto.jpg', 'javascript:alert(1)']) {
-        await field(page, 'admin.barbers.displayNameLabel').fill(name);
-        await field(page, 'admin.barbers.photoUrlLabel').fill(photo);
-        await disableNativeValidation(page);
-        await saveButton(page).click();
-        await expect(page.getByText(s('admin.common.invalid')), `nessun errore per la foto ${photo}`).toBeVisible();
-        expect(await findBarbers(api, name)).toEqual([]);
-      }
     } finally {
       await cleanup(api, { barbers: (await findBarbers(api, name)).map((row) => row.id) });
     }

@@ -4,6 +4,11 @@ import { serviceWorkerVersion } from "./src/lib/pwa/sw-version";
 const nextConfig: NextConfig = {
   // Versione della cache del service worker: una per deploy (ADR 009).
   env: { SW_VERSION: serviceWorkerVersion(process.env) },
+  experimental: {
+    // Il ritratto di un barbiere arriva fino a 1 MB (fetta 8d): col limite predefinito di 1 MB
+    // Next rifiuterebbe il corpo prima che l'azione possa rispondere.
+    serverActions: { bodySizeLimit: "2mb" },
+  },
   async headers() {
     return [
       {

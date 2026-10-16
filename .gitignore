@@ -16,3 +16,6 @@ supabase/.branches/
 
 # Screenshot e snapshot di Playwright MCP
 /.playwright-mcp/
+
+# Illustrazioni segnaposto dei barbieri, si caricano dall'admin
+/tmp-avatars/

@@ -188,8 +188,8 @@ select is(pg_temp.col_default('public.services', 'is_active'), 'true',
 -- SPEC §3.3: barbers
 select is(
   pg_temp.cols('public.barbers',
-    array['id', 'display_name', 'photo_url', 'bio', 'is_active', 'profile_id']),
-  'bio:text,display_name:text,id:uuid,is_active:bool,photo_url:text,profile_id:uuid',
+    array['id', 'display_name', 'photo_path', 'bio', 'is_active', 'profile_id']),
+  'bio:text,display_name:text,id:uuid,is_active:bool,photo_path:text,profile_id:uuid',
   'SPEC §3.3: colonne e tipi di barbers');
 select is(pg_temp.col_notnull('public.barbers', 'profile_id'), false,
   'SPEC §3.3: barbers.profile_id è opzionale (nullable)');

@@ -367,7 +367,9 @@ test('conferma e .ics solo per il proprietario: altro cliente o id inesistente 4
     const at = (offset: number, time: string): string => fromZonedTime(`${localDay(offset)}T${time}:00`, TZ).toISOString();
     const base = { barberId: barber ?? '', serviceId: service.id };
 
-    const other = await customerBooking(api, { ...base, customerId: SEED.customerProfile, startsAt: at(4, '10:00'), status: 'confirmed' });
+    // Alle 07:00: il seed dà al cliente demo solo prenotazioni alle 10:00, che con at(4, '10:00')
+    // coincidevano quando il test girava di venerdì (bookings_customer_no_overlap).
+    const other = await customerBooking(api, { ...base, customerId: SEED.customerProfile, startsAt: at(4, '07:00'), status: 'confirmed' });
     const cancelled = await customerBooking(api, { ...base, customerId, startsAt: at(4, '11:00'), status: 'cancelled_by_shop' });
     const past = await customerBooking(api, { ...base, customerId, startsAt: at(-2, '10:00'), status: 'confirmed' });
     data.bookings.push(other, cancelled, past);
