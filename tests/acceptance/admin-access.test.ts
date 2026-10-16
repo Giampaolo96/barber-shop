@@ -411,7 +411,11 @@ const FETTA3_I18N_KEYS = [
   'admin.services.deactivatedWithBookingsOne',
   'admin.barbers.new',
   'admin.barbers.displayNameLabel',
-  'admin.barbers.photoUrlLabel',
+  // Fetta 8d: il campo URL della foto è sostituito dalla sezione "Ritratto"
+  'admin.barbers.portraitTitle',
+  'admin.barbers.portraitLabel',
+  'admin.barbers.portraitUpload',
+  'admin.barbers.portraitRemove',
   'admin.barbers.bioLabel',
   'admin.barbers.activeLabel',
   'admin.barbers.servicesLabel',
@@ -518,7 +522,9 @@ describe('Testi della fetta 3 – SPEC §9 (src/i18n/it.ts)', () => {
       'scheda del barbiere con account staff',
       [
         'admin.barbers.displayNameLabel',
-        'admin.barbers.photoUrlLabel',
+        'admin.barbers.portraitLabel',
+        'admin.barbers.portraitUpload',
+        'admin.barbers.portraitRemove',
         'admin.barbers.bioLabel',
         'admin.barbers.activeLabel',
         'admin.staff.emailLabel',

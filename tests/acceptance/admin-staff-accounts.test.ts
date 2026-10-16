@@ -48,7 +48,7 @@ type ProfileRow = { id: string; role: Role; is_blocked: boolean; full_name: stri
 type BarberRow = {
   id: string;
   display_name: string;
-  photo_url: string | null;
+  photo_path: string | null;
   bio: string | null;
   is_active: boolean;
   profile_id: string | null;
@@ -76,7 +76,7 @@ const fake = vi.hoisted(() => ({
   barbers: [] as Array<{
     id: string;
     display_name: string;
-    photo_url: string | null;
+    photo_path: string | null;
     bio: string | null;
     is_active: boolean;
     profile_id: string | null;
@@ -417,10 +417,10 @@ const reset = (): void => {
     { id: LOOSE_BARBER_USER_ID, role: 'barber', is_blocked: false, full_name: 'Paolo Senza Scheda', phone: null },
   ];
   fake.barbers = [
-    { id: MARIO, display_name: 'Mario', photo_url: null, bio: null, is_active: true, profile_id: null },
-    { id: LUCA, display_name: 'Luca', photo_url: null, bio: null, is_active: true, profile_id: BARBER_USER_ID },
-    { id: SARA, display_name: 'Sara', photo_url: null, bio: null, is_active: true, profile_id: null },
-    { id: NEW_BARBER, display_name: 'Nuovo', photo_url: null, bio: null, is_active: true, profile_id: null },
+    { id: MARIO, display_name: 'Mario', photo_path: null, bio: null, is_active: true, profile_id: null },
+    { id: LUCA, display_name: 'Luca', photo_path: null, bio: null, is_active: true, profile_id: BARBER_USER_ID },
+    { id: SARA, display_name: 'Sara', photo_path: null, bio: null, is_active: true, profile_id: null },
+    { id: NEW_BARBER, display_name: 'Nuovo', photo_path: null, bio: null, is_active: true, profile_id: null },
   ];
 };
 

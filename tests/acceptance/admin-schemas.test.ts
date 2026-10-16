@@ -161,43 +161,31 @@ describe('serviceSchema – servizi (SPEC §3.2, §6.4)', () => {
 describe('barberSchema – barbieri (SPEC §3.3, §6.5)', () => {
   const valid = {
     displayName: 'Marco',
-    photoUrl: 'https://example.com/foto/marco.jpg',
     bio: 'Specialista in barba',
     isActive: true,
     serviceIds: [UUID_A, UUID_B],
   };
 
-  test('accetta un barbiere valido con foto https e servizi abilitati', async () => {
+  // Fetta 8d (dec. 1): il ritratto non passa più dal modulo della scheda (niente photoUrl)
+  test('accetta un barbiere valido con servizi abilitati', async () => {
     const data = await accept('barberSchema', valid);
     expect(data).toMatchObject({
       displayName: 'Marco',
-      photoUrl: 'https://example.com/foto/marco.jpg',
       bio: 'Specialista in barba',
       isActive: true,
     });
     expect([...(data.serviceIds as string[])].sort()).toEqual([UUID_A, UUID_B].sort());
   });
 
-  test('toglie gli spazi ai bordi di nome e URL della foto', async () => {
+  test('toglie gli spazi ai bordi del nome', async () => {
     const data = await accept('barberSchema', {
       ...valid,
       displayName: '  Marco  ',
-      photoUrl: '  https://example.com/marco.jpg  ',
     });
     expect(data.displayName).toBe('Marco');
-    expect(data.photoUrl).toBe('https://example.com/marco.jpg');
   });
 
-  // SPEC §3.3: foto e bio facoltative
-  test.each([
-    ['mancante', undefined],
-    ['vuota', ''],
-    ['solo spazi', '   '],
-  ])('foto %s → nessuna foto (null o assente)', async (_label, photoUrl) => {
-    const data = await accept('barberSchema', { ...valid, photoUrl });
-    expect(data.photoUrl ?? null).toBeNull();
-  });
-
+  // SPEC §3.3: bio facoltativa
   test.each([
     ['mancante', undefined],
     ['vuota', ''],
@@ -209,23 +197,6 @@ describe('barberSchema – barbieri (SPEC §3.3, §6.5)', () => {
   // Un barbiere appena assunto può non avere ancora servizi abilitati
   test('accetta un elenco di servizi vuoto', async () => {
     expect((await accept('barberSchema', { ...valid, serviceIds: [] })).serviceIds).toEqual([]);
-  });
-
-  // Decisione fetta 3: la foto si mostra ai clienti, quindi solo URL https:// validi
-  test.each([
-    ['http', 'http://example.com/foto.jpg'],
-    ['javascript', 'javascript:alert(1)'],
-    ['javascript con maiuscole', 'JavaScript:alert(1)'],
-    ['data', 'data:image/png;base64,iVBORw0KGgo='],
-    ['ftp', 'ftp://example.com/foto.jpg'],
-    ['file', 'file:///etc/passwd'],
-    ['relativo', '/foto/marco.jpg'],
-    ['protocollo relativo', '//example.com/foto.jpg'],
-    ['senza host', 'https://'],
-    ['testo qualsiasi', 'non è un url'],
-    ['più lungo di 2048 caratteri', `https://example.com/${'a'.repeat(2048)}`],
-  ])('rifiuta una foto %s', async (_label, photoUrl) => {
-    await reject('barberSchema', { ...valid, photoUrl });
   });
 
   test.each([
