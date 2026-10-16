@@ -105,7 +105,7 @@ export function FlyLanding() {
   );
 }
 
-/** Mosca piccola e ferma: listino, "Nessuna preferenza", stati vuoti dell'area clienti. */
+/** Mosca piccola e ferma: listino e stati vuoti dell'area clienti. */
 export function FlySmall({ className }: { className?: string }) {
   return <Fly className={className ?? "size-6"} />;
 }

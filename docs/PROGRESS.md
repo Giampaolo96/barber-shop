@@ -17,7 +17,7 @@
 | 8b | completata | 2026-10-12 | Vedi "Fetta 8b" sotto; manca la prova su iPhone di "Aggiungi al calendario" |
 | 8c | completata | 2026-10-12 | Vedi "Fetta 8c" sotto; manca la prova del tocco su iPhone |
 | 8d | completata | 2026-10-16 | Vedi "Fetta 8d" sotto; manca la prova di caricamento da iPhone |
-| 8e | in corso | 2026-10-16 | Vedi "Fetta 8e" sotto: piano e test di accettazione in revisione |
+| 8e | completata | 2026-10-16 | Vedi "Fetta 8e" sotto; manca la prova su iPhone e una decisione su "oggi chiuso" |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
 | 9b | da fare | | Privacy e account prima del go-live (SPEC §11) |
 
@@ -1106,7 +1106,7 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 
 ## Fetta 8e – Prenotazione da telefono: servizio → quando → conferma
 
-**Stato**: in corso (partenza da `fef894c`). Piano e test di accettazione approvati il 2026-10-16; implementazione in corso.
+**Stato**: completata il 2026-10-16 (partenza da `fef894c`, test di accettazione in `c48ef75`). Review chiusa; manca la prova su iPhone.
 
 **Decisioni (2026-10-16)**
 - Il flusso passa da 4 a 3 schermate: servizio → "Quando?" (`/prenota/quando`) → riepilogo; regole in SPEC §5.2.
@@ -1129,3 +1129,18 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 **Dati: quanto si legge** (misurato in locale con il seed, servizio Taglio, 31 giorni)
 - All'apertura il server legge una volta l'intero periodo prenotabile (`availability_inputs` da oggi a oggi + `max_horizon_days`): circa 18 KB e 17–27 ms fra database e server. Questi dati non arrivano al telefono: servono a stato dei giorni della striscia, giorno iniziale, orari del primo giorno e "prossimo orario libero".
 - A ogni cambio di giorno `fetchWhenDay` rilegge dal giorno scelto alla fine del periodo (serve per il "prossimo orario libero" dei barbieri pieni): una sola lettura, stesso ordine di grandezza (≤ 18 KB, ~20 ms). Al telefono arriva solo il giorno: orari e id dei barbieri, pochi KB (misura reale da riportare a fine fetta). Rileggere il periodo invece del solo giorno costa pochi millisecondi e tiene il "prossimo orario" sempre aggiornato.
+
+**Fatto**
+- Motore: `dayStatuses`, `nextSlotByBarber`, `firstFree` (puri, in `src/lib/availability/`); `src/lib/booking/when.ts` con ordine dei barbieri, ultimo appuntamento, Mattina/Pomeriggio, giorno iniziale e formati.
+- `getWhenOverview` (apertura, una lettura del periodo) e `fetchWhenDay` (cambio di giorno) in `src/lib/booking/availability*.ts`; in uscita solo orari e id dei barbieri.
+- Pagina `/prenota/quando` con `WhenPicker`: striscia sticky con ←/→, "Primo libero", sezioni con ritratto, nome, prima riga della bio, orari a 4 colonne; giorni già visti in memoria e prefetch del successivo; scheletri con le righe del giorno precedente.
+- Listino → "Quando?"; `/prenota/barbiere` e `/prenota/orario` fanno redirect; riepilogo "Passo 3 di 3" con "Indietro"/"Cambia orario" verso lo stesso giorno; `slot-picker.tsx` rimosso; testi "Con chi?"/"Nessuna preferenza" eliminati; ADR 012.
+- Test: `booking-when.test.ts` (55), `booking-when.spec.ts` (5 e2e a 390 px), `booking-when-review-fixes.test.ts` (2); test esistenti modificati come approvato.
+- Esito: lint, typecheck, Vitest (50 file, 1974 test) ed e2e (139) verdi. Verifica con Playwright MCP a 390 e 1280 px: striscia sticky, nessun overflow (375 = 375), redirect con "Il tuo barbiere".
+- Misure reali in locale (dev): risposta di `fetchWhenDay` circa 2,9 KB (0,7 KB compressa), 90–110 ms; giorno già precaricato mostrato in circa 30 ms.
+
+**Review**: due bloccanti corretti (risposte arrivate in ritardo che lasciavano gli scheletri; giorno "senza posti" richiesto senza giorni con posti → ora stato vuoto). La correzione delle risposte in ritardo non ha un test automatico.
+
+**Problemi aperti**
+- `availability_inputs` taglia gli intervalli a `now()`: oggi, dopo l'ultima fascia, risulta "chiuso" invece che "senza posti", e i conteggi del "Primo libero" di oggi non includono le prenotazioni già finite. Serve una decisione (accettarlo o cambiare la funzione con una migrazione).
+- Migliorie della review proposte e non applicate: vedi il report della fetta.

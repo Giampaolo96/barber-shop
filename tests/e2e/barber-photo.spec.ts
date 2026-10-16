@@ -10,7 +10,8 @@
 //   it.admin.barbers.portraitLabel, il pulsante it.admin.barbers.portraitUpload (carica o sostituisce)
 //   e il pulsante it.admin.barbers.portraitRemove. Il browser ridimensiona a 512×512 WebP (canvas),
 //   con ripiego JPEG (Safari iOS), poi il server ricodifica: si può scegliere una JPEG qualsiasi.
-// - /prenota/barbiere?servizio=<id>: per ogni barbiere con ritratto un'immagine con
+// - /prenota/quando?servizio=<id> (fetta 8e, prima /prenota/barbiere): nella sezione di ogni barbiere
+//   con ritratto un'immagine con
 //   alt = it.booking.barber.portraitAlt ("Ritratto di {name}"), src = URL pubblico del bucket
 //   barber-photos, loading="lazy", decoding="async"; senza ritratto l'iniziale del nome.
 //
@@ -123,6 +124,13 @@ test.describe('Ritratti dei barbieri (fetta 8d)', () => {
     const serviceId = await createService(api, { name: uniqueName('Servizio ritratto'), durationMin: 30 });
     const name = uniqueName('Ritratto');
     const [barberId = '', otherId = ''] = await createBarbers(api, serviceId, [name, uniqueName('Senza ritratto')]);
+    // Fetta 8e: "Quando?" mostra le sezioni solo se nel periodo c'è almeno un orario libero
+    await api.post(
+      '/rest/v1/working_hours?select=id',
+      [barberId, otherId].flatMap((barber_id) =>
+        [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({ barber_id, weekday, start_time: '06:00', end_time: '23:00' })),
+      ),
+    );
     const customer = await browser.newContext({ ...devices['Pixel 7'] });
     const customerPage = await customer.newPage();
     try {
@@ -155,10 +163,10 @@ test.describe('Ritratti dei barbieri (fetta 8d)', () => {
       const meta = await sharp(await stored.body()).metadata();
       expect({ format: meta.format, width: meta.width, height: meta.height }).toEqual({ format: 'webp', width: 512, height: 512 });
 
-      // --- Cliente: scelta del barbiere con il ritratto ----------------------------------
+      // --- Cliente: "Quando?" con il ritratto (fetta 8e) ---------------------------------
       await signUpCustomer(customerPage);
-      await customerPage.goto(`/prenota/barbiere?servizio=${serviceId}`);
-      await expectPath(customerPage, '/prenota/barbiere');
+      await customerPage.goto(`/prenota/quando?servizio=${serviceId}`);
+      await expectPath(customerPage, '/prenota/quando');
       const main = customerPage.locator('main');
       const portrait = main.getByRole('img', { name: alt, exact: true });
       await expect(portrait).toHaveCount(1);
@@ -171,8 +179,10 @@ test.describe('Ritratti dei barbieri (fetta 8d)', () => {
       await expect
         .poll(() => portrait.evaluate((img) => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth))
         .toBe(512);
-      // Il ritratto sta nel link del barbiere; l'altro barbiere resta con l'iniziale
-      const barberLink = main.getByRole('link', { name: new RegExp(escapeRegExp(name)) });
+      // Il ritratto sta nella sezione del barbiere; l'altro barbiere resta con l'iniziale
+      const barberLink = main
+        .locator('section')
+        .filter({ has: customerPage.getByRole('heading', { name: new RegExp(escapeRegExp(name)) }) });
       await expect(barberLink.getByRole('img', { name: alt, exact: true })).toHaveCount(1);
       expect(otherId).not.toBe('');
       expect(await photoPathOf(api, otherId)).toBeNull();

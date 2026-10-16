@@ -5,11 +5,11 @@ import { it } from "@/i18n/it";
 import { formatDuration } from "@/lib/booking/format";
 import { formatCents } from "@/lib/domain/money";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
-import { BOOK_PATH, barberStepUrl, timeStepUrl } from "@/lib/booking/paths";
+import { BOOK_PATH, whenStepUrl } from "@/lib/booking/paths";
 import { getBookableServices } from "@/lib/booking/queries";
 import { EmptyMark } from "@/themes/active";
 
-// Passo 1 di 4 (SPEC §5.2): scelta del servizio, impaginata come un listino (fetta 8b).
+// Passo 1 di 3 (SPEC §5.2): scelta del servizio, impaginata come un listino (fetta 8b).
 export default async function ChooseServicePage() {
   const { shop, access } = await loadBookingPageContext();
   const t = it.booking;
@@ -39,11 +39,8 @@ async function ServiceList() {
   return (
     <ul className="border-y-[3px] border-double border-ink">
       {services.map((service) => {
-        // Con un solo barbiere abilitato il passo del barbiere si salta.
-        const href =
-          service.barberIds.length === 1
-            ? timeStepUrl(service.id, service.barberIds[0])
-            : barberStepUrl(service.id);
+        // Fetta 8e: dal servizio si passa sempre a "Quando?", con gli orari di tutti i barbieri.
+        const href = whenStepUrl(service.id);
         const duration = formatDuration(service.durationMin);
         const price = formatCents(service.priceCents);
         return (

@@ -142,3 +142,52 @@ export function availableDays(input: AvailabilityInput, from: string, to: string
   }
   return days;
 }
+
+/** Stato di un giorno nella striscia di "Quando?" (SPEC §5.2, fetta 8e). */
+export type DayStatus = { date: string; status: "closed" | "full" | "open" };
+
+/**
+ * Stato di ogni giorno locale in [from, to] (inclusi). "closed": nessun barbiere ha tempo di lavoro
+ * al netto di chiusure e assenze (indipendente da prenotazioni e da `now`); "open": almeno uno slot;
+ * altrimenti "full".
+ */
+export function dayStatuses(input: AvailabilityInput, from: string, to: string): DayStatus[] {
+  const p = prepare(input);
+  const tz = input.timezone;
+  const days: DayStatus[] = [];
+  for (let date = from; date <= to; date = addDays(date, 1)) {
+    const dayStart = startOfLocalDay(date, tz).getTime();
+    const dayEnd = startOfLocalDay(addDays(date, 1), tz).getTime();
+    const works = p.barbers.some((b) =>
+      b.free.some((f) => f.start.getTime() < dayEnd && dayStart < f.end.getTime()),
+    );
+    const status = !works
+      ? "closed"
+      : p.barbers.some((b) => barberSlots(p, b, date, true).length > 0)
+        ? "open"
+        : "full";
+    days.push({ date, status });
+  }
+  return days;
+}
+
+/**
+ * Primo slot di ogni barbiere nei giorni locali dopo `afterDate` fino a `to` incluso ("prossimo
+ * orario libero" di "Quando?"); null se non ce n'è. Una chiave per ogni barbiere in input.
+ */
+export function nextSlotByBarber(
+  input: AvailabilityInput,
+  afterDate: string,
+  to: string,
+): Record<string, Date | null> {
+  const p = prepare(input);
+  return Object.fromEntries(
+    p.barbers.map((b) => {
+      for (let date = addDays(afterDate, 1); date <= to; date = addDays(date, 1)) {
+        const [first] = barberSlots(p, b, date, true);
+        if (first) return [b.barberId, first];
+      }
+      return [b.barberId, null];
+    }),
+  );
+}

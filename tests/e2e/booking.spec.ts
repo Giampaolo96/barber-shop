@@ -6,10 +6,9 @@
 // Rotte attese:
 //   /prenota                                   scelta del servizio (solo servizi attivi con almeno un
 //                                              barbiere attivo abilitato)
-//   /prenota/barbiere?servizio=<id>            barbieri abilitati + "Nessuna preferenza"; saltata se il
-//                                              servizio ha un solo barbiere abilitato
-//   /prenota/orario?servizio=&barbiere=<id|any> striscia dei giorni (all'apertura è selezionato il primo
-//                                              giorno con orari) e griglia degli orari "HH:MM"
+//   /prenota/quando?servizio=<id>              fetta 8e (al posto dei passi barbiere e orario): orari di
+//                                              tutti i barbieri del giorno, ognuno con nome accessibile
+//                                              "<H:mm> con <barbiere>" (SPEC §5.2)
 //   /prenota/riepilogo?servizio=&barbiere=&inizio=<ISO>  riepilogo, nota facoltativa, conferma
 //   /prenotazioni                              future e passate
 //   /prenotazioni/<id>/confermata              dopo la conferma (fetta 8b, prima era /prenotazioni con il
@@ -17,7 +16,7 @@
 //                                              confermata" e link "Le mie prenotazioni"
 // Fetta 8b: con una prenotazione futura la home mostra il biglietto it.home.ticket.title ("Il tuo
 // prossimo appuntamento") al posto di "Prossima prenotazione".
-// Testi attesi (da mettere in src/i18n/it.ts): "Prenota", "Prossima prenotazione", "Nessuna preferenza",
+// Testi attesi (da mettere in src/i18n/it.ts): "Prenota", "Prossima prenotazione",
 // "Conferma prenotazione", campo con etichetta che contiene "Note", "Prenotazione confermata",
 // "Cancella", "Prenotazione cancellata", "Chiama il negozio" (link tel:), messaggio per il cliente
 // bloccato che contiene "non puoi prenotare online".
@@ -48,7 +47,9 @@ import {
 import { confirmHref, newestEmailId, waitForNewEmail } from './mailpit';
 
 const TZ = 'Europe/Rome';
-const TIME = /^\d{2}:\d{2}$/;
+/** Orario di "Quando?" (fetta 8e): "9:30 con <barbiere>". */
+const slotName = (barber?: string): RegExp =>
+  new RegExp(`^\\d{1,2}:\\d{2} con ${barber ? barber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '.+'}$`);
 
 // ---------------------------------------------------------------------------
 // Login del cliente con magic link (Mailpit), come in auth.spec.ts
@@ -156,15 +157,18 @@ const localDay = (offsetDays: number): string => {
 // ---------------------------------------------------------------------------
 const main = (page: Page): Locator => page.locator('main');
 
-/** Scelta (servizio, barbiere, "Nessuna preferenza"): link o pulsante che contiene il testo. */
+/** Scelta (servizio): link o pulsante che contiene il testo. */
 const choice = (page: Page, text: string): Locator => {
   const name = new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   return main(page).getByRole('link', { name }).or(main(page).getByRole('button', { name })).first();
 };
 
-/** Ultimo orario della griglia del giorno selezionato (lontano dall'anticipo minimo). */
-const lastSlot = (page: Page): Locator =>
-  main(page).getByRole('button', { name: TIME }).or(main(page).getByRole('link', { name: TIME })).last();
+/** Ultimo orario del giorno selezionato (lontano dall'anticipo minimo), di un barbiere o di chiunque. */
+const lastSlot = (page: Page, barber?: string): Locator =>
+  main(page)
+    .getByRole('button', { name: slotName(barber) })
+    .or(main(page).getByRole('link', { name: slotName(barber) }))
+    .last();
 
 const confirmButton = (page: Page): Locator => page.getByRole('button', { name: 'Conferma prenotazione' });
 
@@ -178,10 +182,11 @@ const tap = async (locator: Locator): Promise<void> => {
 };
 
 /** Sceglie l'ultimo orario e lo conferma dal riepilogo; restituisce l'ora scelta (HH:MM). */
-const pickLastSlotAndConfirm = async (page: Page, note?: string): Promise<string> => {
-  await expect(lastSlot(page)).toBeVisible();
-  const time = (await lastSlot(page).innerText()).trim();
-  await tap(lastSlot(page));
+const pickLastSlotAndConfirm = async (page: Page, note?: string, barber?: string): Promise<string> => {
+  await expect(lastSlot(page, barber)).toBeVisible();
+  // "Quando?" mostra "9:30": qui si confronta nel formato HH:MM di riepilogo e "Le mie prenotazioni".
+  const time = (await lastSlot(page, barber).innerText()).trim().padStart(5, '0');
+  await tap(lastSlot(page, barber));
   await expectPath(page, '/prenota/riepilogo');
   await expect(main(page)).toContainText(time);
   if (note !== undefined) await page.getByLabel(/note/i).fill(note);
@@ -225,16 +230,15 @@ test('il cliente demo prenota con un barbiere scelto: la prenotazione è in "Le 
     await expect(choice(page, service.name)).toBeVisible();
     await expect(main(page).getByText(orphan.name)).toHaveCount(0);
 
+    // Fetta 8e: dal servizio a "Quando?", con una sezione per ogni barbiere
     await tap(choice(page, service.name));
-    await expectPath(page, '/prenota/barbiere');
-    await expect(choice(page, 'Nessuna preferenza')).toBeVisible();
-    await expect(choice(page, barberNames[1] ?? '')).toBeVisible();
-    await tap(choice(page, barberNames[0] ?? ''));
-    await expectPath(page, '/prenota/orario');
-    expect(new URL(page.url()).searchParams.get('barbiere')).toBe(chosen);
+    await expectPath(page, '/prenota/quando');
+    for (const name of barberNames) {
+      await expect(main(page).getByRole('heading', { name, exact: true })).toBeVisible();
+    }
 
     const note = `Nota ${uniqueName('e2e')}`;
-    const time = await pickLastSlotAndConfirm(page, note);
+    const time = await pickLastSlotAndConfirm(page, note, barberNames[0]);
 
     // Database: online, confermata, del cliente demo, con il barbiere scelto e la nota
     const rows = await bookingsOfService(api, service.id);
@@ -270,39 +274,9 @@ test('il cliente demo prenota con un barbiere scelto: la prenotazione è in "Le 
 });
 
 // ---------------------------------------------------------------------------
-// 2. "Nessuna preferenza" (SPEC §4, §5.2)
+// 2. "Nessuna preferenza": rimosso con la fetta 8e (la scelta non c'è più; "Primo libero" è in
+//    booking-when.spec.ts, l'assegnazione del database in booking-db.test.ts)
 // ---------------------------------------------------------------------------
-test('"Nessuna preferenza": la prenotazione viene creata con un barbiere assegnato', async ({ page, request }) => {
-  const api = await adminApi(request);
-  const data: Created = { services: [], barbers: [], bookings: [] };
-  try {
-    const service = await newService(api, data, 'Barba');
-    const barberNames = [uniqueName('Uno'), uniqueName('Due')];
-    const barbers = await createBarbers(api, data, service.id, barberNames);
-    const customerId = await signUpCustomer(page, api, 'qualsiasi');
-
-    await page.goto('/prenota');
-    await tap(choice(page, service.name));
-    await expectPath(page, '/prenota/barbiere');
-    await tap(choice(page, 'Nessuna preferenza'));
-    await expectPath(page, '/prenota/orario');
-    expect(new URL(page.url()).searchParams.get('barbiere')).toBe('any');
-
-    await pickLastSlotAndConfirm(page);
-
-    const rows = await bookingsOfService(api, service.id);
-    data.bookings.push(...rows.map((r) => r.id));
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ customer_id: customerId, status: 'confirmed', source: 'online' });
-    expect(barbers).toContain(rows[0]?.barber_id);
-
-    const assignedName = barberNames[barbers.indexOf(rows[0]?.barber_id ?? '')] ?? '';
-    await expect(main(page).getByText(service.name).first()).toBeVisible();
-    await expect(main(page).getByText(assignedName).first()).toBeVisible();
-  } finally {
-    await cleanup(api, data);
-  }
-});
 
 // ---------------------------------------------------------------------------
 // 3. Cancellazione (SPEC §5.3, §3.1 cancel_limit_min)
@@ -385,7 +359,7 @@ test('anonimo su /prenota va al login e poi torna a /prenota; il cliente bloccat
   const data: Created = { services: [], barbers: [], bookings: [] };
   try {
     const service = await newService(api, data, 'Unico barbiere');
-    const [barber] = await createBarbers(api, data, service.id, [uniqueName('Solo')]);
+    await createBarbers(api, data, service.id, [uniqueName('Solo')]);
 
     // Cliente già registrato con profilo completo, poi senza sessione
     const email = uniqueEmail('ritorno');
@@ -406,10 +380,9 @@ test('anonimo su /prenota va al login e poi torna a /prenota; il cliente bloccat
     await loginFromCurrentPage(page, email);
     await expectPath(page, '/prenota');
 
-    // Un solo barbiere abilitato: il passo del barbiere si salta
+    // Fetta 8e: dal servizio a "Quando?"
     await tap(choice(page, service.name));
-    await expectPath(page, '/prenota/orario');
-    expect(new URL(page.url()).searchParams.get('barbiere')).toBe(barber);
+    await expectPath(page, '/prenota/quando');
     await expect(lastSlot(page)).toBeVisible();
 
     // L'admin blocca il cliente (SPEC §6.7)

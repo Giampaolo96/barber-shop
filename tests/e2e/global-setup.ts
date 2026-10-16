@@ -39,8 +39,8 @@ const ADMIN_PAGES = [
 const CUSTOMER_PAGES = [
   '/',
   '/prenota',
-  `/prenota/barbiere?servizio=${SEED.taglio}`,
-  `/prenota/orario?servizio=${SEED.taglio}&barbiere=${SEED.luca}`,
+  // fetta 8e: "Quando?" al posto dei passi barbiere e orario
+  `/prenota/quando?servizio=${SEED.taglio}`,
   '/prenota/riepilogo',
   '/prenotazioni',
   '/profilo',

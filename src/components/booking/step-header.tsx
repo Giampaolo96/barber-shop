@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { it } from "@/i18n/it";
 
-/** Intestazione di un passo del flusso di prenotazione (max 4 schermate, SPEC §5.2). */
+/** Schermate del flusso: servizio, "Quando?", riepilogo (fetta 8e). */
+const BOOKING_STEPS = 3;
+
+/** Intestazione di un passo del flusso di prenotazione (3 schermate, SPEC §5.2). */
 export function StepHeader({
   step,
   title,
@@ -31,7 +34,7 @@ export function StepHeader({
           <span />
         )}
         <p className="text-sm text-muted-foreground tabular-nums">
-          {it.booking.step.replace("{current}", String(step)).replace("{total}", "4")}
+          {it.booking.step.replace("{current}", String(step)).replace("{total}", String(BOOKING_STEPS))}
         </p>
       </div>
       <div className="flex items-end justify-between gap-4">

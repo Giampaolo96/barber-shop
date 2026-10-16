@@ -31,7 +31,6 @@
 //     appIdentity resta solo colori, test M5 della fetta 8)
 //   Testi in src/i18n/it.ts (chiavi nuove o con valore nuovo):
 //     it.booking.service.title = "Il listino", it.booking.service.subtitle = "Scegli il servizio"
-//     it.booking.barber.title = "Con chi?"
 //     it.home.ticket = { title: "Il tuo prossimo appuntamento", today: "Oggi", tomorrow: "Domani",
 //                        inDays: "Tra {count} giorni", manage: "Gestisci" }
 //     it.booking.confirmation = { title: "Prenotazione confermata", seeYou: "Ci vediamo {when}",
@@ -503,8 +502,6 @@ describe('testi della fetta 8b in src/i18n/it.ts (SPEC §9)', () => {
   test.each([
     ['booking.service.title', 'Il listino'],
     ['booking.service.subtitle', 'Scegli il servizio'],
-    ['booking.barber.title', 'Con chi?'],
-    ['booking.barber.any', 'Nessuna preferenza'],
     ['home.ticket.title', 'Il tuo prossimo appuntamento'],
     ['home.ticket.today', 'Oggi'],
     ['home.ticket.tomorrow', 'Domani'],
