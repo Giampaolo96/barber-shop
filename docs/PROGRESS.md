@@ -17,6 +17,7 @@
 | 8b | completata | 2026-10-12 | Vedi "Fetta 8b" sotto; manca la prova su iPhone di "Aggiungi al calendario" |
 | 8c | completata | 2026-10-12 | Vedi "Fetta 8c" sotto; manca la prova del tocco su iPhone |
 | 8d | completata | 2026-10-16 | Vedi "Fetta 8d" sotto; manca la prova di caricamento da iPhone |
+| 8e | in corso | 2026-10-16 | Vedi "Fetta 8e" sotto: piano e test di accettazione in revisione |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
 | 9b | da fare | | Privacy e account prima del go-live (SPEC §11) |
 
@@ -1102,3 +1103,29 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 6. `isBarberPhotoPath` usata solo dai test: riusarla prima di `storage.remove`.
 7. Se `canvas.toBlob` fallisce per memoria, il messaggio "non è un'immagine leggibile" è fuorviante.
 8. Senza `NEXT_PUBLIC_SUPABASE_URL`, `barberPhotoUrl` produce un URL relativo che dà 404: meglio `null` o un log.
+
+## Fetta 8e – Prenotazione da telefono: servizio → quando → conferma
+
+**Stato**: in corso (partenza da `fef894c`). Piano e test di accettazione approvati il 2026-10-16; implementazione in corso.
+
+**Decisioni (2026-10-16)**
+- Il flusso passa da 4 a 3 schermate: servizio → "Quando?" (`/prenota/quando`) → riepilogo; regole in SPEC §5.2.
+- "Primo libero" con più barbieri liberi al primo orario: il preferito (URL, poi ultimo appuntamento) se libero, altrimenti la regola di "qualsiasi" di SPEC §4, sul server.
+- "Barbiere con cui ha prenotato più di recente" = barbiere dell'ultimo appuntamento già iniziato, escluse le cancellate.
+- Giorno "chiuso" = nessun barbiere attivo del servizio ha ore di lavoro al netto di chiusure e assenze; altrimenti, senza orari, "senza posti" (attenuato, selezionabile).
+- Sotto il nome del barbiere in "Quando?" la prima riga della bio (`firstBioLine`), piccola e grigia, su una riga con troncamento.
+- Accesso come oggi (SPEC §5.3, §5.5): "Quando?" richiede login e profilo completo; il cliente bloccato vede l'avviso già lì.
+- Punti aperti approvati: giorno richiesto "senza posti" senza nessun giorno con posti → stato vuoto; preferito dall'URL occupato → vince il barbiere dell'ultimo appuntamento se libero; barbieri senza orari di lavoro compaiono con "Nessun orario libero"; il "prossimo orario" si calcola solo per i barbieri pieni quel giorno; etichetta sr dei giorni con `formatDayLabel`; senza `giorno` l'URL si completa con `replaceState`; Tab rientra sul giorno selezionato; il riepilogo accetta ancora `barbiere=any`; nessun pulsante "Prenota di nuovo".
+
+**Piano**
+1. Motore (`src/lib/availability/`, puro): `dayStatuses`, `nextSlotByBarber`, `firstFree` (riusa `pickBarber`).
+2. `src/lib/booking/when.ts` (puro): `orderBarbers`, `recentBarberId`, `splitByPeriod`, `initialDay`, `formatSlotTime`, `formatNextFree`.
+3. Server action `fetchWhenDay` (Zod, una lettura di `availability_inputs`, in uscita solo orari e id dei barbieri); ultimo appuntamento letto dal server con la RLS.
+4. Pagina `/prenota/quando` (prima giornata dal server, striscia sticky client con ←/→, cache dei giorni visti e prefetch del successivo, scheletro senza spostamenti) e sezioni per barbiere con ritratto, nome, bio e orari.
+5. Listino → "Quando?", redirect di `/prenota/barbiere` e `/prenota/orario` (`legacyWhenUrl`), riepilogo con "Indietro"/"Cambia orario" verso "Quando?" sullo stesso giorno, "Passo N di 3", testi in `it.booking.when`.
+6. ADR 012 sul passo "Quando?".
+7. Test esistenti approvati: modificare `booking.spec.ts` (barbiere scelto; anonimo/bloccato), `booking-polish.spec.ts` (flusso 8b, bio su "Quando?"), `barber-photo.spec.ts` (ritratto su "Quando?"), `global-setup.ts`; rimuovere `booking.spec.ts` "Nessuna preferenza" e le due righe "Con chi?"/"Nessuna preferenza" di `polish.test.ts`.
+
+**Dati: quanto si legge** (misurato in locale con il seed, servizio Taglio, 31 giorni)
+- All'apertura il server legge una volta l'intero periodo prenotabile (`availability_inputs` da oggi a oggi + `max_horizon_days`): circa 18 KB e 17–27 ms fra database e server. Questi dati non arrivano al telefono: servono a stato dei giorni della striscia, giorno iniziale, orari del primo giorno e "prossimo orario libero".
+- A ogni cambio di giorno `fetchWhenDay` rilegge dal giorno scelto alla fine del periodo (serve per il "prossimo orario libero" dei barbieri pieni): una sola lettura, stesso ordine di grandezza (≤ 18 KB, ~20 ms). Al telefono arriva solo il giorno: orari e id dei barbieri, pochi KB (misura reale da riportare a fine fetta). Rileggere il periodo invece del solo giorno costa pochi millisecondi e tiene il "prossimo orario" sempre aggiornato.
