@@ -33,7 +33,7 @@ jobs:
 
       # Servono Postgres, Auth, API REST e Mailpit (gli e2e leggono da lì il magic link).
       - name: Start Supabase
-        run: npx supabase start -x studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector
+        run: npx supabase start -x studio,imgproxy,realtime,edge-runtime,logflare,vector
 
       # URL e chiave pubblica dello stack locale, per build ed e2e: si ricavano dallo stack
       # appena avviato, senza scriverli nel workflow.
