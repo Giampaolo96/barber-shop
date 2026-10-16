@@ -67,3 +67,26 @@ export const formatSlotTime = (iso: string, timezone: string): string =>
 /** Prossimo orario libero di un barbiere: "mar 20, 9:30". */
 export const formatNextFree = (iso: string, timezone: string): string =>
   formatInTimeZone(new Date(iso), timezone, "EEE d, H:mm", { locale: itLocale });
+
+/**
+ * "Primo libero" da mostrare fra i barbieri della pagina (`barberIds`): quello scelto dal server se
+ * è fra questi, altrimenti il primo orario fra i loro, a parità il primo nell'ordine dato. Copre il
+ * caso raro in cui l'elenco dei barbieri e i dati di disponibilità non coincidono.
+ */
+export function firstFreeAmong(
+  day: {
+    firstFree: { barberId: string; startsAt: string } | null;
+    barbers: Array<{ barberId: string; slots: string[] }>;
+  },
+  barberIds: string[],
+): { barberId: string; startsAt: string } | null {
+  if (day.firstFree && barberIds.includes(day.firstFree.barberId)) return day.firstFree;
+  let best: { barberId: string; startsAt: string; at: number } | null = null;
+  for (const barberId of barberIds) {
+    const first = day.barbers.find((b) => b.barberId === barberId)?.slots[0];
+    if (!first) continue;
+    const at = new Date(first).getTime();
+    if (!best || at < best.at) best = { barberId, startsAt: first, at };
+  }
+  return best ? { barberId: best.barberId, startsAt: best.startsAt } : null;
+}

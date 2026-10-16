@@ -2,9 +2,9 @@
 
 // Disponibilità per il flusso di prenotazione (ADR 004, ADR 012). Senza requireRole: gli orari liberi
 // sono pubblici e availability_inputs è eseguibile anche da anon; il barbiere dell'ultimo
-// appuntamento si legge solo per il cliente in sessione (RLS). Input validato con Zod in
-// getAvailableSlots / getAvailableDays / getWhenDay. Il rate limiting per IP è nel firewall Vercel
-// (DEPLOY.md).
+// appuntamento lo manda il client (calcolato all'apertura dal server, con la RLS). Input validato
+// con Zod in getAvailableSlots / getAvailableDays / getWhenDay. Il rate limiting per IP è nel
+// firewall Vercel (DEPLOY.md).
 import {
   getAvailableDays,
   getAvailableSlots,
@@ -36,6 +36,7 @@ export async function fetchWhenDay(args: {
   serviceId: string;
   date: string;
   barberId?: string;
+  recentBarberId?: string;
 }): Promise<WhenDayResult> {
   return getWhenDay(args);
 }

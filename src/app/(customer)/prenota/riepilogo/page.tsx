@@ -16,6 +16,8 @@ const paramsSchema = z.object({
   servizio: z.uuid(),
   barbiere: barberChoiceSchema,
   inizio: z.iso.datetime({ offset: true }),
+  /** Barbiere preferito arrivato su "Quando?" (fetta 8e): torna con "Indietro" e "Cambia orario". */
+  preferito: z.uuid().optional().catch(undefined),
 });
 
 // Passo 3 di 3 (SPEC §5.2): riepilogo, nota facoltativa e conferma. Lo slot lo ricontrolla il
@@ -36,10 +38,14 @@ export default async function BookingSummaryPage({
     barberId === ANY_BARBER
       ? t.anyBarber
       : barbers.find((barber) => barber.id === barberId)?.name;
-  // "Indietro" e "Cambia orario": di nuovo "Quando?" sullo stesso giorno (fetta 8e).
+  // "Indietro" e "Cambia orario": di nuovo "Quando?" sullo stesso giorno, con il preferito (fetta 8e).
+  const preferredId = params.success ? params.data.preferito : undefined;
   const timeHref =
     service && params.success
-      ? whenStepUrl(service.id, { day: localDateOf(new Date(params.data.inizio), shop.timezone) })
+      ? whenStepUrl(service.id, {
+          day: localDateOf(new Date(params.data.inizio), shop.timezone),
+          barberId: preferredId,
+        })
       : service
         ? whenStepUrl(service.id)
         : BOOK_PATH;
@@ -70,7 +76,7 @@ export default async function BookingSummaryPage({
             <AccessNotice
               access={access}
               phone={shop.phone}
-              retryHref={summaryStepUrl(service.id, barberId, params.data.inizio)}
+              retryHref={summaryStepUrl(service.id, barberId, params.data.inizio, preferredId)}
             />
           ) : (
             <ConfirmBookingForm

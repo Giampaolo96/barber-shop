@@ -190,11 +190,17 @@ export type WhenOverview =
     }
   | { ok: false };
 
-const whenDaySchema = z.object({ serviceId: z.uuid(), date: localDate, barberId: z.uuid().optional() });
+const whenDaySchema = z.object({
+  serviceId: z.uuid(),
+  date: localDate,
+  barberId: z.uuid().optional(),
+  recentBarberId: z.uuid().optional(),
+});
 
 /**
  * Barbiere dell'ultimo appuntamento già iniziato del cliente in sessione (RLS: solo le proprie
- * prenotazioni); null per anonimi e staff o se la lettura non riesce.
+ * prenotazioni); null per anonimi e staff o se la lettura non riesce. Le cancellate si escludono
+ * nella query, così un appuntamento valido non si perde dietro molte cancellazioni.
  */
 async function loadRecentBarberId(now: Date): Promise<string | null> {
   const user = await getCurrentUser();
@@ -205,8 +211,9 @@ async function loadRecentBarberId(now: Date): Promise<string | null> {
     .select("barber_id, starts_at, status")
     .eq("customer_id", user.id)
     .lt("starts_at", now.toISOString())
+    .not("status", "in", "(cancelled_by_customer,cancelled_by_shop)")
     .order("starts_at", { ascending: false })
-    .limit(20);
+    .limit(1);
   if (error) {
     console.error("loadRecentBarberId", error);
     return null;
@@ -268,21 +275,21 @@ export async function getWhenOverview(args: {
 /**
  * Cambio di giorno in "Quando?": una lettura dal giorno scelto all'ultimo giorno prenotabile (serve
  * per il prossimo orario dei barbieri pieni). Giorno fuori dal periodo prenotabile: invalid.
+ * `recentBarberId`: barbiere dell'ultimo appuntamento, calcolato all'apertura da getWhenOverview e
+ * rimandato dal client (è un dato del cliente stesso; conta solo come precedenza nel "Primo libero").
  */
 export async function getWhenDay(args: {
   serviceId: string;
   date: string;
   barberId?: string;
+  recentBarberId?: string;
 }): Promise<WhenDayResult> {
   const parsed = whenDaySchema.safeParse(args);
   if (!parsed.success) return { ok: false, error: "invalid" };
-  const { serviceId, date, barberId } = parsed.data;
+  const { serviceId, date, barberId, recentBarberId: recentId } = parsed.data;
 
   try {
-    const [loaded, recentId] = await Promise.all([
-      loadInput(serviceId, "any", date, null),
-      loadRecentBarberId(new Date()),
-    ]);
+    const loaded = await loadInput(serviceId, "any", date, null);
     if (!loaded.ok) return { ok: false, error: "error" };
     if (date < loaded.today || date > loaded.lastDay) return { ok: false, error: "invalid" };
     if (!loaded.input) return { ok: true, date, firstFree: null, barbers: [] };

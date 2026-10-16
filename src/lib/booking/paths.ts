@@ -34,8 +34,22 @@ export function legacyWhenUrl(params: Record<string, string | undefined>): strin
   return whenStepUrl(service.data, { day, barberId: barber.success ? barber.data : undefined });
 }
 
-export const summaryStepUrl = (serviceId: string, barberId: string, startsAt: string): string =>
-  withParams(BOOK_SUMMARY_PATH, { servizio: serviceId, barbiere: barberId, inizio: startsAt });
+/**
+ * Riepilogo dell'orario scelto. `preferredId`: barbiere preferito arrivato su "Quando?" dall'URL,
+ * conservato (`preferito`) perché "Indietro" e "Cambia orario" lo ritrovino.
+ */
+export const summaryStepUrl = (
+  serviceId: string,
+  barberId: string,
+  startsAt: string,
+  preferredId?: string,
+): string =>
+  withParams(BOOK_SUMMARY_PATH, {
+    servizio: serviceId,
+    barbiere: barberId,
+    inizio: startsAt,
+    ...(preferredId ? { preferito: preferredId } : {}),
+  });
 
 /** Schermata dedicata dopo la conferma (fetta 8b). */
 export const confirmationPath = (bookingId: string): string => `${MY_BOOKINGS_PATH}/${bookingId}/confermata`;

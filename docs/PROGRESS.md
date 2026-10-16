@@ -1142,5 +1142,16 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 **Review**: due bloccanti corretti (risposte arrivate in ritardo che lasciavano gli scheletri; giorno "senza posti" richiesto senza giorni con posti → ora stato vuoto). La correzione delle risposte in ritardo non ha un test automatico.
 
 **Problemi aperti**
-- `availability_inputs` taglia gli intervalli a `now()`: oggi, dopo l'ultima fascia, risulta "chiuso" invece che "senza posti", e i conteggi del "Primo libero" di oggi non includono le prenotazioni già finite. Serve una decisione (accettarlo o cambiare la funzione con una migrazione).
-- Migliorie della review proposte e non applicate: vedi il report della fetta.
+- `availability_inputs` taglia gli intervalli a `now()`: oggi, dopo l'ultima fascia, risulta "chiuso" invece che "senza posti", e i conteggi del "Primo libero" di oggi non includono le prenotazioni già finite. Decisione 2026-10-16: accettato, nessuna migrazione; descritto in SPEC §5.2 e ADR 012.
+- Migliorie della review: applicate il 2026-10-16 tutte tranne la 5 (calcolo degli slot ripetuto in `firstFree`), vedi "Rifiniture" sotto.
+
+**Rifiniture (2026-10-16, dopo la review)**
+- Ultimo appuntamento: cancellate escluse nella query (`limit 1`); e2e con storico reale (completata più vecchia, cancellazione più recente).
+- `fetchWhenDay` riceve `recentBarberId` dal client invece di rileggere la sessione; la pagina legge barbieri e periodo in parallelo.
+- Giorni "senza posti": bordo tratteggiato e data in `text-muted-foreground` (6,7:1); contorno del focus non più tagliato nella striscia (`p-1`).
+- Dopo "prossimo: …" il focus va sull'intestazione del barbiere; regione `aria-live` con "Orari di <giorno>" (`it.booking.when.dayAnnounce`).
+- Riepilogo: parametro `preferito` per "Indietro" e "Cambia orario"; e2e per `barbiere=any` e per "Cambia orario" dopo un orario preso nel frattempo.
+- "Primo libero" limitato ai barbieri della pagina (`firstFreeAmong`); `it.booking.time.loading` rimosso.
+- Risposte in ritardo: stato del cambio di giorno in un reducer puro (`src/lib/booking/when-state.ts`) con test Vitest.
+- SPEC §5.2: oggi, dopo l'ultima fascia, il giorno risulta "chiuso" (decisione accettata, nessuna migrazione).
+- Esito: lint, typecheck, Vitest (50 file, 1982 test) ed e2e (142) verdi.

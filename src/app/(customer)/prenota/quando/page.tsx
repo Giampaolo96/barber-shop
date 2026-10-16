@@ -69,10 +69,13 @@ async function When({
   requestedBarberId: string | undefined;
   timezone: string;
 }) {
-  const allBarbers = await getBarbersForService(serviceId);
-  // Il preferito dall'URL conta solo se fa il servizio (attivo).
+  // Le due letture sono indipendenti: un preferito che non fa il servizio non ha orari, quindi
+  // non conta nel "Primo libero" e qui sotto viene scartato anche per l'ordine e l'evidenza.
+  const [allBarbers, overview] = await Promise.all([
+    getBarbersForService(serviceId),
+    getWhenOverview({ serviceId, requestedDay, barberId: requestedBarberId }),
+  ]);
   const preferredId = allBarbers.some((b) => b.id === requestedBarberId) ? requestedBarberId : undefined;
-  const overview = await getWhenOverview({ serviceId, requestedDay, barberId: preferredId });
   if (!overview.ok) return <p role="alert">{it.booking.errors.generic}</p>;
   if (allBarbers.length === 0) return <RestartNotice />;
   if (!overview.day) return <p className="text-muted-foreground">{it.booking.time.noDays}</p>;
@@ -89,6 +92,7 @@ async function When({
       serviceId={serviceId}
       timezone={timezone}
       preferredId={preferredId ?? null}
+      recentId={overview.recentId}
       barbers={barbers}
       days={overview.days}
       initialDay={overview.day}

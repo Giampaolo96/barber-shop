@@ -55,7 +55,6 @@ export const it = {
       daysLabel: "Giorno",
       noDays: "Nessun giorno disponibile nei prossimi giorni.",
       dayUnavailable: "{day}, nessun orario libero",
-      loading: "Caricamento…",
     },
     /** Passo "Quando?" (SPEC §5.2, fetta 8e). */
     when: {
@@ -69,6 +68,8 @@ export const it = {
       preferred: "Il tuo barbiere",
       dayClosed: "{day}, chiuso",
       barbersLabel: "Orari liberi per barbiere",
+      /** Annuncio per gli screen reader quando cambia il giorno. */
+      dayAnnounce: "Orari di {day}",
     },
     summary: {
       title: "Riepilogo",
