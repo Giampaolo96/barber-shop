@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BarberForm } from "@/components/admin/barber-form";
+import { BarberPortraitSection } from "@/components/admin/barber-portrait-section";
 import { StaffAccountSection } from "@/components/admin/staff-account-section";
 import { buttonVariants } from "@/components/ui/button";
 import { it } from "@/i18n/it";
 import { isUuid } from "@/lib/admin/schemas";
 import { requireRole } from "@/lib/auth/current-user";
+import { barberPhotoUrl } from "@/lib/barbers/photo";
 import { createClient } from "@/lib/db/server";
 
 export default async function BarberCardPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,7 +18,7 @@ export default async function BarberCardPage({ params }: { params: Promise<{ id:
   const supabase = await createClient();
   const [barberResult, enabledResult, servicesResult, accountsResult, staffResult] = await Promise.all([
     // Colonne esplicite: profile_id si legge solo con barber_accounts() (ADR 001).
-    supabase.from("barbers").select("id, display_name, photo_url, bio, is_active").eq("id", id).maybeSingle(),
+    supabase.from("barbers").select("id, display_name, photo_path, bio, is_active").eq("id", id).maybeSingle(),
     supabase.from("barber_services").select("service_id").eq("barber_id", id),
     supabase.from("services").select("id, name, is_active").order("sort_order").order("id"),
     supabase.rpc("barber_accounts"),
@@ -54,7 +56,6 @@ export default async function BarberCardPage({ params }: { params: Promise<{ id:
         values={{
           id: barber.id,
           displayName: barber.display_name,
-          photoUrl: barber.photo_url ?? "",
           bio: barber.bio ?? "",
           isActive: barber.is_active,
           serviceIds: (enabledResult.data ?? []).map((row) => row.service_id),
@@ -64,6 +65,12 @@ export default async function BarberCardPage({ params }: { params: Promise<{ id:
           name: service.name,
           isActive: service.is_active,
         }))}
+      />
+      <hr className="my-4" />
+      <BarberPortraitSection
+        barberId={barber.id}
+        name={barber.display_name}
+        photoUrl={barberPhotoUrl(barber.photo_path)}
       />
       <hr className="my-4" />
       <StaffAccountSection

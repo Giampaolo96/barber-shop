@@ -59,7 +59,7 @@ export type Database = {
           display_name: string;
           id: string;
           is_active: boolean;
-          photo_url: string | null;
+          photo_path: string | null;
           profile_id: string | null;
         };
         Insert: {
@@ -67,7 +67,7 @@ export type Database = {
           display_name: string;
           id?: string;
           is_active?: boolean;
-          photo_url?: string | null;
+          photo_path?: string | null;
           profile_id?: string | null;
         };
         Update: {
@@ -75,7 +75,7 @@ export type Database = {
           display_name?: string;
           id?: string;
           is_active?: boolean;
-          photo_url?: string | null;
+          photo_path?: string | null;
           profile_id?: string | null;
         };
         Relationships: [

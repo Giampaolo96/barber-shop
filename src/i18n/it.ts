@@ -52,6 +52,7 @@ export const it = {
       title: "Con chi?",
       any: "Nessuna preferenza",
       anyHint: "Vedi gli orari liberi di tutti",
+      portraitAlt: "Ritratto di {name}",
     },
     time: {
       title: "Scegli giorno e orario",
@@ -341,7 +342,6 @@ export const it = {
       newTitle: "Nuovo barbiere",
       editTitle: "Scheda barbiere",
       displayNameLabel: "Nome visualizzato",
-      photoUrlLabel: "URL della foto (https)",
       bioLabel: "Bio breve",
       activeLabel: "Attivo",
       servicesLabel: "Servizi abilitati",
@@ -356,6 +356,19 @@ export const it = {
         "Barbiere disattivato. Ha ancora {count} prenotazioni future confermate, che restano valide.",
       deactivatedWithBookingsOne:
         "Barbiere disattivato. Ha ancora {count} prenotazione futura confermata, che resta valida.",
+      portraitTitle: "Ritratto",
+      portraitLabel: "Foto del barbiere",
+      portraitHint: "Viene ritagliata al centro in un quadrato. JPEG, WebP o foto dal telefono.",
+      portraitUpload: "Carica foto",
+      portraitRemove: "Rimuovi",
+      portraitConfirmRemove: "Rimuovere il ritratto? Nella prenotazione tornerà l'iniziale.",
+      portraitWorking: "Caricamento…",
+      portraitNone: "Nessuna foto: nella prenotazione compare l'iniziale.",
+      portraitSaved: "Ritratto aggiornato.",
+      portraitRemoved: "Ritratto rimosso.",
+      portraitTooLarge: "La foto è troppo pesante anche dopo il ridimensionamento: prova con un'altra immagine.",
+      portraitNotImage: "Questo file non è un'immagine leggibile: scegli una foto JPEG o WebP.",
+      portraitEncodeFailed: "Non è stato possibile preparare la foto: riprova o scegline una più piccola.",
     },
     hours: {
       weekdays: {

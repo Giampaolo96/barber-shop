@@ -13,7 +13,6 @@ import { textareaClass } from "@/components/ui/field";
 export type BarberFormValues = {
   id: string | null;
   displayName: string;
-  photoUrl: string;
   bio: string;
   isActive: boolean;
   serviceIds: string[];
@@ -33,10 +32,6 @@ export function BarberForm({ values, services }: { values: BarberFormValues; ser
       <div className="flex flex-col gap-2">
         <Label htmlFor="displayName">{t.displayNameLabel}</Label>
         <Input id="displayName" name="displayName" required maxLength={100} defaultValue={values.displayName} />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="photoUrl">{t.photoUrlLabel}</Label>
-        <Input id="photoUrl" name="photoUrl" type="url" maxLength={2048} defaultValue={values.photoUrl} />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="bio">{t.bioLabel}</Label>

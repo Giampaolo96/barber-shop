@@ -28,7 +28,7 @@ const isHttpsUrl = (value: string): boolean => {
   }
 };
 
-/** URL https:// facoltativo (foto e logo sono mostrati ai clienti). */
+/** URL https:// facoltativo (il logo è mostrato ai clienti). */
 const optionalHttpsUrl = optionalText(2048).refine((value) => value === null || isHttpsUrl(value));
 
 /** Intero non negativo scritto in un campo del form. */
@@ -68,7 +68,6 @@ export const serviceSchema = z.object({
 
 export const barberSchema = z.object({
   displayName: requiredText(100),
-  photoUrl: optionalHttpsUrl,
   bio: optionalText(500),
   isActive: z.boolean(),
   serviceIds: z.array(z.uuid()),
@@ -187,6 +186,18 @@ export const staffLinkSchema = z.object({
 });
 
 export const barberIdSchema = z.object({ barberId: z.uuid() });
+
+// Ritratto del barbiere (fetta 8d). Il browser lo manda già ridotto a 512×512 in WebP o, dove
+// il canvas non sa produrre WebP (Safari iOS), in JPEG. Il tipo si controlla prima del peso.
+export const PORTRAIT_MAX_BYTES = 1024 * 1024;
+export const PORTRAIT_UPLOAD_TYPES = ["image/webp", "image/jpeg"] as const;
+
+export const barberPhotoSchema = z.object({
+  barberId: z.uuid(),
+  photo: z
+    .instanceof(File)
+    .refine((file) => (PORTRAIT_UPLOAD_TYPES as readonly string[]).includes(file.type) && file.size > 0),
+});
 
 // Identificatori e azioni di riga --------------------------------------------------
 

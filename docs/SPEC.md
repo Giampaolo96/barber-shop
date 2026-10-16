@@ -46,6 +46,7 @@ Un utente ha un solo ruolo. Un admin può essere anche barbiere: lo è quando es
 
 ### 3.3 Barbieri (`barbers`)
 - Nome visualizzato, foto, bio breve, attivo/disattivo, collegamento opzionale a un account staff.
+- La foto (ritratto) la carica e la rimuove solo l'admin dalla scheda del barbiere: viene salvata in Supabase Storage come WebP quadrato 512×512 e mostrata con il testo alternativo "Ritratto di <nome>"; senza foto compare l'iniziale. Eliminando il barbiere si cancella anche la foto; disattivandolo resta (fetta 8d, ADR 011).
 - Relazione molti-a-molti con i servizi (`barber_services`): non tutti fanno tutto.
 
 ### 3.4 Orari di lavoro (`working_hours`)
@@ -182,6 +183,7 @@ Pagamenti e caparre online, più servizi in una prenotazione, lista d'attesa, pr
 | 8 | PWA (manifest, icone, installazione) + rifinitura UI | Installabile su iOS e Android |
 | 8b | Rifinitura estetica (tema Mosca, `docs/DESIGN.md`): biglietto della prossima prenotazione, listino, ritratti dei barbieri, schermata di conferma con file `.ics`, movimento solo CSS, stati vuoti, ora attuale nel calendario admin | Screenshot a 390 e 1280 px (anche stati vuoti e movimento ridotto) rivisti, conferma e `.ics` solo per il proprietario |
 | 8c | Vista settimana a griglia per singolo barbiere (§6.1, §6.3): una colonna per giorno (senza i giorni di chiusura fissa) × righe come la vista giorno, click su slot vuoto, trascinamento anche su un altro giorno, scorrimento orizzontale su telefono | Screenshot a 390 e 1280 px rivisti, e2e di creazione e spostamento verdi, vista giorno invariata |
+| 8d | Ritratti dei barbieri (§3.3, ADR 011): caricamento e rimozione da Admin → Barbieri, bucket pubblico in lettura con scrittura solo admin, ricodifica in WebP 512×512, ripiego sull'iniziale | L'admin carica una foto (anche da iPhone) e il cliente la vede nella scelta del barbiere |
 | 9a | Statistiche (§6.9, ADR 010) | L'admin vede prenotazioni, incasso stimato e no-show del periodo, per barbiere e per servizio |
 | 9b | Privacy e account prima del go-live: nuovo consenso quando cambia la versione dell'informativa (versione di nuovo modificabile), eliminazione dell'account cliente con anonimizzazione dello storico, staff con invito via email, recupero e cambio password ed eliminazione account, TOTP per gli admin | Pronto per il primo uso reale |
 
