@@ -40,3 +40,32 @@ export function pickBarber(
   );
   return free[0]?.barberId ?? null;
 }
+
+/**
+ * "Primo libero" di "Quando?" (SPEC §5.2, fetta 8e): il primo orario del giorno locale `date` fra
+ * tutti i barbieri. Se a quell'ora sono liberi più barbieri vince il primo di `preferredBarberIds`
+ * libero (barbiere dall'URL, poi quello dell'ultimo appuntamento); altrimenti pickBarber, con i
+ * conteggi delle prenotazioni confirmed (intervalli busy) che iniziano quel giorno. null se il
+ * giorno non ha orari.
+ */
+export function firstFree(
+  input: AvailabilityInput,
+  date: string,
+  preferredBarberIds: string[],
+): { barberId: string; startsAt: Date } | null {
+  const slotsByBarber = computeSlotsByBarber(input, date);
+  const starts = Object.values(slotsByBarber).flatMap((slots) => (slots[0] ? [slots[0].getTime()] : []));
+  if (starts.length === 0) return null;
+  const startsAt = new Date(Math.min(...starts));
+
+  const freeAt = (barberId: string) => slotsByBarber[barberId]?.[0]?.getTime() === startsAt.getTime();
+  const preferred = preferredBarberIds.find(freeAt);
+  if (preferred) return { barberId: preferred, startsAt };
+
+  const counts: Record<string, number> = {};
+  for (const barber of input.barbers) {
+    counts[barber.barberId] = barber.busy.filter((b) => localDateOf(b.start, input.timezone) === date).length;
+  }
+  const barberId = pickBarber(input, startsAt, counts);
+  return barberId ? { barberId, startsAt } : null;
+}

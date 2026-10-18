@@ -6,18 +6,21 @@ import { StepHeader } from "@/components/booking/step-header";
 import { it } from "@/i18n/it";
 import { formatDateTime, formatDuration } from "@/lib/booking/format";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
-import { ANY_BARBER, BOOK_PATH, summaryStepUrl, timeStepUrl } from "@/lib/booking/paths";
+import { ANY_BARBER, BOOK_PATH, summaryStepUrl, whenStepUrl } from "@/lib/booking/paths";
 import { getBarbersForService, getBookableService } from "@/lib/booking/queries";
 import { barberChoiceSchema } from "@/lib/booking/schemas";
+import { localDateOf } from "@/lib/domain/local-time";
 import { formatCents } from "@/lib/domain/money";
 
 const paramsSchema = z.object({
   servizio: z.uuid(),
   barbiere: barberChoiceSchema,
   inizio: z.iso.datetime({ offset: true }),
+  /** Barbiere preferito arrivato su "Quando?" (fetta 8e): torna con "Indietro" e "Cambia orario". */
+  preferito: z.uuid().optional().catch(undefined),
 });
 
-// Passo 4 di 4 (SPEC §5.2): riepilogo, nota facoltativa e conferma. Lo slot lo ricontrolla il
+// Passo 3 di 3 (SPEC §5.2): riepilogo, nota facoltativa e conferma. Lo slot lo ricontrolla il
 // database alla conferma (create_online_booking).
 export default async function BookingSummaryPage({
   searchParams,
@@ -33,13 +36,23 @@ export default async function BookingSummaryPage({
   const barberId = params.success ? params.data.barbiere : ANY_BARBER;
   const barberName =
     barberId === ANY_BARBER
-      ? it.booking.barber.any
+      ? t.anyBarber
       : barbers.find((barber) => barber.id === barberId)?.name;
-  const timeHref = service ? timeStepUrl(service.id, barberId) : BOOK_PATH;
+  // "Indietro" e "Cambia orario": di nuovo "Quando?" sullo stesso giorno, con il preferito (fetta 8e).
+  const preferredId = params.success ? params.data.preferito : undefined;
+  const timeHref =
+    service && params.success
+      ? whenStepUrl(service.id, {
+          day: localDateOf(new Date(params.data.inizio), shop.timezone),
+          barberId: preferredId,
+        })
+      : service
+        ? whenStepUrl(service.id)
+        : BOOK_PATH;
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-6">
-      <StepHeader step={4} title={t.title} backHref={timeHref} />
+      <StepHeader step={3} title={t.title} backHref={timeHref} />
       {!params.success || !service || !barberName ? (
         <RestartNotice />
       ) : (
@@ -63,7 +76,7 @@ export default async function BookingSummaryPage({
             <AccessNotice
               access={access}
               phone={shop.phone}
-              retryHref={summaryStepUrl(service.id, barberId, params.data.inizio)}
+              retryHref={summaryStepUrl(service.id, barberId, params.data.inizio, preferredId)}
             />
           ) : (
             <ConfirmBookingForm

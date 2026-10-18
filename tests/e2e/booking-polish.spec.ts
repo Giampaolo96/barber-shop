@@ -11,7 +11,8 @@
 //                                      404); anonimo → login; text/calendar; charset=utf-8, attachment
 // Testi attesi in src/i18n/it.ts ({when}, {date}, {count} segnaposto):
 //   it.booking.service.title "Il listino", it.booking.service.subtitle "Scegli il servizio",
-//   it.booking.barber.title "Con chi?", it.booking.barber.any "Nessuna preferenza",
+//   (fetta 8e: la scelta del barbiere "Con chi?" / "Nessuna preferenza" è diventata "Quando?",
+//   it.booking.when.title, con la prima riga della bio sotto il nome del barbiere),
 //   it.booking.confirmation.{ title, seeYou "Ci vediamo {when}", today, tomorrow, onDate "il {date}",
 //     addToCalendar, myBookings, backHome },
 //   it.home.ticket.{ title, today, tomorrow, inDays "Tra {count} giorni", manage "Gestisci" },
@@ -43,7 +44,8 @@ import {
 import { confirmHref, newestEmailId, waitForNewEmail } from './mailpit';
 
 const TZ = 'Europe/Rome';
-const TIME = /^\d{2}:\d{2}$/;
+/** Orario di "Quando?" (fetta 8e): "9:30 con <barbiere>". */
+const SLOT = /^\d{1,2}:\d{2} con .+$/;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const CONFIRMATION = new RegExp(`^/prenotazioni/(${UUID})/confermata$`);
 const UID_HOST = 'mosca-barber-shop';
@@ -202,8 +204,8 @@ const expectTapTarget = async (locator: Locator, label: string): Promise<void> =
   expect(box?.height ?? 0, `${label}: altezza ≥ 44px (SPEC §9)`).toBeGreaterThanOrEqual(44);
 };
 
-const lastSlot = (page: Page): Locator =>
-  main(page).getByRole('button', { name: TIME }).or(main(page).getByRole('link', { name: TIME })).last();
+const lastSlot = (scope: Locator): Locator =>
+  scope.getByRole('button', { name: SLOT }).or(scope.getByRole('link', { name: SLOT })).last();
 
 const confirmButton = (page: Page): Locator =>
   page.getByRole('button', { name: s('booking.summary.confirm'), exact: true });
@@ -217,7 +219,7 @@ const confirmationId = async (page: Page): Promise<string> => {
 // ---------------------------------------------------------------------------
 // 1. Flusso completo (8b: listino, barbieri, conferma, stato vuoto, biglietto in home)
 // ---------------------------------------------------------------------------
-test('flusso 8b: stato vuoto, listino, "Con chi?", pagina di conferma con .ics, Le mie prenotazioni e biglietto in home', async ({
+test('flusso 8b: stato vuoto, listino, "Quando?", pagina di conferma con .ics, Le mie prenotazioni e biglietto in home', async ({
   page,
   request,
 }) => {
@@ -259,29 +261,21 @@ test('flusso 8b: stato vuoto, listino, "Con chi?", pagina di conferma con .ics, 
     await expectTapTarget(serviceLink, 'servizio del listino');
     await tap(serviceLink);
 
-    // 8b, SPEC §5.2: "Con chi?", "Nessuna preferenza" prima dei barbieri, prima riga della bio
-    await expectPath(page, '/prenota/barbiere');
-    await expect(page.getByRole('heading', { level: 1, name: s('booking.barber.title') })).toBeVisible();
-    const linkTexts = await main(page)
-      .getByRole('link')
-      .evaluateAll((links) => links.map((link) => link.textContent ?? ''));
-    const anyIndex = linkTexts.findIndex((t) => t.includes(s('booking.barber.any')));
-    const barberIndexes = barberNames.map((name) => linkTexts.findIndex((t) => t.includes(name)));
-    expect(anyIndex, '"Nessuna preferenza" presente').toBeGreaterThanOrEqual(0);
-    for (const index of barberIndexes) {
-      expect(index, 'barbiere presente').toBeGreaterThanOrEqual(0);
-      expect(anyIndex, '"Nessuna preferenza" in cima').toBeLessThan(index);
-    }
-    const chosen = main(page).getByRole('link', { name: new RegExp(barberNames[0] ?? '') });
+    // 8e, SPEC §5.2: "Quando?" con una sezione per barbiere e la prima riga della bio sotto il nome
+    await expectPath(page, '/prenota/quando');
+    await expect(page.getByRole('heading', { level: 1, name: s('booking.when.title') })).toBeVisible();
+    const sectionOf = (name: string): Locator =>
+      main(page).locator('section').filter({ has: page.getByRole('heading', { name, exact: true }) });
+    for (const name of barberNames) await expect(sectionOf(name)).toBeVisible();
+    const chosen = sectionOf(barberNames[0] ?? '');
     await expect(chosen).toContainText(bioFirstLine);
     await expect(main(page).getByText(bioHidden)).toHaveCount(0);
-    await expectTapTarget(chosen, 'scheda del barbiere');
-    await tap(chosen);
 
-    await expectPath(page, '/prenota/orario');
-    await expect(lastSlot(page)).toBeVisible();
-    const time = (await lastSlot(page).innerText()).trim();
-    await tap(lastSlot(page));
+    await expect(lastSlot(chosen)).toBeVisible();
+    await expectTapTarget(lastSlot(chosen), 'orario del barbiere');
+    // "Quando?" mostra "9:30": qui si confronta nel formato HH:mm
+    const time = (await lastSlot(chosen).innerText()).trim().padStart(5, '0');
+    await tap(lastSlot(chosen));
     await expectPath(page, '/prenota/riepilogo');
     await tap(confirmButton(page));
 
