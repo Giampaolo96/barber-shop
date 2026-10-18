@@ -3,6 +3,9 @@
 @import "shadcn/tailwind.css";
 @import "../styles/tokens.css";
 
+/* Schermi abbastanza alti per le colonne che scorrono da sole ("Quando?", fetta 8e). */
+@custom-variant tall (@media (min-height: 37.5rem));
+
 /* I valori del tema arrivano da src/themes/active.ts (unico punto in cui si sceglie il tema). */
 
 @layer base {
@@ -42,5 +45,16 @@
   from {
     opacity: 0;
     transform: translateY(4px);
+  }
+}
+
+/*
+ * "Quando?" a colonne (fetta 8e): sugli schermi alti la pagina occupa esattamente lo schermo e
+ * scorrono solo le colonne dei barbieri. Sotto i 600 px di altezza scorre la pagina intera.
+ */
+@media (min-height: 37.5rem) {
+  body:has([data-when-columns]) {
+    height: 100dvh;
+    min-height: 0;
   }
 }

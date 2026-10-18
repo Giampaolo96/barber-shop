@@ -12,7 +12,7 @@
 // Testi attesi in src/i18n/it.ts ({when}, {date}, {count} segnaposto):
 //   it.booking.service.title "Il listino", it.booking.service.subtitle "Scegli il servizio",
 //   (fetta 8e: la scelta del barbiere "Con chi?" / "Nessuna preferenza" è diventata "Quando?",
-//   it.booking.when.title, con la prima riga della bio sotto il nome del barbiere),
+//   it.booking.when.title, a colonne per barbiere e senza bio),
 //   it.booking.confirmation.{ title, seeYou "Ci vediamo {when}", today, tomorrow, onDate "il {date}",
 //     addToCalendar, myBookings, backHome },
 //   it.home.ticket.{ title, today, tomorrow, inDays "Tra {count} giorni", manage "Gestisci" },
@@ -261,14 +261,14 @@ test('flusso 8b: stato vuoto, listino, "Quando?", pagina di conferma con .ics, L
     await expectTapTarget(serviceLink, 'servizio del listino');
     await tap(serviceLink);
 
-    // 8e, SPEC §5.2: "Quando?" con una sezione per barbiere e la prima riga della bio sotto il nome
+    // 8e, SPEC §5.2: "Quando?" con una colonna per barbiere, senza bio
     await expectPath(page, '/prenota/quando');
     await expect(page.getByRole('heading', { level: 1, name: s('booking.when.title') })).toBeVisible();
     const sectionOf = (name: string): Locator =>
       main(page).locator('section').filter({ has: page.getByRole('heading', { name, exact: true }) });
     for (const name of barberNames) await expect(sectionOf(name)).toBeVisible();
     const chosen = sectionOf(barberNames[0] ?? '');
-    await expect(chosen).toContainText(bioFirstLine);
+    await expect(main(page).getByText(bioFirstLine)).toHaveCount(0);
     await expect(main(page).getByText(bioHidden)).toHaveCount(0);
 
     await expect(lastSlot(chosen)).toBeVisible();

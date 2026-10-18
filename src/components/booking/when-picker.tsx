@@ -1,7 +1,7 @@
 "use client";
 
 import Link, { useLinkStatus } from "next/link";
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { BarberPortrait } from "@/components/barber-portrait";
 import { it } from "@/i18n/it";
 import { fillText } from "@/lib/admin/text";
@@ -15,16 +15,16 @@ import { isWhenLoading, whenReducer } from "@/lib/booking/when-state";
 import { localDateOf } from "@/lib/domain/local-time";
 import { PendingMark } from "@/themes/active";
 
-export type WhenBarber = { id: string; name: string; photoUrl: string | null; bioLine: string | null };
+export type WhenBarber = { id: string; name: string; photoUrl: string | null };
 
-/** id dell'intestazione della sezione di un barbiere (anche destinazione del focus). */
+/** id del nome in testa alla colonna di un barbiere (anche destinazione del focus). */
 const headingIdOf = (barberId: string): string => `barber-${barberId}`;
 
 /**
- * "Quando?" (SPEC §5.2, fetta 8e): striscia dei giorni fissa in alto, "Primo libero" e una sezione
- * per barbiere con gli orari del giorno scelto. I giorni e gli orari sono link (funzionano anche
+ * "Quando?" (SPEC §5.2, fetta 8e): striscia dei giorni fissa in alto, "Primo libero" e una colonna
+ * per barbiere, affiancate, con gli orari del giorno scelto. I giorni e gli orari sono link (funzionano anche
  * prima dell'idratazione); dopo, il cambio di giorno chiede solo quel giorno, tiene in memoria i
- * giorni già visti e prepara il successivo. Durante il caricamento le sezioni restano al loro posto;
+ * giorni già visti e prepara il successivo. Durante il caricamento le colonne restano al loro posto;
  * una risposta arrivata in ritardo per un giorno non più selezionato si ignora (whenReducer).
  */
 export function WhenPicker({
@@ -38,11 +38,11 @@ export function WhenPicker({
 }: {
   serviceId: string;
   timezone: string;
-  /** Barbiere arrivato dall'URL: sezione evidenziata e precedenza nel "Primo libero". */
+  /** Barbiere arrivato dall'URL: colonna evidenziata e precedenza nel "Primo libero". */
   preferredId: string | null;
   /** Barbiere dell'ultimo appuntamento: precedenza nel "Primo libero" dopo il preferito. */
   recentId: string | null;
-  /** Già nell'ordine delle sezioni. */
+  /** Già nell'ordine delle colonne. */
   barbers: WhenBarber[];
   days: DayStatus[];
   initialDay: WhenDay;
@@ -52,7 +52,7 @@ export function WhenPicker({
   const { selected, shown, error } = view;
   /** Testo della regione aria-live: il giorno scelto (vuoto all'apertura). */
   const [announcement, setAnnouncement] = useState("");
-  /** Sezione su cui portare il focus quando arriva il giorno (dopo "prossimo: …"). */
+  /** Colonna su cui portare il focus quando arriva il giorno (dopo "prossimo: …"). */
   const focusAfterLoad = useRef<string | null>(null);
   const cache = useRef(new Map<string, WhenDay>([[initialDay.date, initialDay]]));
   const requests = useRef(new Map<string, Promise<WhenDay | null>>());
@@ -124,7 +124,7 @@ export function WhenPicker({
   const firstBarber = first ? barbers.find((b) => b.id === first.barberId) : undefined;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3 tall:min-h-0 tall:flex-1">
       <DayStrip days={days} selected={selected} dayUrl={dayUrl} onSelect={(date) => selectDay(date)} />
       <p aria-live="polite" className="sr-only">
         {announcement}
@@ -135,15 +135,15 @@ export function WhenPicker({
           {it.booking.errors.generic}
         </p>
       ) : (
-        <div aria-busy={loading} className="flex flex-col gap-6">
-          {/* Altezza fissa: con o senza "Primo libero" (e durante il caricamento) le sezioni non si spostano. */}
-          <div className="h-14">
+        <div aria-busy={loading} className="flex flex-col gap-3 tall:min-h-0 tall:flex-1">
+          {/* Altezza fissa: con o senza "Primo libero" (e durante il caricamento) le colonne non si spostano. */}
+          <div className="h-12 shrink-0">
             {loading ? (
-              <div aria-hidden="true" className="h-14 bg-disabled" />
+              <div aria-hidden="true" className="h-12 bg-disabled" />
             ) : first && firstBarber ? (
               <Link
                 href={summaryStepUrl(serviceId, firstBarber.id, first.startsAt, preferredId ?? undefined)}
-                className="on-ink relative flex h-14 items-center border border-ink bg-ink px-4 font-medium text-surface transition-colors hover:bg-surface hover:text-ink active:bg-surface active:text-ink"
+                className="on-ink relative flex h-12 items-center border border-ink bg-ink px-4 font-medium text-surface transition-colors hover:bg-surface hover:text-ink active:bg-surface active:text-ink"
               >
                 {fillText(t.firstFree, {
                   time: formatSlotTime(first.startsAt, timezone),
@@ -152,18 +152,30 @@ export function WhenPicker({
                 <SlotPending />
               </Link>
             ) : (
-              <p className="flex h-14 items-center text-muted-foreground">{t.noSlots}</p>
+              <p className="flex h-12 items-center text-muted-foreground">{t.noSlots}</p>
             )}
           </div>
 
-          <div aria-label={t.barbersLabel} role="group" className="flex flex-col">
+          <div
+            aria-label={t.barbersLabel}
+            role="group"
+            data-when-columns=""
+            // Fino a 4 barbieri colonne uguali; oltre, larghezza minima (a 390 px la quinta sporge di quasi
+            // 2 rem dal bordo, così si capisce che l'area scorre) e scorrimento orizzontale con snap.
+            className={`grid min-w-0 grid-flow-col gap-1.5 tall:min-h-0 tall:flex-1 tall:grid-rows-1 ${
+              barbers.length > 4
+                ? "-mx-4 auto-cols-[minmax(5rem,1fr)] snap-x snap-mandatory scroll-px-4 overflow-x-auto overscroll-x-contain px-4"
+                : "auto-cols-fr"
+            }`}
+          >
             {barbers.map((barber) => (
-              <BarberDay
+              <BarberColumn
                 key={barber.id}
                 serviceId={serviceId}
                 timezone={timezone}
                 barber={barber}
                 day={byId.get(barber.id)}
+                date={shown.date}
                 preferred={barber.id === preferredId}
                 preferredId={preferredId}
                 loading={loading}
@@ -233,17 +245,20 @@ function DayStrip({
       <ul ref={listRef} onKeyDown={onKeyDown} className="flex gap-2 overflow-x-auto p-1 pb-2">
         {days.map((day, index) => {
           const parts = dayParts(day.date);
+          // Il mese solo sul primo giorno e quando cambia, accanto al numero: la casella resta bassa.
           const showMonth = index === 0 || parts.day === "1";
           const content = (
             <span aria-hidden="true" className="contents">
-              <span className="text-xs">{parts.weekday}</span>
-              <span className="font-display text-2xl leading-none tabular-nums">{parts.day}</span>
-              <span className={`text-xs ${showMonth ? "" : "invisible"}`}>{parts.month}</span>
+              <span className="text-xs leading-none">{parts.weekday}</span>
+              <span className="flex items-baseline gap-0.5">
+                <span className="font-display text-xl leading-none tabular-nums">{parts.day}</span>
+                {showMonth && <span className="text-[0.625rem] leading-none">{parts.month}</span>}
+              </span>
             </span>
           );
           const label = formatDayLabel(day.date);
           // relative: il testo sr-only resta dentro la striscia che scorre (niente scroll della pagina).
-          const box = "relative flex h-20 w-14 shrink-0 flex-col items-center justify-center gap-1 border";
+          const box = "relative flex h-12 w-14 shrink-0 flex-col items-center justify-center gap-1 border";
           return (
             <li key={day.date}>
               {day.status === "closed" ? (
@@ -280,12 +295,17 @@ function DayStrip({
   );
 }
 
-/** Sezione di un barbiere: ritratto, nome, prima riga della bio e orari del giorno. */
-function BarberDay({
+/**
+ * Colonna di un barbiere: testata fissa (ritratto, nome, "Il tuo") e orari del giorno uno per riga.
+ * Sugli schermi alti la lista scorre da sola (senza trascinare le altre colonne né la pagina) e una
+ * sfumatura in fondo segnala gli orari nascosti sotto.
+ */
+function BarberColumn({
   serviceId,
   timezone,
   barber,
   day,
+  date,
   preferred,
   preferredId,
   loading,
@@ -297,6 +317,8 @@ function BarberDay({
   barber: WhenBarber;
   /** Assente: il barbiere non ha righe nel periodo (nessun orario di lavoro). */
   day: WhenBarberDay | undefined;
+  /** Giorno selezionato: al cambio la colonna torna in cima. */
+  date: string;
   preferred: boolean;
   /** Preferito dall'URL, portato al riepilogo per "Indietro" e "Cambia orario". */
   preferredId: string | null;
@@ -306,107 +328,195 @@ function BarberDay({
 }) {
   const t = it.booking.when;
   const headingId = headingIdOf(barber.id);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [moreBelow, setMoreBelow] = useState(false);
   // Durante il caricamento `day` è ancora quello del giorno precedente: lo scheletro ne tiene le righe.
-  const slots = day?.slots ?? [];
-  const placeholderRows = Math.max(1, Math.ceil(slots.length / 4));
-
+  const slots = useMemo(() => day?.slots ?? [], [day]);
   const { morning, afternoon } = splitByPeriod(slots, timezone);
-  const both = morning.length > 0 && afternoon.length > 0;
-  const groupProps = { serviceId, timezone, barber, preferredId };
+
+  const updateMoreBelow = useCallback(() => {
+    const list = listRef.current;
+    if (list) setMoreBelow(list.scrollTop + list.clientHeight < list.scrollHeight - 1);
+  }, []);
+
+  // Cambiando giorno la colonna torna in cima.
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = 0;
+  }, [date]);
+
+  // La sfumatura dipende dal contenuto e dall'altezza disponibile (rotazione, barra del browser).
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    updateMoreBelow();
+    const observer = new ResizeObserver(updateMoreBelow);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [updateMoreBelow, slots, loading]);
+
+  const slotProps = { serviceId, timezone, barber, preferredId };
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-3 border-t border-line py-4 first:border-t-0 first:pt-0">
-      <div className="flex items-center gap-3">
-        <BarberPortrait
-          name={barber.name}
-          photoUrl={barber.photoUrl}
-          className="size-12 shrink-0"
-          placeholderClassName="size-12 shrink-0 text-2xl"
-        />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <h2 id={headingId} tabIndex={-1} className="font-display text-2xl leading-tight">
-            {barber.name}
-          </h2>
-          {barber.bioLine && <p className="truncate text-sm text-muted-foreground">{barber.bioLine}</p>}
-        </div>
-        {preferred && <span className="shrink-0 bg-ink px-2 py-1 text-xs text-surface">{t.preferred}</span>}
+    <section
+      aria-label={fillText(t.columnLabel, { name: barber.name })}
+      className="@container flex min-w-0 snap-start flex-col tall:min-h-0"
+    >
+      {/* Altezza uguale per tutte le colonne: "Il tuo" sta sull'angolo del ritratto, non su una riga sua. */}
+      <div className="flex flex-col items-center gap-1.5 border-b border-line pb-1.5">
+        <span className="relative">
+          <BarberPortrait
+            name={barber.name}
+            photoUrl={barber.photoUrl}
+            className="size-8 shrink-0"
+            placeholderClassName="size-8 shrink-0 text-lg"
+          />
+          {preferred && (
+            <span className="absolute -right-4 -bottom-1.5 whitespace-nowrap bg-ink px-1 text-[0.625rem] leading-3.5 text-surface">
+              <span aria-hidden="true">{t.preferredShort}</span>
+              <span className="sr-only">{t.preferred}</span>
+            </span>
+          )}
+        </span>
+        <h2
+          id={headingId}
+          tabIndex={-1}
+          title={barber.name}
+          className={`w-full truncate text-center text-sm leading-tight ${preferred ? "font-semibold" : "font-medium"}`}
+        >
+          {barber.name}
+        </h2>
       </div>
 
-      {loading ? (
-        <ul aria-hidden="true" className="grid grid-cols-4 gap-2">
-          {Array.from({ length: placeholderRows * 4 }, (_, i) => (
-            <li key={i} className="h-11 bg-disabled" />
-          ))}
-        </ul>
-      ) : slots.length === 0 ? (
-        <p className="flex min-h-11 flex-wrap items-center gap-x-3 text-sm">
-          <span className="text-muted-foreground">{t.noSlots}</span>
-          {day?.next && (
-            <a
-              href={dayUrl(localDateOf(new Date(day.next), timezone))}
-              onClick={(event) => {
-                event.preventDefault();
-                if (day.next) onSelectDay(localDateOf(new Date(day.next), timezone));
-              }}
-              className="inline-flex min-h-11 items-center font-medium underline underline-offset-4 hover:no-underline"
-            >
-              {fillText(t.nextFree, { when: formatNextFree(day.next, timezone) })}
-            </a>
+      <div className="relative flex flex-col tall:min-h-0 tall:flex-1">
+        <div
+          ref={listRef}
+          onScroll={updateMoreBelow}
+          // relative: anche i testi sr-only (assoluti) restano dentro la colonna che scorre.
+          className="relative flex flex-col gap-1.5 py-2 tall:min-h-0 tall:flex-1 tall:overflow-y-auto tall:overscroll-contain"
+        >
+          {loading ? (
+            <ul aria-hidden="true" className="flex flex-col gap-1.5">
+              {Array.from({ length: Math.max(1, slots.length) }, (_, i) => (
+                <li key={i} className="h-11 shrink-0 bg-disabled" />
+              ))}
+            </ul>
+          ) : slots.length === 0 ? (
+            <NoSlots day={day} timezone={timezone} dayUrl={dayUrl} onSelectDay={onSelectDay} />
+          ) : (
+            <>
+              <SlotList slots={morning} {...slotProps} />
+              {morning.length > 0 && afternoon.length > 0 && (
+                <div className="flex items-center gap-1.5 py-1 text-xs text-muted-foreground">
+                  <span aria-hidden="true" className="h-px flex-1 bg-line" />
+                  <span className="sr-only">{t.afternoon}</span>
+                  <span aria-hidden="true" className="@min-[5.5rem]:hidden">
+                    {t.afternoonShort}
+                  </span>
+                  <span aria-hidden="true" className="hidden @min-[5.5rem]:inline">
+                    {t.afternoon}
+                  </span>
+                  <span aria-hidden="true" className="h-px flex-1 bg-line" />
+                </div>
+              )}
+              <SlotList slots={afternoon} offset={morning.length} {...slotProps} />
+            </>
           )}
-        </p>
-      ) : both ? (
-        <>
-          <SlotGroup title={t.morning} slots={morning} {...groupProps} />
-          <SlotGroup title={t.afternoon} slots={afternoon} {...groupProps} />
-        </>
-      ) : (
-        <SlotGroup slots={slots} {...groupProps} />
-      )}
+        </div>
+        {moreBelow && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface to-transparent"
+          />
+        )}
+      </div>
     </section>
   );
 }
 
-function SlotGroup({
-  title,
+/** Colonna senza orari: "Nessun orario" e, se c'è, il link al prossimo orario libero. */
+function NoSlots({
+  day,
+  timezone,
+  dayUrl,
+  onSelectDay,
+}: {
+  day: WhenBarberDay | undefined;
+  timezone: string;
+  dayUrl: (date: string) => string;
+  onSelectDay: (date: string) => void;
+}) {
+  const t = it.booking.when;
+  const next = day?.next;
+  if (!next) return <p className="text-sm text-muted-foreground">{t.columnNoSlots}</p>;
+  // formatNextFree dà "mar 20, 9:30": nella colonna stretta l'ora si mostra solo se ci sta.
+  const nextFull = formatNextFree(next, timezone);
+  const [nextDay, nextTime] = nextFull.split(", ");
+  const nextDate = localDateOf(new Date(next), timezone);
+  return (
+    <div className="flex flex-col gap-1 text-sm">
+      <p className="text-muted-foreground">{t.columnNoSlots}</p>
+      <a
+        href={dayUrl(nextDate)}
+        aria-label={fillText(t.nextFree, { when: nextFull })}
+        onClick={(event) => {
+          event.preventDefault();
+          onSelectDay(nextDate);
+        }}
+        className="inline-flex min-h-11 flex-col items-start justify-center font-medium underline underline-offset-4 hover:no-underline"
+      >
+        {/* "prossimo:" sopra, giorno e ora sotto su una riga sola: mai una virgola a inizio riga. */}
+        {/* Lo spazio non conta nel layout a colonna ma tiene il testo "prossimo: …" come in it.booking.when.nextFree. */}
+        <span>{t.nextFreeLead}</span>{" "}
+        <span className="whitespace-nowrap">
+          {nextDay}
+          {nextTime && <span className="hidden @min-[6rem]:inline">, {nextTime}</span>}
+        </span>
+      </a>
+    </div>
+  );
+}
+
+/** Orari liberi uno per riga, larghi quanto la colonna. */
+function SlotList({
   slots,
+  offset = 0,
   serviceId,
   timezone,
   barber,
   preferredId,
 }: {
-  title?: string;
   slots: string[];
+  /** Posizione del primo orario nella colonna, per la comparsa in sequenza. */
+  offset?: number;
   serviceId: string;
   timezone: string;
   barber: WhenBarber;
   preferredId: string | null;
 }) {
+  if (slots.length === 0) return null;
   return (
-    <div className="flex flex-col gap-2">
-      {title && <h3 className="text-sm text-muted-foreground">{title}</h3>}
-      <ul className="grid grid-cols-4 gap-2">
-        {slots.map((iso, index) => {
-          const time = formatSlotTime(iso, timezone);
-          return (
-            <li
-              key={iso}
-              // Gli orari compaiono in rapida sequenza (solo se il movimento è ammesso, globals.css).
-              style={{ "--appear-index": index } as React.CSSProperties}
-              className="appear-in"
+    <ul className="flex flex-col gap-1.5">
+      {slots.map((iso, index) => {
+        const time = formatSlotTime(iso, timezone);
+        return (
+          <li
+            key={iso}
+            // Gli orari compaiono in rapida sequenza (solo se il movimento è ammesso, globals.css).
+            style={{ "--appear-index": offset + index } as React.CSSProperties}
+            className="appear-in"
+          >
+            <Link
+              href={summaryStepUrl(serviceId, barber.id, iso, preferredId ?? undefined)}
+              aria-label={fillText(it.booking.when.slotLabel, { time, barber: barber.name })}
+              className="relative flex h-11 items-center justify-center border border-ink text-sm font-medium tabular-nums hover:bg-ink hover:text-surface active:bg-ink active:text-surface"
             >
-              <Link
-                href={summaryStepUrl(serviceId, barber.id, iso, preferredId ?? undefined)}
-                aria-label={fillText(it.booking.when.slotLabel, { time, barber: barber.name })}
-                className="relative flex h-11 items-center justify-center border border-ink text-sm font-medium tabular-nums hover:bg-ink hover:text-surface active:bg-ink active:text-surface"
-              >
-                {time}
-                <SlotPending />
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+              {time}
+              <SlotPending />
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

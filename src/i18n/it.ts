@@ -63,9 +63,19 @@ export const it = {
       slotLabel: "{time} con {barber}",
       morning: "Mattina",
       afternoon: "Pomeriggio",
+      /** Divisore fra mattina e pomeriggio quando la colonna è stretta. */
+      afternoonShort: "Pom.",
       noSlots: "Nessun orario libero",
+      /** Colonna di un barbiere senza orari nel giorno scelto. */
+      columnNoSlots: "Nessun orario",
+      /** Regione della colonna di un barbiere. */
+      columnLabel: "Orari di {name}",
       nextFree: "prossimo: {when}",
+      /** Prima riga del link al prossimo orario nella colonna stretta (sotto: giorno e ora). */
+      nextFreeLead: "prossimo:",
       preferred: "Il tuo barbiere",
+      /** Etichetta visibile nella testata stretta della colonna (per lo screen reader resta `preferred`). */
+      preferredShort: "Il tuo",
       dayClosed: "{day}, chiuso",
       barbersLabel: "Orari liberi per barbiere",
       /** Annuncio per gli screen reader quando cambia il giorno. */

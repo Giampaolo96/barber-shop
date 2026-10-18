@@ -20,14 +20,16 @@
 //     aria-current="date"; giorno chiuso non link, aria-disabled="true", testo per screen reader
 //     it.booking.when.dayClosed ("{day}, chiuso"); sticky in alto; Tab entra sul giorno selezionato,
 //     ←/→ spostano il focus, Invio seleziona; il giorno selezionato finisce nell'URL (`giorno`).
-//   - una <section> per barbiere con un heading che contiene il nome; sotto il nome la prima riga
-//     della bio (firstBioLine) su una sola riga, troncata con i puntini; nella sezione del preferito
-//     dall'URL il testo it.booking.when.preferred.
+//   - una colonna per barbiere, affiancate: <section> (regione it.booking.when.columnLabel, "Orari di
+//     <nome>") con un heading che contiene il nome; la bio non si mostra; nella colonna del preferito
+//     dall'URL il testo it.booking.when.preferred (per lo screen reader; a vista "Il tuo"). Sugli schermi
+//     alti almeno 600 px scorrono solo le colonne, la pagina no; sotto scorre la pagina intera.
 //   - orari: link (o pulsanti) con nome accessibile it.booking.when.slotLabel ("9:30 con <nome>"),
 //     alti almeno 44 px.
 //   - "Primo libero": link o pulsante con nome it.booking.when.firstFree ("Primo libero: 9:00 con <nome>").
-//   - barbiere senza posti: it.booking.when.noSlots e link it.booking.when.nextFree
-//     ("prossimo: mar 20, 9:30") a /prenota/quando con quel giorno; senza orari nel periodo solo noSlots.
+//   - barbiere senza posti: it.booking.when.columnNoSlots ("Nessun orario") e link con nome
+//     it.booking.when.nextFree ("prossimo: mar 20, 9:30") a /prenota/quando con quel giorno; senza orari
+//     nel periodo solo columnNoSlots.
 //
 // Prerequisiti: Supabase locale con il seed, Mailpit. Dati (servizi, barbieri, orari) creati per ogni
 // test con nomi univoci tramite l'admin demo (RLS attiva) e rimossi alla fine; clienti nuovi con email
@@ -288,9 +290,15 @@ test('flusso 8e: dal listino a "Quando?", cambio giorno (anche da tastiera), ora
     }));
     expect(overflow.scroll, 'nessun overflow orizzontale').toBeLessThanOrEqual(overflow.client);
 
-    // Striscia sticky: scorrendo fino in fondo resta visibile in cima al viewport
+    // A 390×844 scorrono solo le colonne: la pagina non scorre e la striscia resta visibile
+    const pageScrolls = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight);
+    expect(pageScrolls, 'a 390×844 la pagina non scorre in verticale').toBe(false);
+    await expect(nav).toBeInViewport();
+
+    // Striscia sticky: sotto i 600 px di altezza scorre la pagina intera e la striscia resta in cima
+    await page.setViewportSize({ width: 390, height: 560 });
     const scrollable = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight);
-    expect(scrollable, 'la pagina con due barbieri scorre in verticale').toBe(true);
+    expect(scrollable, 'a 390×560 la pagina con due barbieri scorre in verticale').toBe(true);
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
     const navBox = await nav.boundingBox();
@@ -298,6 +306,7 @@ test('flusso 8e: dal listino a "Quando?", cambio giorno (anche da tastiera), ora
     expect(navBox?.y ?? -100, 'striscia in cima al viewport').toBeGreaterThanOrEqual(-1);
     expect(navBox?.y ?? 1000, 'striscia in cima al viewport').toBeLessThanOrEqual(24);
     await expect(nav).toBeInViewport();
+    await page.setViewportSize({ width: 390, height: 844 });
 
     // SPEC §9: tap target ≥ 44 px; tocco sull'orario del secondo barbiere
     await target.scrollIntoViewIfNeeded();
@@ -394,7 +403,7 @@ test('"Primo libero": primo orario del giorno fra le sezioni, vince il preferito
 // ---------------------------------------------------------------------------
 // 3. Barbiere senza posti e giorno chiuso (SPEC §5.2)
 // ---------------------------------------------------------------------------
-test('barbiere senza posti: "Nessun orario libero" con il link al prossimo giorno; senza orari solo il testo; giorno chiuso disattivato', async ({
+test('barbiere senza posti: "Nessun orario" con il link al prossimo giorno; senza orari solo il testo; giorno chiuso disattivato', async ({
   page,
   request,
 }) => {
@@ -422,17 +431,17 @@ test('barbiere senza posti: "Nessun orario libero" con il link al prossimo giorn
     // B ha orari nel giorno
     await expect(slot(barberSection(page, b), '6:00', b)).toBeVisible();
 
-    // A: "Nessun orario libero" e "prossimo: <giorno>, 6:00" verso il giorno dopo
+    // A: "Nessun orario" e "prossimo: <giorno>, 6:00" verso il giorno dopo
     const sectionA = barberSection(page, a);
-    await expect(sectionA.getByText(s('booking.when.noSlots'))).toBeVisible();
+    await expect(sectionA.getByText(s('booking.when.columnNoSlots'), { exact: true })).toBeVisible();
     await expect(sectionA.getByRole('link', { name: /^\d{1,2}:\d{2} con / })).toHaveCount(0);
     const nextDay = plusDays(day, 1);
     const nextLink = sectionA.getByRole('link', { name: nextFreeText(nextDay, '06:00') });
     await expect(nextLink).toBeVisible();
 
-    // C: solo "Nessun orario libero", senza link "prossimo"
+    // C: solo "Nessun orario", senza link "prossimo"
     const sectionC = barberSection(page, c);
-    await expect(sectionC.getByText(s('booking.when.noSlots'))).toBeVisible();
+    await expect(sectionC.getByText(s('booking.when.columnNoSlots'), { exact: true })).toBeVisible();
     const nextPrefix = new RegExp(`^${escapeRegExp(s('booking.when.nextFree').split('{when}')[0] ?? '')}`);
     await expect(sectionC.getByRole('link', { name: nextPrefix })).toHaveCount(0);
     await expect(sectionC.getByText(nextPrefix)).toHaveCount(0);
@@ -472,7 +481,7 @@ test('vecchi URL: /prenota/barbiere e /prenota/orario portano a "Quando?"; il ba
     const beta = uniqueName('Beta');
     const alfaId = await newBarber(api, data, service.id, alfa, { weekdays: ALL_WEEK, start: '06:00', end: '23:00' });
     const betaId = await newBarber(api, data, service.id, beta, { weekdays: ALL_WEEK, start: '06:00', end: '23:00' });
-    // Bio di Alfa: in "Quando?" si vede solo la prima riga non vuota (firstBioLine)
+    // Bio di Alfa: nella vista a colonne di "Quando?" non si mostra
     const bioFirstLine = 'Sfumature e barba alla vecchia maniera, con rifinitura a rasoio e panno caldo';
     const bioHidden = 'Riga della bio da non mostrare';
     // select esplicito: barbers ha grant di colonna (CLAUDE.md – Sicurezza)
@@ -493,18 +502,9 @@ ${bioHidden}` });
     await expect(barberSection(page, beta).getByText(s('booking.when.preferred'))).toBeVisible();
     await expect(barberSection(page, alfa).getByText(s('booking.when.preferred'))).toHaveCount(0);
 
-    // Bio: prima riga sotto il nome, su una sola riga con troncamento; la seconda riga non c'è
-    const bio = barberSection(page, alfa).getByText(bioFirstLine, { exact: true });
-    await expect(bio).toBeVisible();
-    await expect(barberSection(page, alfa).getByText(bioHidden)).toHaveCount(0);
-    const bioStyle = await bio.evaluate((el) => {
-      const style = getComputedStyle(el);
-      return { whiteSpace: style.whiteSpace, textOverflow: style.textOverflow, overflow: style.overflowX };
-    });
-    expect(bioStyle).toEqual({ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' });
-    const bioBox = await bio.boundingBox();
-    const sectionBox = await barberSection(page, alfa).boundingBox();
-    expect(bioBox && sectionBox && bioBox.x + bioBox.width <= sectionBox.x + sectionBox.width + 1, 'bio dentro la sezione').toBe(true);
+    // Bio: né la prima riga né le altre compaiono nella colonna
+    await expect(main(page).getByText(bioFirstLine)).toHaveCount(0);
+    await expect(main(page).getByText(bioHidden)).toHaveCount(0);
 
     await page.goto(`/prenota/orario?servizio=${service.id}&barbiere=any&giorno=${day}`);
     await expectWhenUrl(page, { servizio: service.id, barbiere: null, giorno: day });
