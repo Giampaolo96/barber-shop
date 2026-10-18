@@ -26,7 +26,7 @@ export type BookableService = {
   barberIds: string[];
 };
 
-export type BookableBarber = { id: string; name: string; photoUrl: string | null; bio: string | null };
+export type BookableBarber = { id: string; name: string; photoUrl: string | null };
 
 export type MyBooking = {
   id: string;
@@ -92,12 +92,12 @@ export async function getBarbersForService(serviceId: string): Promise<BookableB
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("barber_services")
-    .select("barbers!inner(id, display_name, photo_path, bio, is_active)")
+    .select("barbers!inner(id, display_name, photo_path, is_active)")
     .eq("service_id", serviceId)
     .eq("barbers.is_active", true);
   if (error) console.error("getBarbersForService", error);
   return (data ?? [])
-    .map(({ barbers: b }) => ({ id: b.id, name: b.display_name, photoUrl: barberPhotoUrl(b.photo_path), bio: b.bio }))
+    .map(({ barbers: b }) => ({ id: b.id, name: b.display_name, photoUrl: barberPhotoUrl(b.photo_path) }))
     .sort((a, b) => a.name.localeCompare(b.name, "it"));
 }
 

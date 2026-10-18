@@ -5,7 +5,7 @@ import { StepHeader } from "@/components/booking/step-header";
 import { WhenPicker } from "@/components/booking/when-picker";
 import { it } from "@/i18n/it";
 import { getWhenOverview } from "@/lib/booking/availability";
-import { firstBioLine, formatDuration } from "@/lib/booking/format";
+import { formatDuration } from "@/lib/booking/format";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
 import { BOOK_PATH, whenStepUrl } from "@/lib/booking/paths";
 import { getBarbersForService, getBookableService } from "@/lib/booking/queries";
@@ -31,12 +31,15 @@ export default async function ChooseWhenPage({
   const service = params.success && access === "ok" ? await getBookableService(params.data.servizio) : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-6">
+    // Più larga della colonna di lettura: una colonna di orari per barbiere (sugli schermi alti
+    // occupa lo schermo e scorrono solo le colonne, vedi globals.css).
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 px-4 pt-3 pb-4 tall:min-h-0">
       <StepHeader
         step={2}
         title={it.booking.when.title}
         subtitle={service ? `${service.name}, ${formatDuration(service.durationMin)}` : undefined}
         backHref={BOOK_PATH}
+        compact
       />
       {access !== "ok" ? (
         <AccessNotice
@@ -84,7 +87,6 @@ async function When({
     id: b.id,
     name: b.name,
     photoUrl: b.photoUrl,
-    bioLine: firstBioLine(b.bio),
   }));
 
   return (

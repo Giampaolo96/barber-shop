@@ -11,17 +11,28 @@ export function StepHeader({
   subtitle,
   mark,
   backHref,
+  compact = false,
 }: {
   step: number;
   title: string;
   /** Sottotitolo in corsivo sotto il titolo. */
   subtitle?: string;
-  /** Segno del tema accanto al titolo (decorativo). */
-  mark?: React.ReactNode;
   backHref?: string;
-}) {
+} & (
+  | {
+      /** Segno del tema accanto al titolo (decorativo). */
+      mark?: React.ReactNode;
+      compact?: false;
+    }
+  | {
+      /** L'intestazione compatta non ha il segno del tema. */
+      mark?: never;
+      /** Titolo piccolo con il sottotitolo accanto: lascia spazio al contenuto ("Quando?", fetta 8e). */
+      compact: true;
+    }
+)) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className={compact ? "flex flex-col" : "flex flex-col gap-2"}>
       <div className="flex items-center justify-between gap-4">
         {backHref ? (
           <Link
@@ -37,13 +48,20 @@ export function StepHeader({
           {it.booking.step.replace("{current}", String(step)).replace("{total}", String(BOOKING_STEPS))}
         </p>
       </div>
-      <div className="flex items-end justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-display text-5xl leading-none">{title}</h1>
-          {subtitle && <p className="font-display text-xl italic text-muted-foreground">{subtitle}</p>}
+      {compact ? (
+        <div className="flex flex-wrap items-baseline gap-x-3">
+          <h1 className="font-display text-3xl leading-tight">{title}</h1>
+          {subtitle && <p className="font-display text-base italic text-muted-foreground">{subtitle}</p>}
         </div>
-        {mark}
-      </div>
+      ) : (
+        <div className="flex items-end justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h1 className="font-display text-5xl leading-none">{title}</h1>
+            {subtitle && <p className="font-display text-xl italic text-muted-foreground">{subtitle}</p>}
+          </div>
+          {mark}
+        </div>
+      )}
     </div>
   );
 }
