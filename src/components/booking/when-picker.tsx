@@ -10,7 +10,7 @@ import type { WhenBarberDay, WhenDay } from "@/lib/booking/availability";
 import { fetchWhenDay } from "@/lib/booking/availability-actions";
 import { dayParts, formatDayLabel } from "@/lib/booking/format";
 import { summaryStepUrl, whenStepUrl } from "@/lib/booking/paths";
-import { firstFreeAmong, formatNextFree, formatSlotTime, splitByPeriod } from "@/lib/booking/when";
+import { firstFreeAmong, formatNextFree, formatNextFreeDay, formatSlotTime, splitByPeriod } from "@/lib/booking/when";
 import { isWhenLoading, whenReducer } from "@/lib/booking/when-state";
 import { localDateOf } from "@/lib/domain/local-time";
 import { PendingMark } from "@/themes/active";
@@ -371,9 +371,11 @@ function BarberColumn({
             placeholderClassName="size-8 shrink-0 text-lg"
           />
           {preferred && (
-            <span className="absolute -right-4 -bottom-1.5 whitespace-nowrap bg-ink px-1 text-[0.625rem] leading-3.5 text-surface">
-              <span aria-hidden="true">{t.preferredShort}</span>
-              <span className="sr-only">{t.preferred}</span>
+            <span
+              aria-hidden="true"
+              className="absolute -right-4 -bottom-1.5 whitespace-nowrap bg-ink px-1 text-[0.625rem] leading-3.5 text-surface"
+            >
+              {t.preferredShort}
             </span>
           )}
         </span>
@@ -384,6 +386,8 @@ function BarberColumn({
           className={`w-full truncate text-center text-sm leading-tight ${preferred ? "font-semibold" : "font-medium"}`}
         >
           {barber.name}
+          {/* Per lo screen reader "Il tuo barbiere" arriva dopo il nome, dentro l'intestazione. */}
+          {preferred && <span className="sr-only">, {t.preferred}</span>}
         </h2>
       </div>
 
@@ -392,7 +396,8 @@ function BarberColumn({
           ref={listRef}
           onScroll={updateMoreBelow}
           // relative: anche i testi sr-only (assoluti) restano dentro la colonna che scorre.
-          className="relative flex flex-col gap-1.5 py-2 tall:min-h-0 tall:flex-1 tall:overflow-y-auto tall:overscroll-contain"
+          // scroll-pb-10: un orario raggiunto da tastiera non finisce sotto la sfumatura in fondo.
+          className="relative flex scroll-pb-10 flex-col gap-1.5 py-2 tall:min-h-0 tall:flex-1 tall:overflow-y-auto tall:overscroll-contain"
         >
           {loading ? (
             <ul aria-hidden="true" className="flex flex-col gap-1.5">
@@ -448,9 +453,8 @@ function NoSlots({
   const t = it.booking.when;
   const next = day?.next;
   if (!next) return <p className="text-sm text-muted-foreground">{t.columnNoSlots}</p>;
-  // formatNextFree dà "mar 20, 9:30": nella colonna stretta l'ora si mostra solo se ci sta.
+  // Nome completo "mar 20, 9:30"; a vista nella colonna stretta l'ora si mostra solo se ci sta.
   const nextFull = formatNextFree(next, timezone);
-  const [nextDay, nextTime] = nextFull.split(", ");
   const nextDate = localDateOf(new Date(next), timezone);
   return (
     <div className="flex flex-col gap-1 text-sm">
@@ -468,8 +472,8 @@ function NoSlots({
         {/* Lo spazio non conta nel layout a colonna ma tiene il testo "prossimo: …" come in it.booking.when.nextFree. */}
         <span>{t.nextFreeLead}</span>{" "}
         <span className="whitespace-nowrap">
-          {nextDay}
-          {nextTime && <span className="hidden @min-[6rem]:inline">, {nextTime}</span>}
+          {formatNextFreeDay(next, timezone)}
+          <span className="hidden @min-[6rem]:inline">, {formatSlotTime(next, timezone)}</span>
         </span>
       </a>
     </div>

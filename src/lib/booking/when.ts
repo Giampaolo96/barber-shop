@@ -64,9 +64,13 @@ export function initialDay(days: DayStatus[], requested?: string | null): string
 export const formatSlotTime = (iso: string, timezone: string): string =>
   formatInTimeZone(new Date(iso), timezone, "H:mm");
 
-/** Prossimo orario libero di un barbiere: "mar 20, 9:30". */
+/** Giorno del prossimo orario libero di un barbiere: "mar 20". */
+export const formatNextFreeDay = (iso: string, timezone: string): string =>
+  formatInTimeZone(new Date(iso), timezone, "EEE d", { locale: itLocale });
+
+/** Prossimo orario libero di un barbiere: "mar 20, 9:30" (giorno e ora, come le due funzioni sopra). */
 export const formatNextFree = (iso: string, timezone: string): string =>
-  formatInTimeZone(new Date(iso), timezone, "EEE d, H:mm", { locale: itLocale });
+  `${formatNextFreeDay(iso, timezone)}, ${formatSlotTime(iso, timezone)}`;
 
 /**
  * "Primo libero" da mostrare fra i barbieri della pagina (`barberIds`): quello scelto dal server se

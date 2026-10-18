@@ -5,7 +5,9 @@
 //     pagina): scorrerne una non sposta le altre né la pagina; il tocco su un orario apre il
 //     riepilogo con barbiere e ora giusti;
 //   - 5 barbieri: l'area delle colonne scorre di lato, la quinta colonna sporge dal bordo
-//     all'apertura e la pagina non ha overflow orizzontale.
+//     all'apertura e la pagina non ha overflow orizzontale;
+//   - cambio di giorno: le colonne scrollate tornano tutte in cima (aggiunto con l'approvazione
+//     dell'utente del 2026-10-19).
 // Dati creati tramite l'admin demo (RLS attiva) e rimossi alla fine; clienti nuovi con email univoche.
 
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
@@ -192,6 +194,40 @@ test('4 barbieri a 390 px: colonne affiancate senza overflow; una colonna scorre
     expect(new Date(params.get('inizio') ?? '').getTime()).toBe(fromZonedTime(`${day}T${time.padStart(5, '0')}:00`, TZ).getTime());
     await expect(main(page)).toContainText(target.name);
     await expect(main(page)).toContainText(time);
+  } finally {
+    await cleanup(api, data);
+  }
+});
+
+test('cambio di giorno: le colonne scrollate tornano tutte in cima', async ({ page, request }) => {
+  const api = await adminApi(request);
+  const data: Created = { services: [], barbers: [], bookings: [] };
+  try {
+    const { serviceId, barbers } = await serviceWithBarbers(api, data, 2);
+    await signUpCustomer(page, 'cima');
+    await page.goto(`${WHEN_PATH}?servizio=${serviceId}&giorno=${plusDays(today(), 1)}`);
+
+    // Entrambe le colonne scrollate verso il basso
+    for (const barber of barbers) {
+      const col = column(page, barber.name);
+      await expect(col.getByRole('link').first()).toBeVisible();
+      await col.evaluate((section) => {
+        const list = [...section.querySelectorAll<HTMLElement>('*')].find((el) => getComputedStyle(el).overflowY === 'auto');
+        list?.scrollTo({ top: 400 });
+      });
+      await expect.poll(async () => (await scroller(col))?.scrollTop ?? 0, `${barber.name} scrollata`).toBeGreaterThan(0);
+    }
+
+    // Giorno dopo dalla striscia: quando arriva, tutte le colonne sono in cima
+    const next = plusDays(today(), 2);
+    const nav = page.getByRole('navigation', { name: s('booking.time.daysLabel'), exact: true });
+    await nav.locator(`a[data-day="${next}"]`).click();
+    await expect(nav.locator(`a[data-day="${next}"]`)).toHaveAttribute('aria-current', 'date');
+    for (const barber of barbers) {
+      const col = column(page, barber.name);
+      await expect(col.getByRole('link').first()).toBeVisible();
+      await expect.poll(async () => (await scroller(col))?.scrollTop, `${barber.name} torna in cima`).toBe(0);
+    }
   } finally {
     await cleanup(api, data);
   }

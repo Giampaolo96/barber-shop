@@ -17,14 +17,22 @@ export function StepHeader({
   title: string;
   /** Sottotitolo in corsivo sotto il titolo. */
   subtitle?: string;
-  /** Segno del tema accanto al titolo (decorativo). */
-  mark?: React.ReactNode;
   backHref?: string;
-  /** Titolo piccolo con il sottotitolo accanto: lascia spazio al contenuto ("Quando?", fetta 8e). */
-  compact?: boolean;
-}) {
+} & (
+  | {
+      /** Segno del tema accanto al titolo (decorativo). */
+      mark?: React.ReactNode;
+      compact?: false;
+    }
+  | {
+      /** L'intestazione compatta non ha il segno del tema. */
+      mark?: never;
+      /** Titolo piccolo con il sottotitolo accanto: lascia spazio al contenuto ("Quando?", fetta 8e). */
+      compact: true;
+    }
+)) {
   return (
-    <div className={`flex flex-col ${compact ? "" : "gap-2"}`}>
+    <div className={compact ? "flex flex-col" : "flex flex-col gap-2"}>
       <div className="flex items-center justify-between gap-4">
         {backHref ? (
           <Link

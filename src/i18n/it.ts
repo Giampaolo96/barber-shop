@@ -61,6 +61,7 @@ export const it = {
       title: "Quando?",
       firstFree: "Primo libero: {time} con {barber}",
       slotLabel: "{time} con {barber}",
+      /** Oggi non mostrato (nelle colonne c'è solo il divisore "Pomeriggio"): resta perché lo usano i test di accettazione e per usi futuri. */
       morning: "Mattina",
       afternoon: "Pomeriggio",
       /** Divisore fra mattina e pomeriggio quando la colonna è stretta. */

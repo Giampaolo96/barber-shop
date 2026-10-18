@@ -30,7 +30,11 @@ export const dayParts = (date: string): { weekday: string; day: string; month: s
 export const telHref = (phone: string | null): string | null =>
   phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : null;
 
-/** Prima riga non vuota della bio del barbiere, usata come specialità; null se non c'è. */
+/**
+ * Prima riga non vuota della bio del barbiere, usata come specialità; null se non c'è. Oggi nessuna
+ * schermata la mostra ("Quando?" a colonne non ha la bio): resta perché la coprono i test di
+ * accettazione (8b) e per usi futuri (per esempio una scheda del barbiere).
+ */
 export const firstBioLine = (bio: string | null): string | null =>
   bio?.split(/\r\n|\r|\n/).map((line) => line.trim()).find((line) => line !== "") ?? null;
 

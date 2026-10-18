@@ -10,7 +10,7 @@ Come è fatta l'interfaccia e come si cambia tema. Il primo tema è **Mosca** (M
 - **Numeri come tipografia**: date e orari grandi in Bodoni sono l'elemento visivo della scelta, non etichette.
 - **Un solo momento memorabile per schermata.** In home è la testata in marmo con la mosca (il biglietto della prossima prenotazione è il secondo elemento forte, mai un terzo); dopo la prenotazione è la schermata di conferma in marmo; tutto il resto è disciplinato.
 - **Doppio filetto** (`border-double`, 3 px, colore `--ink`) solo come separatore principale: sotto i titoli di sezione della home, sopra e sotto il listino, sul pulsante "Prenota". Altrove bastano i bordi da 1 px.
-- **Allineamento a sinistra**, griglia a 16 px su mobile, colonna di lettura `max-w-xl`. Eccezione: "Quando?" usa `max-w-3xl` (una colonna di orari per barbiere) e un'intestazione compatta (`StepHeader compact`).
+- **Allineamento a sinistra**, griglia a 16 px su mobile, colonna di lettura `max-w-xl`. Eccezione: "Quando?" usa `max-w-3xl` (una colonna di orari per barbiere) e un'intestazione compatta (`StepHeader compact`, senza il segno del tema). Nelle colonne di "Quando?" la testata (ritratto e nome) è centrata, l'unico testo non allineato a sinistra della schermata: con colonne strette fino a 5 rem il nome centrato sopra gli orari si legge meglio.
 - Mobile first per il cliente (tap target ≥ 44 px), desktop first per lo staff.
 
 ## Token
