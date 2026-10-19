@@ -1,0 +1,214 @@
+/*
+ * Tema "Mosca neon" (docs/DESIGN.md): il bianco e nero di Mosca rovesciato su un nero profondo, con
+ * neon bianchi e luci sfocate. Estende "mosca" (segni grafici e animazioni della mosca): qui tutti i
+ * valori del tema, in un solo punto. Il blocco :root lo copia anche la pagina offline statica.
+ */
+:root {
+  --surface: #0b0b0c;
+  --ink: #f2f5f8;
+  /* Marmo appena più chiaro del fondo e un po' trasparente: le luci d'ambiente ci passano sotto. */
+  --surface-marble: #141517e0;
+  --marble-vein: #ffffff;
+  --ink-on-marble: #f2f5f8;
+  /* Grigi freddi: 7,7:1 sul fondo, 7,2:1 sul marmo. */
+  --ink-muted: #9ba3ad;
+  --line: #2c3036;
+  /* Giorni non lavorativi: 5,3:1. */
+  --surface-disabled: #17181b;
+  --ink-disabled: #868d96;
+  /* Solo errori e azioni distruttive: 8,3:1 sul fondo. */
+  --danger: #f28b8b;
+  --radius: 0rem;
+  --ring-on-ink: var(--ink);
+  /* Bordo a riposo di orari e giorni: grigio freddo, 5,1:1 sul fondo, 3,3:1 al centro della luce più forte. */
+  --ink-control-rest: #7c838e;
+  /* Velo dietro i dialoghi: scurisce, mai schiarisce. */
+  --scrim: #000000a6;
+  color-scheme: dark;
+
+  /*
+   * Neon: due livelli, un alone stretto e intenso e uno largo e morbido. Per più o meno effetto si
+   * regolano colore e raggi qui sotto; i bagliori li compongono.
+   */
+  --neon-core: #f4f8ffd9;
+  --neon-halo: #bcd2ff47;
+  --neon-halo-strong: #c8dbff73;
+  --neon-tight: 3px;
+  --neon-wide: 18px;
+  --neon-wide-hover: 28px;
+
+  --glow-text: 0 0 1px var(--neon-core), 0 0 var(--neon-wide) var(--neon-halo);
+  --glow-box: 0 0 var(--neon-tight) var(--neon-core), 0 0 var(--neon-wide) var(--neon-halo);
+  --glow-box-hover: 0 0 var(--neon-tight) var(--neon-core), 0 0 var(--neon-wide-hover) var(--neon-halo-strong);
+  --glow-primary-hover: var(--glow-box-hover);
+  --glow-focus: 0 0 var(--neon-wide) var(--neon-halo-strong);
+  --glow-mark: drop-shadow(0 0 2px var(--neon-core)) drop-shadow(0 0 8px var(--neon-halo-strong));
+  --glow-transition: 220ms;
+
+  /* Vetro scuro: solo pochi pannelli grandi (biglietto, riepilogo, conferma). */
+  --glass-bg: #16181c8c;
+  --glass-border: #f2f5f830;
+  --glass-filter: blur(14px) saturate(120%);
+  --glass-pad: 1.25rem;
+  --glass-ink-bg: var(--glass-bg);
+  --glass-ink-fg: var(--ink);
+  --glass-ink-border: var(--glass-border);
+  --glass-ink-border-width: 1px;
+
+  /* Marmo della testata a bassa opacità. */
+  --marble-vein-opacity: 0.45;
+
+  /* Ritratti a "lightbox": cornice nera interna, bordo neon, immagine attenuata (mai invertita). */
+  --portrait-padding: 2px;
+  --portrait-mat: var(--surface);
+  --portrait-filter: grayscale(1) brightness(0.84) contrast(1.05);
+  --portrait-glow: 0 0 var(--neon-wide) var(--neon-halo);
+
+  /* "Primo libero": contorno neon che si riempie al passaggio, come "Prenota". */
+  --emphasis-bg: transparent;
+  --emphasis-fg: var(--ink);
+  --emphasis-hover-bg: var(--ink);
+  --emphasis-hover-fg: var(--surface);
+
+  /* Striscia dei giorni: fondo velato e sfocato dove la pagina le scorre sotto (vedi più in basso). */
+  --sticky-bar-bg: #0b0b0c8c;
+  --sticky-bar-filter: blur(10px);
+
+  /* Luci d'ambiente: poche macchie bianche già sfocate (gradienti radiali), una deriva all'apertura. */
+  --ambient-color: #dbe6ff;
+  --ambient-opacity: 0.18;
+  --ambient-size: 70vmax;
+  --ambient-drift: 30s;
+
+  /* Accensione del bottone di conferma e dissolvenza all'ingresso delle pagine. */
+  --ignite-duration: 900ms;
+  --ignite-delay: 150ms;
+  --page-fade: 180ms;
+}
+
+/*
+ * Sugli schermi alti "Quando?" non scorre (scorrono solo le colonne): sotto la striscia dei giorni
+ * non passa nulla, quindi niente velo né sfocatura, e niente fascia più scura sopra le luci. Stessa
+ * soglia della variante `tall` di src/app/globals.css.
+ */
+@media (min-height: 37.5rem) {
+  :root {
+    --sticky-bar-bg: transparent;
+    --sticky-bar-filter: none;
+  }
+}
+
+/* Con il movimento ridotto il bagliore cambia senza transizione. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --glow-transition: 0ms;
+  }
+}
+
+/* Area staff: stessa palette in versione sobria (glow solo su azione principale, focus e selezione). */
+[data-area="admin"] {
+  --glow-text: none;
+  --glow-box-hover: none;
+  --glow-primary-hover: var(--glow-box);
+  --glow-mark: none;
+  --portrait-glow: none;
+}
+
+/*
+ * Luci d'ambiente: livello fisso dietro il contenuto. Si muovono solo transform e opacity, una
+ * volta sola; con prefers-reduced-motion sono già ferme al loro posto.
+ */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+.ambient-light {
+  position: absolute;
+  width: var(--ambient-size);
+  aspect-ratio: 1;
+  background: radial-gradient(closest-side, var(--ambient-color), transparent);
+  --light-opacity: var(--ambient-opacity);
+  opacity: var(--light-opacity);
+}
+/* Tre lampade: in alto a sinistra, a destra a metà, in basso; la seconda allungata come un tubo. */
+.ambient-light:nth-child(1) {
+  top: -35vmax;
+  left: -30vmax;
+  --drift-x: 8vmax;
+  --drift-y: -4vmax;
+}
+.ambient-light:nth-child(2) {
+  top: 20vh;
+  right: -45vmax;
+  transform: scaleX(1.6);
+  --drift-x: -10vmax;
+  --drift-y: 6vmax;
+  --drift-scale: 1.6;
+}
+.ambient-light:nth-child(3) {
+  bottom: -45vmax;
+  left: 5vw;
+  --light-opacity: calc(var(--ambient-opacity) * 0.7);
+  --drift-x: 6vmax;
+  --drift-y: 8vmax;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ambient-light {
+    animation: ambient-drift var(--ambient-drift) cubic-bezier(0.33, 0, 0.2, 1) both;
+  }
+  .ambient[data-paused] .ambient-light {
+    animation-play-state: paused;
+  }
+  .neon-ignite {
+    animation: neon-ignite var(--ignite-duration) linear var(--ignite-delay) backwards;
+  }
+  .page-in {
+    animation: page-in var(--page-fade) ease-out backwards;
+  }
+}
+
+/* Le luci si accendono nei primi secondi e intanto scivolano al loro posto per tutta la deriva. */
+@keyframes ambient-drift {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--drift-x, 0), var(--drift-y, 0), 0) scaleX(var(--drift-scale, 1));
+  }
+  10% {
+    opacity: var(--light-opacity);
+  }
+}
+
+/* Accensione: due lampi in meno di un secondo, poi luce stabile. */
+@keyframes neon-ignite {
+  0% {
+    opacity: 0.35;
+    box-shadow: none;
+  }
+  14% {
+    opacity: 1;
+    box-shadow: var(--glow-box);
+  }
+  26% {
+    opacity: 0.5;
+    box-shadow: none;
+  }
+  46% {
+    opacity: 1;
+    box-shadow: var(--glow-box-hover);
+  }
+  100% {
+    opacity: 1;
+    box-shadow: var(--glow-box);
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+  }
+}

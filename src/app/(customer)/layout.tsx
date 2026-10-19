@@ -8,6 +8,7 @@ import { ADMIN_PATH, CUSTOMER_LOGIN_PATH, isStaffRole } from "@/lib/auth/access"
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { MY_BOOKINGS_PATH } from "@/lib/booking/paths";
 import { getShopInfo } from "@/lib/booking/queries";
+import { AmbientBackground } from "@/themes/active";
 
 const linkClass =
   "inline-flex h-11 items-center px-2 text-sm font-medium underline-offset-4 hover:underline";
@@ -17,6 +18,7 @@ export default async function CustomerLayout({ children }: { children: ReactNode
 
   return (
     <>
+      <AmbientBackground />
       <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-1">
         {/* Nome del negozio dalle impostazioni (it.shop.name è solo il segnaposto). */}
         <ShopBrandLink name={shop?.name ?? it.shop.name} />

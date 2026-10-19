@@ -169,7 +169,7 @@ export function WhenPicker({
             ) : first && firstBarber ? (
               <Link
                 href={summaryStepUrl(serviceId, firstBarber.id, first.startsAt, preferredId ?? undefined)}
-                className="on-ink relative flex h-12 items-center border border-ink bg-ink px-4 font-medium text-surface transition-colors hover:bg-surface hover:text-ink active:bg-surface active:text-ink"
+                className="on-ink emphasis glow text-glow relative flex h-12 items-center border border-ink px-4 font-medium"
               >
                 {fillText(t.firstFree, {
                   time: formatSlotTime(first.startsAt, timezone),
@@ -266,7 +266,7 @@ function DayStrip({
   };
 
   return (
-    <nav aria-label={t.time.daysLabel} className="sticky top-0 z-10 -mx-4 border-b border-line bg-surface px-3 pt-1">
+    <nav aria-label={t.time.daysLabel} className="sticky-bar sticky top-0 z-10 -mx-4 border-b border-line px-3 pt-1">
       {/* p-1: il contorno del focus (2 px staccato di 2 px) non viene tagliato dallo scorrimento. */}
       <ul ref={listRef} onKeyDown={onKeyDown} className="flex gap-2 overflow-x-auto p-1 pb-2">
         {days.map((day, index) => {
@@ -304,8 +304,8 @@ function DayStrip({
                   }}
                   // "Senza posti": bordo tratteggiato e testo secondario (contrasto ≥ 4,5:1), non solo il grigio.
                   className={`${box} ${
-                    day.status === "open" ? "border-ink" : "border-dashed border-ink text-muted-foreground"
-                  } hover:bg-disabled aria-[current=date]:border-solid aria-[current=date]:border-ink aria-[current=date]:bg-ink aria-[current=date]:text-surface`}
+                    day.status === "open" ? "border-control-rest" : "border-dashed border-control-rest text-muted-foreground"
+                  } glow-hover hover:border-ink hover:bg-disabled focus-visible:border-ink aria-[current=date]:border-solid aria-[current=date]:border-ink aria-[current=date]:bg-ink aria-[current=date]:text-surface`}
                 >
                   {content}
                   <span className="sr-only">
@@ -541,7 +541,7 @@ function SlotList({
             <Link
               href={summaryStepUrl(serviceId, barber.id, iso, preferredId ?? undefined)}
               aria-label={fillText(it.booking.when.slotLabel, { time, barber: barber.name })}
-              className="relative flex h-11 items-center justify-center border border-ink text-sm font-medium tabular-nums hover:bg-ink hover:text-surface active:bg-ink active:text-surface"
+              className="glow-hover relative flex h-11 items-center justify-center border border-control-rest text-sm font-medium tabular-nums hover:border-ink hover:bg-ink hover:text-surface focus-visible:border-ink active:border-ink active:bg-ink active:text-surface"
             >
               {time}
               <SlotPending />
@@ -558,7 +558,7 @@ function SlotPending() {
   const { pending } = useLinkStatus();
   if (!pending) return null;
   return (
-    <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center bg-ink text-surface">
+    <span aria-hidden="true" className="glow absolute inset-0 flex items-center justify-center bg-ink text-surface">
       <PendingMark className="size-6" />
     </span>
   );

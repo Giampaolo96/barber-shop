@@ -25,9 +25,9 @@
   --ring: var(--ink);
 }
 
-/* Contesti scuri (blocco nero, marmo): testo e focus chiari. */
+/* Contesti scuri (blocco nero, marmo, vetro): testo e focus chiari. */
 .on-ink {
-  --ring: var(--surface);
+  --ring: var(--ring-on-ink);
 }
 
 @theme inline {
@@ -57,6 +57,7 @@
   --color-vein: var(--marble-vein);
   --color-on-marble: var(--ink-on-marble);
   --color-line: var(--line);
+  --color-control-rest: var(--ink-control-rest);
   --color-disabled: var(--surface-disabled);
   --color-ink-disabled: var(--ink-disabled);
   --color-danger: var(--danger);
@@ -77,4 +78,100 @@
 /* Tratteggio informativo (assenze e chiusure nel calendario), non decorativo. */
 @utility bg-hatch {
   background-image: repeating-linear-gradient(135deg, var(--line) 0 1px, transparent 1px 7px);
+}
+
+/*
+ * Luce del tema (docs/DESIGN.md, "Luce e vetro"). Valori nel tema: in un tema senza luce
+ * valgono none/0 e queste classi non cambiano nulla.
+ */
+
+/* Bagliore sul testo dei titoli e dei numeri grandi, mai sul testo lungo. */
+@utility text-glow {
+  text-shadow: var(--glow-text);
+}
+
+/* Elemento acceso (azione principale): il bagliore cresce al passaggio e al focus. */
+@utility glow {
+  box-shadow: var(--glow-box);
+  transition-property: color, background-color, border-color, box-shadow;
+  transition-duration: var(--glow-transition);
+  transition-timing-function: ease-out;
+  &:hover,
+  &:focus-visible {
+    box-shadow: var(--glow-primary-hover);
+  }
+}
+
+/* Elemento spento che si illumina al passaggio e al focus (solo box-shadow e colori, transizione breve). */
+@utility glow-hover {
+  transition-property: color, background-color, border-color, box-shadow;
+  transition-duration: var(--glow-transition);
+  transition-timing-function: ease-out;
+  &:hover,
+  &:focus-visible,
+  &:active {
+    box-shadow: var(--glow-box-hover);
+  }
+}
+
+/*
+ * Scorciatoia in evidenza ("Primo libero"): pieno che si svuota al passaggio nel tema senza luce,
+ * contorno neon che si riempie in quello con la luce. Il bordo lo dà l'elemento.
+ */
+@utility emphasis {
+  background-color: var(--emphasis-bg);
+  color: var(--emphasis-fg);
+  &:hover,
+  &:active {
+    background-color: var(--emphasis-hover-bg);
+    color: var(--emphasis-hover-fg);
+  }
+}
+
+/* Barra fissa in alto (striscia dei giorni): fondo pieno, o velato e sfocato sopra le luci. */
+@utility sticky-bar {
+  background-color: var(--sticky-bar-bg);
+  backdrop-filter: var(--sticky-bar-filter);
+  -webkit-backdrop-filter: var(--sticky-bar-filter);
+}
+
+/* Segno grafico del tema che emette luce. */
+@utility mark-glow {
+  filter: var(--glow-mark);
+}
+
+/* Pannello grande in vetro scuro (riepilogo, conferma): nel tema senza luce resta com'è. */
+@utility glass {
+  background-color: var(--glass-bg);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+/* Pannello pieno (biglietto della prossima prenotazione): blocco nero nel tema senza luce, vetro in quello con la luce. */
+@utility glass-ink {
+  background-color: var(--glass-ink-bg);
+  color: var(--glass-ink-fg);
+  border: var(--glass-ink-border-width) solid var(--glass-ink-border);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+/* Ritratto dei barbieri: filtro e cornice del tema (le foto non si invertono mai). */
+@utility portrait {
+  border: 1px solid var(--ink);
+  padding: var(--portrait-padding);
+  background-color: var(--portrait-mat);
+  filter: var(--portrait-filter);
+  box-shadow: var(--portrait-glow);
+}
+
+@layer base {
+  /* Elemento selezionato (giorno, vista, barbiere della settimana): si accende. */
+  [aria-current]:not([aria-current="false"]) {
+    box-shadow: var(--glow-box);
+  }
+  /* Il focus resta sempre visibile: al contorno si aggiunge il bagliore del tema. */
+  :focus-visible {
+    box-shadow: var(--glow-focus);
+  }
 }

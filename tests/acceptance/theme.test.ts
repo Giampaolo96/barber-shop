@@ -55,6 +55,12 @@ const importSpecifiers = (source: string): string[] => {
   return [...source.matchAll(re)].map((m) => m[1]);
 };
 
+/**
+ * Temi che ne estendono un altro (docs/DESIGN.md): l'unica dipendenza ammessa tra temi, in una sola
+ * direzione. Tema neon, approvato dall'utente.
+ */
+const THEME_EXTENDS: Record<string, string> = { 'src/themes/mosca-neon': 'src/themes/mosca' };
+
 /** Directory dei temi concreti (src/themes/<nome>/). */
 const themeDirs = (): string[] =>
   existsSync(THEMES)
@@ -94,13 +100,15 @@ describe('Tema: valori solo in src/themes/ (decisione 1, SPEC §9)', () => {
     expect(existsSync(resolve(SRC, 'styles', 'tokens.css')), 'src/styles/tokens.css').toBe(true);
   });
 
-  test('src/themes/active.ts importa il tema mosca', () => {
+  // Tema neon (approvato dall'utente): active.ts esporta un solo tema, con una riga.
+  test('src/themes/active.ts esporta un solo tema concreto', () => {
     const active = resolve(THEMES, 'active.ts');
     expect(existsSync(active), 'src/themes/active.ts').toBe(true);
     const targets = importSpecifiers(read(active))
       .map((spec) => resolveSpecifier(active, spec))
       .filter((p): p is string => p !== null);
-    expect(targets.some((p) => inside(p, resolve(THEMES, 'mosca')))).toBe(true);
+    expect(targets, 'un solo import/export in src/themes/active.ts').toHaveLength(1);
+    expect(themeDirs()).toContain(targets[0]);
   });
 
   test('src/themes/active.ts è l\'unico file fuori da un tema che importa un tema concreto', () => {
@@ -114,7 +122,10 @@ describe('Tema: valori solo in src/themes/ (decisione 1, SPEC §9)', () => {
         const target = resolveSpecifier(file, spec);
         if (target === null) continue;
         const theme = dirs.find((d) => inside(target, d));
-        if (theme !== undefined && theme !== ownTheme) offenders.push(`${rel(file)} → ${spec}`);
+        if (theme === undefined || theme === ownTheme) continue;
+        // Unica dipendenza ammessa tra temi: quella dichiarata in THEME_EXTENDS, mai il contrario.
+        const declared = ownTheme !== undefined && THEME_EXTENDS[rel(ownTheme)] === rel(theme);
+        if (!declared) offenders.push(`${rel(file)} → ${spec}`);
       }
     }
     expect(offenders).toEqual([]);

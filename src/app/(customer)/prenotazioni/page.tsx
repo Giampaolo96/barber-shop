@@ -49,7 +49,7 @@ export default async function MyBookingsPage({
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-6">
-      <h1 className="font-display text-4xl leading-tight">{t.title}</h1>
+      <h1 className="font-display text-4xl leading-tight text-glow">{t.title}</h1>
       {esito === "cancellata" && <p role="status" className="border border-ink p-4">{t.cancelled}</p>}
 
       {bookings === null && (

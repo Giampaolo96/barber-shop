@@ -14,7 +14,7 @@ export function ShopBrandLink({ name }: { name: string }) {
   if (pathname === HOME_PATH) return <span />;
   const { lead } = splitShopName(name);
   return (
-    <Link href={HOME_PATH} aria-label={name} className="inline-flex h-11 min-w-0 items-center font-display text-xl">
+    <Link href={HOME_PATH} aria-label={name} className="inline-flex h-11 min-w-0 items-center font-display text-xl text-glow">
       {/* Su mobile la prima parola, così la testata non va a capo; da sm il nome completo. */}
       <span className="sm:hidden">{lead}</span>
       <span className="hidden sm:inline">{name}</span>

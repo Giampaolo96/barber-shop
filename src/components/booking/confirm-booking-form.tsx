@@ -66,7 +66,7 @@ export function ConfirmBookingForm({
           )}
         </div>
       )}
-      <Button type="submit" disabled={pending} className="h-14 text-base">
+      <Button type="submit" disabled={pending} className="neon-ignite h-14 text-base">
         {t.confirm}
       </Button>
     </form>

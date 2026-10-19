@@ -5,19 +5,20 @@ import { Slot } from "radix-ui"
 
 // Pulsanti sui token del tema (docs/DESIGN.md): angoli del tema, bordo di 1px, nessuna ombra.
 // Il pieno nero è l'azione principale; il bordo nero un'azione secondaria. Disabilitato con i
-// colori dedicati, non con l'opacità.
+// colori dedicati, non con l'opacità. Nei temi con la luce l'azione principale è accesa (glow) e il
+// bagliore delle altre cresce al passaggio (glow-hover); in un tema senza luce le due classi non hanno effetto.
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-md border text-sm font-medium whitespace-nowrap transition-colors select-none outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:border-disabled disabled:bg-disabled disabled:text-ink-disabled aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-md border text-sm font-medium whitespace-nowrap select-none outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:border-disabled disabled:bg-disabled disabled:text-ink-disabled aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "border-ink bg-ink text-surface hover:bg-surface hover:text-ink active:bg-ink active:text-surface",
-        outline: "border-ink bg-surface text-ink hover:bg-ink hover:text-surface active:bg-ink active:text-surface aria-expanded:bg-ink aria-expanded:text-surface",
-        secondary: "border-ink bg-surface text-ink hover:bg-disabled active:bg-ink active:text-surface",
-        ghost: "border-transparent hover:bg-disabled aria-expanded:bg-disabled",
+        default: "glow border-ink bg-ink text-surface hover:bg-surface hover:text-ink active:bg-ink active:text-surface",
+        outline: "glow-hover border-ink bg-surface text-ink hover:bg-ink hover:text-surface active:bg-ink active:text-surface aria-expanded:bg-ink aria-expanded:text-surface",
+        secondary: "glow-hover border-ink bg-surface text-ink hover:bg-disabled active:bg-ink active:text-surface",
+        ghost: "transition-colors border-transparent hover:bg-disabled aria-expanded:bg-disabled",
         destructive:
-          "border-destructive bg-surface text-destructive hover:bg-destructive hover:text-surface focus-visible:outline-destructive",
-        link: "border-transparent text-ink underline underline-offset-4 hover:no-underline",
+          "glow-hover border-destructive bg-surface text-destructive hover:bg-destructive hover:text-surface focus-visible:outline-destructive",
+        link: "transition-colors border-transparent text-ink underline underline-offset-4 hover:no-underline",
       },
       size: {
         default: "h-11 gap-2 px-4",

@@ -8,6 +8,12 @@ export const appIdentity = {
   backgroundColor: "#ffffff",
 } as const;
 
+/** Aspetto dei controlli nativi e della barra di stato dell'app installata su iOS: tema chiaro. */
+export const appAppearance = {
+  colorScheme: "light",
+  statusBarStyle: "default",
+} as const;
+
 /**
  * Parte fissa dell'UID degli eventi .ics ("<id>@<host>"), usata solo dalla route del calendario:
  * non dipende dal dominio, che al go-live cambia, così un nuovo download aggiorna l'evento.

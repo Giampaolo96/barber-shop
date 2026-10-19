@@ -5,7 +5,8 @@
 
 /*
  * Schermi abbastanza alti per le colonne che scorrono da sole ("Quando?", fetta 8e). La stessa soglia
- * è nella regola `body:has([data-when-columns])` più sotto: vanno cambiate insieme.
+ * è nella regola `body:has([data-when-columns])` più sotto e nel tema neon (striscia dei giorni): vanno
+ * cambiate insieme.
  */
 @custom-variant tall (@media (min-height: 37.5rem));
 

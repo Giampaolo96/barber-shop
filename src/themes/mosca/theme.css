@@ -15,6 +15,41 @@
   /* Solo errori e azioni distruttive, mai decorativo. */
   --danger: #a4161a;
   --radius: 0rem;
+  /* Focus sui fondi scuri (.on-ink). */
+  --ring-on-ink: var(--surface);
+  /* Bordo a riposo degli elementi ripetuti (orari): pieno come gli altri. */
+  --ink-control-rest: var(--ink);
+  /* Velo dietro i dialoghi. */
+  --scrim: #00000066;
+  color-scheme: light;
+
+  /* Luce e vetro (docs/DESIGN.md): Mosca non ne ha, le classi del tema neon restano senza effetto. */
+  --glow-text: none;
+  --glow-box: none;
+  --glow-box-hover: none;
+  --glow-primary-hover: none;
+  --glow-focus: none;
+  --glow-mark: none;
+  --glow-transition: 150ms;
+  --glass-bg: transparent;
+  --glass-border: var(--ink);
+  --glass-filter: none;
+  --glass-pad: 0rem;
+  --glass-ink-bg: var(--ink);
+  --glass-ink-fg: var(--surface);
+  --glass-ink-border: var(--ink);
+  --glass-ink-border-width: 0px;
+  --marble-vein-opacity: 1;
+  --portrait-padding: 0rem;
+  --portrait-mat: transparent;
+  --portrait-filter: grayscale(1);
+  --portrait-glow: none;
+  --emphasis-bg: var(--ink);
+  --emphasis-fg: var(--surface);
+  --emphasis-hover-bg: var(--surface);
+  --emphasis-hover-fg: var(--ink);
+  --sticky-bar-bg: var(--surface);
+  --sticky-bar-filter: none;
 }
 
 /*

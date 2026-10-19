@@ -50,13 +50,13 @@ export function StepHeader({
       </div>
       {compact ? (
         <div className="flex flex-wrap items-baseline gap-x-3">
-          <h1 className="font-display text-3xl leading-tight">{title}</h1>
+          <h1 className="font-display text-3xl leading-tight text-glow">{title}</h1>
           {subtitle && <p className="font-display text-base italic text-muted-foreground">{subtitle}</p>}
         </div>
       ) : (
         <div className="flex items-end justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h1 className="font-display text-5xl leading-none">{title}</h1>
+            <h1 className="font-display text-5xl leading-none text-glow">{title}</h1>
             {subtitle && <p className="font-display text-xl italic text-muted-foreground">{subtitle}</p>}
           </div>
           {mark}

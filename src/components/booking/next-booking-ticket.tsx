@@ -16,7 +16,8 @@ const countdownLabel = (countdown: Countdown): string =>
 
 /**
  * Prossima prenotazione come biglietto (fetta 8b): blocco nero con conto alla rovescia, data e ora;
- * sotto la perforazione servizio, barbiere e "Gestisci". Le tacche hanno il colore del fondo.
+ * sotto la perforazione servizio, barbiere e "Gestisci". Le tacche hanno il colore del fondo. Nei temi
+ * con la luce il blocco è un pannello di vetro scuro (glass-ink).
  */
 export function NextBookingTicket({
   booking,
@@ -28,15 +29,15 @@ export function NextBookingTicket({
   timezone: string;
 }) {
   return (
-    <section className="on-ink bg-ink text-surface">
+    <section className="on-ink glass-ink">
       <div className="flex flex-col gap-1 p-5 pb-6">
         <h2 className="text-sm">{t.title}</h2>
-        <p className="font-display text-2xl italic">{countdownLabel(bookingCountdown(booking.startsAt, now, timezone))}</p>
+        <p className="font-display text-2xl italic text-glow">{countdownLabel(bookingCountdown(booking.startsAt, now, timezone))}</p>
         <div className="mt-2 flex items-end justify-between gap-4">
           <p className="font-display text-2xl leading-tight first-letter:uppercase">
             {formatLongDate(booking.startsAt, timezone)}
           </p>
-          <time dateTime={booking.startsAt} className="font-display text-5xl leading-none">
+          <time dateTime={booking.startsAt} className="font-display text-5xl leading-none text-glow">
             {formatTime(booking.startsAt, timezone)}
           </time>
         </div>

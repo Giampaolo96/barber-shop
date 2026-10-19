@@ -38,7 +38,7 @@ export default async function HomePage() {
           <HeroBackground />
           <div className="relative mx-auto flex w-full max-w-xl flex-col px-4 pt-4 pb-10">
             <HeroMark />
-            <h1 aria-label={fullName} className="-mt-10 font-display">
+            <h1 aria-label={fullName} className="-mt-10 font-display text-glow">
               <span className="block text-[5.5rem] leading-[0.9] font-medium tracking-tight sm:text-[7rem]">
                 {name.lead}
               </span>
@@ -61,7 +61,7 @@ export default async function HomePage() {
             (next?.ok && next.booking && timezone ? (
               <NextBookingTicket booking={next.booking} now={now} timezone={timezone} />
             ) : (
-              <section className="on-ink flex flex-col gap-3 bg-ink p-5 text-surface">
+              <section className="on-ink glass-ink flex flex-col gap-3 p-5">
                 <h2 className="text-sm font-medium">{t.nextBooking}</h2>
                 {next && !next.ok ? (
                   <p role="alert">{it.booking.errors.listLoad}</p>
@@ -82,7 +82,7 @@ export default async function HomePage() {
 
           <Link
             href={BOOK_PATH}
-            className="flex h-14 items-center justify-center border-[4px] border-double border-ink font-display text-2xl transition-colors hover:bg-ink hover:text-surface active:bg-ink active:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="flex h-14 items-center justify-center border-[4px] border-double border-ink font-display text-2xl text-glow glow hover:bg-ink hover:text-surface active:bg-ink active:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             {t.book}
           </Link>
@@ -95,12 +95,12 @@ export default async function HomePage() {
 
           {(shop?.address || tel) && (
             <section className="flex flex-col gap-3">
-              <h2 className="border-b-[3px] border-double border-ink pb-2 font-display text-2xl">{t.whereTitle}</h2>
+              <h2 className="border-b-[3px] border-double border-ink pb-2 font-display text-2xl text-glow">{t.whereTitle}</h2>
               {shop?.address && <address className="not-italic">{shop.address}</address>}
               {tel && shop?.phone && (
                 <a
                   href={tel}
-                  className="inline-flex h-11 w-fit items-center gap-3 border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface"
+                  className="glow-hover inline-flex h-11 w-fit items-center gap-3 border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface"
                 >
                   {t.call}
                   <span className="font-normal tabular-nums">{shop.phone}</span>
@@ -130,7 +130,7 @@ function closingTime(until: Date, timezone: string): string {
 function WeeklyHours({ hours, today }: { hours: OpeningHours[]; today: number }) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="border-b-[3px] border-double border-ink pb-2 font-display text-2xl">{t.hoursTitle}</h2>
+      <h2 className="border-b-[3px] border-double border-ink pb-2 font-display text-2xl text-glow">{t.hoursTitle}</h2>
       <dl className="flex flex-col">
         {t.weekdays.map((label, index) => {
           const weekday = index + 1;

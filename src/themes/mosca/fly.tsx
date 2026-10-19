@@ -77,7 +77,7 @@ export function FlyFlight() {
         <Trail id="fly-flight-trail" d={FLIGHT_PATH} strokeOpacity={0.55} timing="is-flight" />
       </svg>
       <Fly
-        className="fly-flight absolute top-0 left-0 size-8 text-on-marble"
+        className="fly-flight mark-glow absolute top-0 left-0 size-8 text-on-marble"
         style={{ offsetPath: `path("${FLIGHT_PATH}")`, offsetRotate: "auto 90deg" }}
       />
     </div>
@@ -98,7 +98,7 @@ export function FlyLanding() {
         <Trail id="fly-landing-trail" d={LANDING_PATH} strokeOpacity={0.6} timing="is-landing" />
       </svg>
       <Fly
-        className="fly-landing absolute top-0 left-0 size-9 text-on-marble"
+        className="fly-landing mark-glow absolute top-0 left-0 size-9 text-on-marble"
         style={{ offsetPath: `path("${LANDING_PATH}")`, offsetRotate: "0deg" }}
       />
     </div>

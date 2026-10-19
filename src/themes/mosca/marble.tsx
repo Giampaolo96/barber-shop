@@ -19,7 +19,7 @@ export function Marble() {
       preserveAspectRatio="xMidYMid slice"
       aria-hidden="true"
       focusable="false"
-      className="pointer-events-none absolute inset-0 h-full w-full"
+      className="pointer-events-none absolute inset-0 h-full w-full opacity-(--marble-vein-opacity)"
       fill="none"
       stroke="var(--marble-vein)"
       strokeLinecap="round"
