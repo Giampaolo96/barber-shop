@@ -5,7 +5,7 @@ import { InstallBanner } from "@/components/pwa/install-banner";
 import { it } from "@/i18n/it";
 import { fillText } from "@/lib/admin/text";
 import { STAFF_LOGIN_PATH } from "@/lib/auth/access";
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { getCurrentUser, getVerifiedUserId } from "@/lib/auth/current-user";
 import { formatTime, telHref } from "@/lib/booking/format";
 import { BOOK_PATH, MY_BOOKINGS_PATH } from "@/lib/booking/paths";
 import { getNextBooking, getShopInfo } from "@/lib/booking/queries";
@@ -21,8 +21,15 @@ const t = it.home;
 // Home (SPEC §5.1): testata del negozio con lo stato di apertura, prossima prenotazione del
 // cliente, "Prenota", orari della settimana, indirizzo e telefono (docs/DESIGN.md).
 export default async function HomePage() {
-  const [user, shop, opening] = await Promise.all([getCurrentUser(), getShopInfo(), getOpeningData()]);
-  const next = user?.role === "customer" ? await getNextBooking(user.id) : null;
+  // La prossima prenotazione (RLS: solo le proprie) parte appena getUser() ha verificato l'utente,
+  // insieme alla lettura del profilo; si mostra solo se il profilo dice che è un cliente.
+  const [user, shop, opening, nextBooking] = await Promise.all([
+    getCurrentUser(),
+    getShopInfo(),
+    getOpeningData(),
+    loadNextBooking(),
+  ]);
+  const next = user?.role === "customer" ? nextBooking : null;
   // Fuso orario sempre dalle impostazioni: senza impostazioni niente stato, orari né data.
   const timezone = shop?.timezone ?? null;
   const name = splitShopName(shop?.name ?? it.shop.name);
@@ -118,6 +125,11 @@ export default async function HomePage() {
       </footer>
     </>
   );
+}
+
+async function loadNextBooking(): Promise<Awaited<ReturnType<typeof getNextBooking>> | null> {
+  const userId = await getVerifiedUserId();
+  return userId ? getNextBooking(userId) : null;
 }
 
 /** Ora di chiusura: una fascia fino a mezzanotte chiude alle 24:00, non alle 00:00. */

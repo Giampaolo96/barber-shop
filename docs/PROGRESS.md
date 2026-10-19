@@ -1179,3 +1179,38 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 - Alternativa scartata: `key` su `<WhenPicker>` (per esempio il giorno). Nel ripristino dalla cache le props sono quelle della prima apertura, quindi la `key` non cambierebbe e non risolverebbe nulla; in compenso azzererebbe stato, giorni in memoria e scorrimento delle colonne a ogni rimontaggio.
 - Colonne: tornano in cima solo al cambio di giorno, non all'idratazione (uno scorrimento fatto prima dell'idratazione restava azzerato; era la causa dell'instabilità di `booking-when-columns.spec.ts` "cambio di giorno").
 - Le mie prenotazioni: "Prenota" (stile del pulsante della home, 56 px) compare anche quando non ci sono prenotazioni future confermate ma ci sono passate o cancellate, con il testo `it.booking.list.noUpcoming`; con la lista vuota resta il testo di prima.
+
+## Prestazioni: meno attese nel caricamento delle pagine (2026-10-20)
+
+**Misura iniziale** (build di produzione locale, Supabase locale, 5 richieste per pagina dopo una di riscaldamento; strumentazione temporanea, poi rimossa: `fetch` che registra le chiamate a Supabase e `Server-Timing` nel proxy). Un'"ondata" è un gruppo di chiamate in parallelo; le ondate sono in sequenza e in produzione ognuna costa almeno un viaggio verso Supabase.
+- `getClaims()` verifica il JWT in locale: chiavi ES256 (in locale e sul progetto cloud), JWKS in cache a livello di modulo per 10 minuti (un solo fetch in 464 richieste).
+- La produzione rispondeva ancora da iad1 (`X-Vercel-Id: fra1::iad1::…`) dopo lo spostamento in dub1: il cambio di regione vale dal deploy successivo.
+- Senza `loading.tsx` il prefetch dei Link non portava nulla di utile: al tocco partiva sempre la richiesta completa, senza riscontro.
+
+**Fatto** (approvato dall'utente: punti 1, 2, 3, 4, 6; del 5 solo il matcher; il 7, nome del negozio in cache per i metadati, rimandato)
+- Scheletri `loading.tsx` statici (nessuna animazione) per listino, "Quando?", riepilogo e Le mie prenotazioni, con contenitori e altezze delle pagine: verificato con Playwright a 390×844 che titolo, liste, striscia dei giorni, colonne e pannello non si spostano all'arrivo del contenuto. Listino ed elenco prenotazioni in route group (`prenota/(servizio)`, `prenotazioni/(elenco)`), così il loro scheletro non avvolge "Quando?", il riepilogo e la conferma.
+- Area staff **senza** scheletro: `admin/(panel)/loading.tsx` faceva rispondere 200 invece di 404 a `notFound()` (la risposta parte prima della pagina; e2e `admin-calendar.spec.ts`) e mostrava lo scheletro mentre i test delle statistiche leggevano le righe. La pagina del calendario deve restare in `(panel)/page.tsx` (`calendar-access.test.ts`), quindi lo scheletro non si può limitare al calendario.
+- Una sola lettura del profilo per rendering: `getCurrentUser` legge anche `no_show_count`; il blocco della prenotazione non rilegge `profiles` (`getBookingProfile` rimossa). `getVerifiedUserId` (getUser in `cache()`) fa partire prenotazioni e prossima prenotazione insieme alla lettura del profilo. `requireRole` e `getUser` nelle pagine invariati; nessuna pagina mostra dati prima di `requireRole`.
+- Letture indipendenti in `Promise.all` con i controlli: listino, "Quando?" (servizio, barbieri, panoramica), riepilogo (servizio e barbieri), home, calendario (impostazioni e schede insieme a `requireRole`; filtro per ruolo con `staffBarbersFor` dopo).
+- `getBookableServices` in `cache()`; `ShopInfo` con le impostazioni della disponibilità e `loadInput` usa `getShopInfo()` invece di rileggere `shop_settings`.
+- Proxy: matcher senza `/icon/…` e `/apple-icon`; logica invariata. "Quando?": `prefetch={false}` sugli orari della griglia (il riscontro al tocco è `SlotPending`).
+
+**Prima → dopo** (stesse pagine e stesso metodo; mediane in ms, documento / navigazione RSC)
+
+| Pagina | Ondate | Chiamate | Documento | RSC |
+|---|---|---|---|---|
+| Home (cliente) | 4 → 3 | 7 → 7 | 50 → 50 | 48 → 45 |
+| Listino | 5 → 3 | 6 → 5 | 50 → 46 | 55 → 43 |
+| "Quando?" | 7 → 4 (5 in viaggi di rete) | 11 → 9 | 79 → 56 | 66 → 50 |
+| Riepilogo | 6 → 3 | 7 → 6 | 56 → 43 | 57 → 42 |
+| Le mie prenotazioni | 5 → 3 | 6 → 5 | 52 → 44 | 50 → 41 |
+| Calendario, giorno | 6 → 4 | 11 → 11 | 62 → 52 | 54 → 45 |
+| Calendario, settimana | 6 → 4 | 12 → 12 | 69 → 57 | 55 → 46 |
+| Home anonima | 1 → 1 | 3 → 3 | 11 → 9 | 8 → 8 |
+
+- In locale ogni query costa 2–5 ms e `getUser` circa 30 ms, quindi i millisecondi cambiano poco: in produzione conta il numero di ondate, ognuna almeno un viaggio di rete. In "Quando?" impostazioni → disponibilità restano in sequenza dentro la seconda ondata (in parallelo con `getUser`).
+- Sessione nel browser (home, listino, "Quando?", calendario, con i prefetch): 77 → 72 passaggi dal proxy; le icone non passano più dal proxy.
+- `notFound()` delle pagine con scheletro (impostazioni del negozio mancanti) ora risponde 200 con la pagina "non trovata", non 404: caso di configurazione rotta, i redirect di accesso li fa prima il proxy.
+- Review (subagent `reviewer`): nessun bloccante. Applicate: `AccessNotice` sostituito da `BlockedNotice` (il caso "profilo non leggibile" non esiste più: con la lettura unica un errore su `profiles` dà utente null e `requireRole` rimanda al login, come prima quando falliva la prima lettura; la miglioria 5 della review di fetta 8b è assorbita, `it.booking.errors.profileLoad` rimosso); errore della lettura del profilo registrato (`loadProfile`).
+- Compromessi noti: "Quando?" calcola la panoramica anche per un cliente bloccato o un servizio non prenotabile (casi rari, scartata prima di rendere); la home legge la prossima prenotazione anche per lo staff (filtrata per il proprio id, nessun risultato, non mostrata). Lo scheletro del riepilogo non ha "Indietro" (il link dipende dall'URL): durante il caricamento si torna con il tasto del browser.
+- Esito: lint, typecheck, Vitest (51 file, 1986 test) ed e2e (148/148) verdi sul codice finale. **Da tenere d'occhio**: `admin-stats-default-grouping.spec.ts` ("ogni periodo rapido…") è fallito in 3 giri completi su 6 (0 righe contate subito dopo "Applica"), sempre verde da solo (21/21 ripetuto con `booking-when.spec.ts`) e verde nel giro di confronto sul codice di partenza (un solo giro). La pagina delle statistiche non è cambiata e non ha scheletri né Suspense; il test conta le righe appena cambia l'URL di un `<form method="get">` nativo, quindi può leggere il documento ancora in arrivo. Un giro ha avuto anche un'attesa scaduta su "Primo libero" (`booking-when.spec.ts`), mai ripetuta.

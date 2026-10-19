@@ -42,7 +42,8 @@ export function StepHeader({
             {it.booking.back}
           </Link>
         ) : (
-          <span />
+          // Stessa altezza del link: lo scheletro del riepilogo (senza "Indietro") non sposta la pagina.
+          <span className="h-11" />
         )}
         <p className="text-sm text-muted-foreground tabular-nums">
           {it.booking.step.replace("{current}", String(step)).replace("{total}", String(BOOKING_STEPS))}

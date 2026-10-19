@@ -17,6 +17,22 @@ import type { CurrentUser } from "./profile";
 
 type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
+/** Colonne del profilo della sessione: quelle dell'accesso più i no-show (blocco della prenotazione). */
+const SESSION_PROFILE_COLUMNS = `${ACCESS_PROFILE_COLUMNS}, no_show_count` as const;
+
+type SessionProfile = { user: CurrentUser; noShowCount: number };
+
+async function loadProfile(supabase: ServerClient, userId: string): Promise<SessionProfile | null> {
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select(SESSION_PROFILE_COLUMNS)
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) console.error("loadProfile", error);
+  if (!profile) return null;
+  return { user: toCurrentUser(userId, profile), noShowCount: profile.no_show_count };
+}
+
 /**
  * Utente della sessione di questo client. L'identità è verificata con getUser() e il ruolo
  * viene solo dalla tabella profiles: senza profilo non c'è alcun ruolo.
@@ -26,21 +42,37 @@ export async function loadCurrentUser(supabase: ServerClient): Promise<CurrentUs
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(ACCESS_PROFILE_COLUMNS)
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!profile) return null;
-
-  return toCurrentUser(user.id, profile);
+  return (await loadProfile(supabase, user.id))?.user ?? null;
 }
+
+/**
+ * Id dell'utente verificato con getUser() (una sola verifica per rendering). Non decide l'accesso:
+ * serve solo ad avviare le letture del cliente insieme al profilo, dopo c'è sempre requireRole.
+ */
+export const getVerifiedUserId = cache(async (): Promise<string | null> => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.id ?? null;
+});
+
+/** Profilo della sessione, letto una volta per rendering (ruolo, accesso e no-show). */
+const getSessionProfile = cache(async (): Promise<SessionProfile | null> => {
+  const userId = await getVerifiedUserId();
+  if (!userId) return null;
+  return loadProfile(await createClient(), userId);
+});
 
 /** Utente della richiesta corrente (una sola lettura per rendering). */
 export const getCurrentUser = cache(
-  async (): Promise<CurrentUser | null> => loadCurrentUser(await createClient()),
+  async (): Promise<CurrentUser | null> => (await getSessionProfile())?.user ?? null,
 );
+
+/** No-show dell'utente della richiesta, dalla stessa lettura del profilo; null senza profilo. */
+export async function getCurrentNoShowCount(): Promise<number | null> {
+  return (await getSessionProfile())?.noShowCount ?? null;
+}
 
 /** Da chiamare in layout, pagine e server action: respinge con un redirect chi non ha il ruolo. */
 export async function requireRole(allowed: readonly Role[]): Promise<CurrentUser> {

@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { AccessNotice } from "@/components/booking/access-notice";
+import { BlockedNotice } from "@/components/booking/blocked-notice";
 import { ConfirmBookingForm } from "@/components/booking/confirm-booking-form";
 import { RestartNotice } from "@/components/booking/restart-notice";
 import { StepHeader } from "@/components/booking/step-header";
 import { it } from "@/i18n/it";
 import { formatDateTime, formatDuration } from "@/lib/booking/format";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
-import { ANY_BARBER, BOOK_PATH, summaryStepUrl, whenStepUrl } from "@/lib/booking/paths";
+import { ANY_BARBER, BOOK_PATH, whenStepUrl } from "@/lib/booking/paths";
 import { getBarbersForService, getBookableService } from "@/lib/booking/queries";
 import { barberChoiceSchema } from "@/lib/booking/schemas";
 import { localDateOf } from "@/lib/domain/local-time";
@@ -27,12 +27,18 @@ export default async function BookingSummaryPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const { shop, access } = await loadBookingPageContext();
   const t = it.booking.summary;
   const params = paramsSchema.safeParse(await searchParams);
+  const serviceId = params.success ? params.data.servizio : null;
 
-  const service = params.success ? await getBookableService(params.data.servizio) : null;
-  const barbers = service ? await getBarbersForService(service.id) : [];
+  // Servizio e barbieri dipendono solo dall'URL: si leggono insieme ai controlli di accesso e la
+  // pagina mostra qualcosa solo dopo requireRole (in loadBookingPageContext).
+  const [{ shop, access }, service, serviceBarbers] = await Promise.all([
+    loadBookingPageContext(),
+    serviceId ? getBookableService(serviceId) : null,
+    serviceId ? getBarbersForService(serviceId) : [],
+  ]);
+  const barbers = service ? serviceBarbers : [];
   const barberId = params.success ? params.data.barbiere : ANY_BARBER;
   const barberName =
     barberId === ANY_BARBER
@@ -73,11 +79,7 @@ export default async function BookingSummaryPage({
             </dd>
           </dl>
           {access !== "ok" ? (
-            <AccessNotice
-              access={access}
-              phone={shop.phone}
-              retryHref={summaryStepUrl(service.id, barberId, params.data.inizio, preferredId)}
-            />
+            <BlockedNotice phone={shop.phone} />
           ) : (
             <ConfirmBookingForm
               serviceId={service.id}

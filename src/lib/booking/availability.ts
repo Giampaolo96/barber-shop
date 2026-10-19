@@ -17,6 +17,7 @@ import {
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { addDays, isValidLocalDate, localDateOf, startOfLocalDay } from "@/lib/domain/local-time";
 import { createClient } from "@/lib/db/server";
+import { getShopInfo } from "./queries";
 import { initialDay, recentBarberId } from "./when";
 
 export type SlotsResult = { ok: true; slots: string[] } | { ok: false; error: "invalid" | "error" };
@@ -43,7 +44,7 @@ type Loaded =
   | { ok: false };
 
 /**
- * Un solo caricamento per tutto il periodo: impostazioni, servizio e availability_inputs.
+ * Un solo caricamento per tutto il periodo: impostazioni (getShopInfo), servizio e availability_inputs.
  * `fromDate` null: da oggi; `toDate` null: fino all'ultimo giorno prenotabile. Con un periodo
  * vuoto non si legge nulla e input è null.
  */
@@ -55,16 +56,13 @@ async function loadInput(
 ): Promise<Loaded> {
   const supabase = await createClient();
 
-  const settingsResult = await supabase
-    .from("shop_settings")
-    .select("timezone, slot_granularity_min, min_advance_min, max_horizon_days, buffer_min")
-    .maybeSingle();
-  if (settingsResult.error || !settingsResult.data) return { ok: false };
-  const settings = settingsResult.data;
+  // Le stesse impostazioni di layout e pagina: con cache() una sola lettura per richiesta.
+  const settings = await getShopInfo();
+  if (!settings) return { ok: false };
   const tz = settings.timezone;
   const now = new Date();
   const today = localDateOf(now, tz);
-  const lastDay = addDays(today, settings.max_horizon_days);
+  const lastDay = addDays(today, settings.maxHorizonDays);
   const from = fromDate ?? today;
   const to = toDate ?? lastDay;
   if (from > to) return { ok: true, input: null, today, lastDay };
@@ -108,10 +106,10 @@ async function loadInput(
       timezone: tz,
       now,
       settings: {
-        slotGranularityMin: settings.slot_granularity_min,
-        minAdvanceMin: settings.min_advance_min,
-        maxHorizonDays: settings.max_horizon_days,
-        bufferMin: settings.buffer_min,
+        slotGranularityMin: settings.slotGranularityMin,
+        minAdvanceMin: settings.minAdvanceMin,
+        maxHorizonDays: settings.maxHorizonDays,
+        bufferMin: settings.bufferMin,
       },
       serviceDurationMin: serviceResult.data.duration_min,
       closures,

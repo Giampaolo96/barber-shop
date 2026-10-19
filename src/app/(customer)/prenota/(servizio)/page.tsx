@@ -1,17 +1,18 @@
 import Link from "next/link";
-import { AccessNotice } from "@/components/booking/access-notice";
+import { BlockedNotice } from "@/components/booking/blocked-notice";
 import { StepHeader } from "@/components/booking/step-header";
 import { it } from "@/i18n/it";
 import { formatDuration } from "@/lib/booking/format";
 import { formatCents } from "@/lib/domain/money";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
-import { BOOK_PATH, whenStepUrl } from "@/lib/booking/paths";
-import { getBookableServices } from "@/lib/booking/queries";
+import { whenStepUrl } from "@/lib/booking/paths";
+import { type BookableService, getBookableServices } from "@/lib/booking/queries";
 import { EmptyMark } from "@/themes/active";
 
 // Passo 1 di 3 (SPEC §5.2): scelta del servizio, impaginata come un listino (fetta 8b).
 export default async function ChooseServicePage() {
-  const { shop, access } = await loadBookingPageContext();
+  // Il listino non dipende dall'utente: si legge insieme ai controlli e si mostra solo dopo requireRole.
+  const [{ shop, access }, services] = await Promise.all([loadBookingPageContext(), getBookableServices()]);
   const t = it.booking;
 
   return (
@@ -24,16 +25,15 @@ export default async function ChooseServicePage() {
         backHref="/"
       />
       {access !== "ok" ? (
-        <AccessNotice access={access} phone={shop.phone} retryHref={BOOK_PATH} />
+        <BlockedNotice phone={shop.phone} />
       ) : (
-        <ServiceList />
+        <ServiceList services={services} />
       )}
     </main>
   );
 }
 
-async function ServiceList() {
-  const services = await getBookableServices();
+function ServiceList({ services }: { services: BookableService[] }) {
   if (services.length === 0) return <p className="text-muted-foreground">{it.booking.service.empty}</p>;
 
   return (

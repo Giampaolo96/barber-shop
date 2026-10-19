@@ -14,6 +14,10 @@ export type ShopInfo = {
   maxHorizonDays: number;
   cancelLimitMin: number;
   noShowBlockThreshold: number;
+  /** Impostazioni del motore di disponibilità (SPEC §3.1). */
+  slotGranularityMin: number;
+  minAdvanceMin: number;
+  bufferMin: number;
 };
 
 export type BookableService = {
@@ -39,12 +43,14 @@ export type MyBooking = {
   barberName: string;
 };
 
-/** Impostazioni del negozio, lette una volta per richiesta (layout e pagina). */
+/** Impostazioni del negozio, lette una volta per richiesta (layout, pagina e disponibilità). */
 export const getShopInfo = cache(async (): Promise<ShopInfo | null> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("shop_settings")
-    .select("name, address, phone, timezone, max_horizon_days, cancel_limit_min, no_show_block_threshold")
+    .select(
+      "name, address, phone, timezone, max_horizon_days, cancel_limit_min, no_show_block_threshold, slot_granularity_min, min_advance_min, buffer_min",
+    )
     .maybeSingle();
   if (error) console.error("getShopInfo", error);
   if (!data) return null;
@@ -56,11 +62,14 @@ export const getShopInfo = cache(async (): Promise<ShopInfo | null> => {
     maxHorizonDays: data.max_horizon_days,
     cancelLimitMin: data.cancel_limit_min,
     noShowBlockThreshold: data.no_show_block_threshold,
+    slotGranularityMin: data.slot_granularity_min,
+    minAdvanceMin: data.min_advance_min,
+    bufferMin: data.buffer_min,
   };
 });
 
-/** Servizi attivi con almeno un barbiere attivo abilitato, nell'ordine del catalogo. */
-export async function getBookableServices(): Promise<BookableService[]> {
+/** Servizi attivi con almeno un barbiere attivo abilitato, nell'ordine del catalogo (una lettura per richiesta). */
+export const getBookableServices = cache(async (): Promise<BookableService[]> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("services")
@@ -80,7 +89,7 @@ export async function getBookableServices(): Promise<BookableService[]> {
     priceCents: s.price_cents,
     barberIds: s.barber_services.map((bs) => bs.barbers.id),
   }));
-}
+});
 
 export async function getBookableService(serviceId: string): Promise<BookableService | null> {
   const services = await getBookableServices();
@@ -187,26 +196,4 @@ export async function getNextBooking(
     return { ok: false };
   }
   return { ok: true, booking: data ? toMyBooking(data) : null };
-}
-
-export type BookingProfile = { isBlocked: boolean; noShowCount: number };
-
-/** Campi del proprio profilo che decidono il blocco; `profile` null se manca il profilo. */
-export async function getBookingProfile(
-  customerId: string,
-): Promise<{ ok: true; profile: BookingProfile | null } | { ok: false }> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("is_blocked, no_show_count")
-    .eq("id", customerId)
-    .maybeSingle();
-  if (error) {
-    console.error("getBookingProfile", error);
-    return { ok: false };
-  }
-  return {
-    ok: true,
-    profile: data ? { isBlocked: data.is_blocked, noShowCount: data.no_show_count } : null,
-  };
 }

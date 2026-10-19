@@ -48,17 +48,25 @@ export type WeekDay = {
 
 const isCancelled = (booking: CalendarBooking): boolean => booking.status.startsWith("cancelled");
 
+export type StaffBarbers = { barbers: CalendarBarber[]; ownBarberId: string | null };
+
 /**
- * Barbieri visibili all'utente: il barbiere vede solo la propria scheda (SPEC §2), l'admin tutte.
- * `ownBarberId` è la scheda collegata all'utente (anche un admin barbiere).
+ * Tutte le schede leggibili (RLS) e la scheda collegata all'utente (anche un admin barbiere). Non
+ * dipende dal ruolo: prima di mostrarle si filtrano con staffBarbersFor.
  */
-export async function getStaffBarbers(
-  supabase: ServerClient,
-  user: CurrentUser,
-): Promise<{ barbers: CalendarBarber[]; ownBarberId: string | null }> {
+export async function getBarbersWithOwn(supabase: ServerClient): Promise<StaffBarbers> {
   const [barbers, ownBarberId] = await Promise.all([getBarbers(supabase), getOwnBarberId(supabase)]);
+  return { barbers, ownBarberId };
+}
+
+/** Barbieri visibili all'utente: il barbiere vede solo la propria scheda (SPEC §2), l'admin tutte. */
+export function staffBarbersFor(user: CurrentUser, { barbers, ownBarberId }: StaffBarbers): StaffBarbers {
   if (user.role === "admin") return { barbers, ownBarberId };
   return { barbers: barbers.filter((barber) => barber.id === ownBarberId), ownBarberId };
+}
+
+export async function getStaffBarbers(supabase: ServerClient, user: CurrentUser): Promise<StaffBarbers> {
+  return staffBarbersFor(user, await getBarbersWithOwn(supabase));
 }
 
 export type DayViewData = {

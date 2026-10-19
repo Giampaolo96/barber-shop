@@ -540,6 +540,9 @@ function SlotList({
           >
             <Link
               href={summaryStepUrl(serviceId, barber.id, iso, preferredId ?? undefined)}
+              // Gli orari sono decine, ognuno con il suo URL: niente prefetch (ognuno passerebbe dal
+              // proxy). Il riscontro al tocco lo dà il segno d'attesa nello slot (SlotPending).
+              prefetch={false}
               aria-label={fillText(it.booking.when.slotLabel, { time, barber: barber.name })}
               className="glow-hover relative flex h-11 items-center justify-center border border-control-rest text-sm font-medium tabular-nums hover:border-ink hover:bg-ink hover:text-surface focus-visible:border-ink active:border-ink active:bg-ink active:text-surface"
             >

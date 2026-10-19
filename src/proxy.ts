@@ -108,9 +108,10 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Tutto tranne gli asset di Next e i file statici con estensione nota: un percorso
-  // applicativo che contiene un punto (es. /admin/clienti/mario.rossi) passa dal proxy.
+  // Tutto tranne gli asset di Next, le icone dell'app (/icon/…, /apple-icon: pubbliche, senza dati) e
+  // i file statici con estensione nota: un percorso applicativo che contiene un punto
+  // (es. /admin/clienti/mario.rossi) passa dal proxy.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|css|js|map|txt|xml|json|webmanifest|woff2?)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon(?:/|$)|apple-icon(?:/|$)|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|css|js|map|txt|xml|json|webmanifest|woff2?)$).*)",
   ],
 };

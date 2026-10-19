@@ -1,14 +1,14 @@
 import { z } from "zod";
-import { AccessNotice } from "@/components/booking/access-notice";
+import { BlockedNotice } from "@/components/booking/blocked-notice";
 import { RestartNotice } from "@/components/booking/restart-notice";
 import { StepHeader } from "@/components/booking/step-header";
 import { WhenPicker } from "@/components/booking/when-picker";
 import { it } from "@/i18n/it";
-import { getWhenOverview } from "@/lib/booking/availability";
+import { getWhenOverview, type WhenOverview } from "@/lib/booking/availability";
 import { formatDuration } from "@/lib/booking/format";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
-import { BOOK_PATH, whenStepUrl } from "@/lib/booking/paths";
-import { getBarbersForService, getBookableService } from "@/lib/booking/queries";
+import { BOOK_PATH } from "@/lib/booking/paths";
+import { type BookableBarber, getBarbersForService, getBookableService } from "@/lib/booking/queries";
 import { orderBarbers } from "@/lib/booking/when";
 import { isValidLocalDate } from "@/lib/domain/local-time";
 
@@ -26,9 +26,21 @@ export default async function ChooseWhenPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const { shop, access } = await loadBookingPageContext();
   const params = paramsSchema.safeParse(await searchParams);
-  const service = params.success && access === "ok" ? await getBookableService(params.data.servizio) : null;
+  const query = params.success ? params.data : null;
+  // Le letture dipendono solo dall'URL: partono insieme ai controlli di accesso, la pagina mostra
+  // qualcosa solo dopo requireRole (in loadBookingPageContext). Un preferito che non fa il servizio
+  // non ha orari, quindi non conta nel "Primo libero" e più sotto viene scartato.
+  const [{ shop, access }, bookable, allBarbers, overview] = await Promise.all([
+    loadBookingPageContext(),
+    query ? getBookableService(query.servizio) : null,
+    query ? getBarbersForService(query.servizio) : [],
+    query
+      ? getWhenOverview({ serviceId: query.servizio, requestedDay: query.giorno, barberId: query.barbiere })
+      : null,
+  ]);
+  // Al cliente bloccato non si mostra nulla del servizio, come prima della lettura in parallelo.
+  const service = access === "ok" ? bookable : null;
 
   return (
     // Più larga della colonna di lettura: una colonna di orari per barbiere (sugli schermi alti
@@ -42,18 +54,15 @@ export default async function ChooseWhenPage({
         compact
       />
       {access !== "ok" ? (
-        <AccessNotice
-          access={access}
-          phone={shop.phone}
-          retryHref={params.success ? whenStepUrl(params.data.servizio) : BOOK_PATH}
-        />
-      ) : !service || !params.success ? (
+        <BlockedNotice phone={shop.phone} />
+      ) : !service || !query || !overview ? (
         <RestartNotice />
       ) : (
         <When
           serviceId={service.id}
-          requestedDay={params.data.giorno}
-          requestedBarberId={params.data.barbiere}
+          requestedBarberId={query.barbiere}
+          allBarbers={allBarbers}
+          overview={overview}
           timezone={shop.timezone}
         />
       )}
@@ -61,23 +70,19 @@ export default async function ChooseWhenPage({
   );
 }
 
-async function When({
+function When({
   serviceId,
-  requestedDay,
   requestedBarberId,
+  allBarbers,
+  overview,
   timezone,
 }: {
   serviceId: string;
-  requestedDay: string | undefined;
   requestedBarberId: string | undefined;
+  allBarbers: BookableBarber[];
+  overview: WhenOverview;
   timezone: string;
 }) {
-  // Le due letture sono indipendenti: un preferito che non fa il servizio non ha orari, quindi
-  // non conta nel "Primo libero" e qui sotto viene scartato anche per l'ordine e l'evidenza.
-  const [allBarbers, overview] = await Promise.all([
-    getBarbersForService(serviceId),
-    getWhenOverview({ serviceId, requestedDay, barberId: requestedBarberId }),
-  ]);
   const preferredId = allBarbers.some((b) => b.id === requestedBarberId) ? requestedBarberId : undefined;
   if (!overview.ok) return <p role="alert">{it.booking.errors.generic}</p>;
   if (allBarbers.length === 0) return <RestartNotice />;
