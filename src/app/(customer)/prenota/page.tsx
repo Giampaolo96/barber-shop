@@ -48,7 +48,7 @@ async function ServiceList() {
             <Link
               href={href}
               aria-label={`${service.name}, ${duration}, ${price}`}
-              className="flex min-h-16 flex-col justify-center gap-1 py-3 transition-colors hover:bg-ink hover:text-surface active:bg-ink active:text-surface [&:active_.text-muted-foreground]:text-surface [&:hover_.text-muted-foreground]:text-surface"
+              className="glow-hover flex min-h-16 flex-col justify-center gap-1 py-3 hover:bg-ink hover:text-surface active:bg-ink active:text-surface [&:active_.text-muted-foreground]:text-surface [&:hover_.text-muted-foreground]:text-surface"
             >
               <span className="flex items-baseline gap-2 px-2 font-display text-2xl leading-tight">
                 <span>{service.name}</span>

@@ -11,11 +11,11 @@ import { ConfirmationBackground, ConfirmationMark } from "@/themes/active";
 
 const t = it.booking.confirmation;
 
-const actionBase = "flex h-12 items-center justify-center border border-on-marble px-4 text-sm font-medium transition-colors";
-/** Azione principale: piena, si svuota al passaggio e alla pressione. */
-const primaryActionClass = `${actionBase} bg-on-marble text-ink hover:bg-marble hover:text-on-marble active:bg-marble active:text-on-marble`;
+const actionBase = "flex h-12 items-center justify-center border border-on-marble px-4 text-sm font-medium";
+/** Azione principale: piena (e accesa nei temi con la luce), si svuota al passaggio e alla pressione. */
+const primaryActionClass = `${actionBase} glow bg-on-marble text-marble hover:bg-marble hover:text-on-marble active:bg-marble active:text-on-marble`;
 /** Azioni secondarie: bordo, si riempiono al passaggio e alla pressione. */
-const actionClass = `${actionBase} hover:bg-on-marble hover:text-ink active:bg-on-marble active:text-ink`;
+const actionClass = `${actionBase} glow-hover hover:bg-on-marble hover:text-marble active:bg-on-marble active:text-marble`;
 
 // Schermata dopo la conferma (fetta 8b, SPEC §5.2): solo il cliente proprietario (RLS), altrimenti
 // 404; una prenotazione propria cancellata o già iniziata rimanda a "Le mie prenotazioni".
@@ -52,7 +52,7 @@ export default async function BookingConfirmedPage({ params }: { params: Promise
         <ConfirmationMark />
         <div className="flex flex-col gap-3">
           <h1 className="text-sm font-medium">{t.title}</h1>
-          <p className="font-display text-5xl leading-none">
+          <p className="font-display text-5xl leading-none text-glow">
             {t.seeYou.replace("{when}", seeYouPhrase(booking.startsAt, now, shop.timezone))}
           </p>
           <p className="font-display text-2xl italic first-letter:uppercase">
@@ -60,7 +60,7 @@ export default async function BookingConfirmedPage({ params }: { params: Promise
             <time dateTime={booking.startsAt}>{formatTime(booking.startsAt, shop.timezone)}</time>
           </p>
         </div>
-        <dl className="flex flex-col border-y-[3px] border-double border-on-marble">
+        <dl className="glass flex flex-col border-y-[3px] border-double border-on-marble px-(--glass-pad)">
           <Detail label={t.service}>{booking.serviceName}</Detail>
           <Detail label={t.barber}>{booking.barberName}</Detail>
           <Detail label={t.shop}>

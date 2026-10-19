@@ -7,7 +7,8 @@
 // Interfaccia attesa:
 //   /manifest.webmanifest (application/manifest+json), icone PNG dalle sue `icons`;
 //   <head>: link rel="manifest", link rel="apple-touch-icon" (PNG 180×180), meta theme-color,
-//           meta apple-mobile-web-app-title = short_name, apple-mobile-web-app-status-bar-style default;
+//           meta apple-mobile-web-app-title = short_name, apple-mobile-web-app-status-bar-style coerente
+//           con theme_color del manifest ("black" se scuro, "default" se chiaro; tema neon, approvato);
 //   banner solo in home: region con nome it.pwa.install.title; testo it.pwa.install.iosInstructions
 //           (iOS), pulsante it.pwa.install.install (dopo beforeinstallprompt), pulsante
 //           it.pwa.install.dismiss ("Non ora", per sempre su quel dispositivo); mai in standalone;
@@ -21,6 +22,15 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
 import { apiHeaders, expectPath, s, supabaseUrl } from './admin-helpers';
+
+/** Colore #rrggbb scuro (luminanza relativa WCAG sotto 0,5). */
+const isDarkColor = (hex: string): boolean => {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * (r ?? 0) + 0.7152 * (g ?? 0) + 0.0722 * (b ?? 0) < 0.5;
+};
 
 const IPHONE_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
@@ -90,7 +100,10 @@ test.describe('Manifest e icone (SPEC §5.6, §11)', () => {
 
     await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', manifest.theme_color);
     await expect(page.locator('meta[name="apple-mobile-web-app-title"]')).toHaveAttribute('content', manifest.short_name);
-    await expect(page.locator('meta[name="apple-mobile-web-app-status-bar-style"]')).toHaveAttribute('content', 'default');
+    // Barra di stato coerente con il tema (tema neon, modifica approvata dall'utente): scura su un tema scuro.
+    expect(manifest.theme_color).toMatch(/^#[0-9a-f]{6}$/i);
+    const statusBar = isDarkColor(manifest.theme_color) ? 'black' : 'default';
+    await expect(page.locator('meta[name="apple-mobile-web-app-status-bar-style"]')).toHaveAttribute('content', statusBar);
   });
 });
 

@@ -10,7 +10,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const sections = ADMIN_SECTIONS.filter((section) => user.role === "admin" || !section.adminOnly);
 
   return (
-    <div className="flex flex-1 flex-col md:flex-row">
+    <div data-area="admin" className="flex flex-1 flex-col md:flex-row">
       {/* Su mobile: titolo ed "Esci" in una riga, sezioni scorrevoli sotto; da md colonna laterale. */}
       <aside className="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-line p-4 md:flex md:w-56 md:flex-col md:items-stretch md:gap-4 md:border-r md:border-b-0">
         <p className="font-display text-2xl">{it.admin.title}</p>

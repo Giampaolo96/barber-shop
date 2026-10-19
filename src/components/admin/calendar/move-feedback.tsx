@@ -40,7 +40,7 @@ export function MoveFeedback({
         )}
       </div>
       <AlertDialog open={dialog !== null} onOpenChange={(open) => !open && dialog?.cancel()}>
-        <AlertDialogContent>
+        <AlertDialogContent area="admin">
           <AlertDialogTitle className="text-lg font-semibold">{t.move.dialogTitle}</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="flex flex-col gap-2">

@@ -49,9 +49,13 @@ describe("/offline: HTML statico", () => {
     expect(rest).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|oklch\(/i);
   });
 
-  test("themeName è il tema di cui active.ts importa il CSS", async () => {
+  // Tema neon (approvato dall'utente): active.ts esporta il tema attivo e ogni tema importa il proprio CSS.
+  test("themeName è il tema che active.ts esporta, e quel tema importa il proprio theme.css", async () => {
     const { themeName } = await import("@/themes/active");
     const active = readFileSync(resolve(ROOT, "src/themes/active.ts"), "utf8");
-    expect(active).toMatch(new RegExp(`^import "\./${themeName}/theme\.css";`, "m"));
+    expect(active).toMatch(new RegExp(`^export \\* from "\\./${themeName}";`, "m"));
+    const index = readFileSync(resolve(ROOT, "src/themes", themeName, "index.ts"), "utf8");
+    expect(index).toMatch(/^import "\.\/theme\.css";/m);
+    expect(index).toMatch(new RegExp(`^export const themeName = "${themeName}";`, "m"));
   });
 });

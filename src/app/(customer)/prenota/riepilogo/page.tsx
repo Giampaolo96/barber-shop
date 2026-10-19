@@ -57,13 +57,13 @@ export default async function BookingSummaryPage({
         <RestartNotice />
       ) : (
         <>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 border border-ink p-5">
+          <dl className="glass grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 border border-(--glass-border) p-5">
             <dt className="text-muted-foreground">{t.service}</dt>
             <dd className="font-medium">{service.name}</dd>
             <dt className="text-muted-foreground">{t.barber}</dt>
             <dd className="font-medium">{barberName}</dd>
             <dt className="text-muted-foreground">{t.when}</dt>
-            <dd className="font-display text-2xl leading-tight first-letter:uppercase">
+            <dd className="font-display text-2xl leading-tight text-glow first-letter:uppercase">
               {formatDateTime(params.data.inizio, shop.timezone)}
             </dd>
             <dt className="text-muted-foreground">{t.price}</dt>
