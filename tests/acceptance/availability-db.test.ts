@@ -1,15 +1,20 @@
 // Test di accettazione – FETTA 4 (SPEC §11: "Motore disponibilità"), integrazione minima con il
-// database locale e il seed (`npx supabase db reset`). getAvailableSlots gira con il client della
+// database locale (barbieri, servizi e orari del seed). getAvailableSlots gira con il client della
 // richiesta senza sessione (anon): SPEC §4 "restituisce solo orari", CLAUDE.md – regola 6.
 //
-// Richiede lo stack Supabase locale avviato. La chiave service_role serve solo al test, per leggere
-// le prenotazioni del seed: il codice applicativo non la usa.
+// Richiede lo stack Supabase locale avviato. La chiave service_role serve solo al test, per creare
+// e leggere le prenotazioni: il codice applicativo non la usa.
+// La prenotazione futura di Luca la crea il test (e la cancella alla fine) invece di leggerla dal
+// seed: le prenotazioni del seed hanno date fissate al momento del `db reset` e dopo qualche giorno
+// passano (modifica approvata dall'utente il 2026-10-19).
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
 
 import { execSync } from 'node:child_process';
-import { createClient } from '@supabase/supabase-js';
-import { formatInTimeZone } from 'date-fns-tz';
-import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { addDays } from 'date-fns';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
 type SlotsResult = { ok: true; slots: string[] } | { ok: false; error: 'invalid' | 'error' };
 type BookingAvailabilityModule = {
@@ -49,8 +54,9 @@ function loadEnv(): void {
   }
 }
 
-// Seed: Luca e il servizio Taglio (30')
+// Seed: Luca e Mario, il servizio Taglio (30')
 const LUCA = 'b0000000-0000-4000-8000-000000000002';
+const MARIO = 'b0000000-0000-4000-8000-000000000001';
 const TAGLIO = '50000000-0000-4000-8000-000000000001';
 const TZ = 'Europe/Rome';
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
@@ -59,27 +65,89 @@ type Busy = { starts_at: string; blocked_until: string };
 let day = '';
 let busyThatDay: Busy[] = [];
 let setupError: unknown = null;
+let service: SupabaseClient | null = null;
+let createdId: string | null = null;
+/** Nome dell'ospite della prenotazione creata: univoco per esecuzione, per riconoscere eventuali avanzi. */
+const GUEST_NAME = `Test disponibilità ${randomUUID().slice(0, 8)}`;
+
+/** Esito di una lettura: quante righe; errore se la lettura fallisce. */
+const countOf = ({ data, error }: { data: unknown[] | null; error: { message: string } | null }): number => {
+  if (error) throw new Error(`lettura fallita: ${error.message}`);
+  return data?.length ?? 0;
+};
+
+/**
+ * Prenotazione confirmed di Luca alle 15:30 del primo giorno lavorativo (mar–sab, orari del seed)
+ * fra 2 e 20 giorni (dentro l'orizzonte di 30), senza chiusure né assenze di Luca quel giorno e con
+ * Luca e Mario liberi a quell'ora ("qualsiasi" ha bisogno di un altro barbiere libero).
+ */
+async function createFutureBooking(client: SupabaseClient): Promise<void> {
+  const noon = fromZonedTime(`${formatInTimeZone(new Date(), TZ, 'yyyy-MM-dd')}T12:00:00`, TZ);
+  for (let offset = 2; offset <= 20; offset++) {
+    const candidate = addDays(noon, offset);
+    const isoWeekday = Number(formatInTimeZone(candidate, TZ, 'i'));
+    if (isoWeekday < 2 || isoWeekday > 6) continue;
+    const date = formatInTimeZone(candidate, TZ, 'yyyy-MM-dd');
+    const dayStart = fromZonedTime(`${date}T00:00:00`, TZ).toISOString();
+    const dayEnd = fromZonedTime(`${date}T23:59:59`, TZ).toISOString();
+    const start = fromZonedTime(`${date}T15:30:00`, TZ).toISOString();
+    const end = fromZonedTime(`${date}T16:30:00`, TZ).toISOString();
+    const closures = countOf(
+      await client.from('shop_closures').select('id').lt('starts_at', dayEnd).gt('ends_at', dayStart),
+    );
+    const timeOff = countOf(
+      await client.from('time_off').select('id').eq('barber_id', LUCA).lt('starts_at', dayEnd).gt('ends_at', dayStart),
+    );
+    const busy = countOf(
+      await client
+        .from('bookings')
+        .select('id')
+        .in('barber_id', [LUCA, MARIO])
+        .eq('status', 'confirmed')
+        .lt('starts_at', end)
+        .gt('blocked_until', start),
+    );
+    if (closures || timeOff || busy) continue;
+    const { data, error } = await client
+      .from('bookings')
+      .insert({
+        guest_name: GUEST_NAME,
+        guest_phone: '+39 333 0000000',
+        barber_id: LUCA,
+        service_id: TAGLIO,
+        starts_at: start,
+        status: 'confirmed',
+        source: 'manual',
+      })
+      .select('id')
+      .single();
+    if (error) throw new Error(`creazione della prenotazione fallita: ${error.message}`);
+    createdId = data.id;
+    day = date;
+    return;
+  }
+  throw new Error('nessun giorno libero per Luca e Mario nei prossimi 20 giorni');
+}
 
 async function setup(): Promise<void> {
   loadEnv();
   for (const k of Object.keys(KEYS)) {
     if (!process.env[k]) throw new Error(`${k} mancante: avvia Supabase (npx supabase start)`);
   }
-  const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false },
   });
-  // Prenotazioni confirmed future di Luca nel seed, con almeno un giorno di margine
+  await createFutureBooking(service);
+  // Tutte le prenotazioni confirmed di Luca quel giorno, prima quella creata dal test
   const { data, error } = await service
     .from('bookings')
-    .select('starts_at, blocked_until')
+    .select('id, starts_at, blocked_until')
     .eq('barber_id', LUCA)
     .eq('status', 'confirmed')
-    .gt('starts_at', new Date(Date.now() + 24 * 3600_000).toISOString())
-    .order('starts_at');
-  if (error) throw new Error(`lettura del seed fallita: ${error.message}`);
-  if (!data?.length) throw new Error('nessuna prenotazione futura di Luca nel seed: esegui `npx supabase db reset`');
-  day = formatInTimeZone(new Date(data[0].starts_at), TZ, 'yyyy-MM-dd');
-  busyThatDay = data.filter((b) => formatInTimeZone(new Date(b.starts_at), TZ, 'yyyy-MM-dd') === day);
+    .gte('starts_at', fromZonedTime(`${day}T00:00:00`, TZ).toISOString())
+    .lte('starts_at', fromZonedTime(`${day}T23:59:59`, TZ).toISOString());
+  if (error) throw new Error(`lettura delle prenotazioni fallita: ${error.message}`);
+  busyThatDay = [...(data ?? [])].sort((a, b) => Number(b.id === createdId) - Number(a.id === createdId));
 }
 
 beforeAll(async () => {
@@ -89,6 +157,12 @@ beforeAll(async () => {
     setupError = error;
   }
 }, 120_000);
+// Gira anche se un test o il setup (dopo l'inserimento) falliscono; si cancella per id.
+afterAll(async () => {
+  if (!service || !createdId) return;
+  const { error } = await service.from('bookings').delete().eq('id', createdId);
+  if (error) throw new Error(`cancellazione di "${GUEST_NAME}" (${createdId}) fallita: ${error.message}`);
+});
 // Ambiente mancante: ogni test fallisce (non viene saltato)
 beforeEach(() => {
   if (setupError) throw setupError;

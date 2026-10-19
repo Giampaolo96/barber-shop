@@ -1,5 +1,8 @@
 "use client";
 
+// Il giorno all'apertura si riallinea all'URL anche dopo il ritorno con la cronologia (Next ripristina
+// dalla cache la pagina della prima apertura): perché serve, vedi docs/PROGRESS.md, fetta 8e,
+// "Indietro" dal riepilogo (2026-10-19).
 import Link, { useLinkStatus } from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";

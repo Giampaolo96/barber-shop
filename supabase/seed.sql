@@ -88,8 +88,14 @@ select 'b0000000-0000-4000-8000-000000000002',
        'Permesso'
   from (select date_trunc('week', now() at time zone 'Europe/Rome') + interval '7 days' as next_monday) w;
 
-insert into public.shop_closures (starts_at, ends_at, reason) values
-  ('2026-12-25 00:00:00+01', '2026-12-27 00:00:00+01', 'Natale e Santo Stefano');
+-- Negozio chiuso il prossimo Natale e Santo Stefano (quello di quest'anno finché non è passato).
+insert into public.shop_closures (starts_at, ends_at, reason)
+select n.christmas at time zone 'Europe/Rome',
+       (n.christmas + interval '2 days') at time zone 'Europe/Rome',
+       'Natale e Santo Stefano'
+  from (select c.christmas + case when now() at time zone 'Europe/Rome' >= c.christmas + interval '2 days'
+                                  then interval '1 year' else interval '0' end as christmas
+          from (select date_trunc('year', now() at time zone 'Europe/Rome') + interval '11 months 24 days' as christmas) c) n;
 
 -- Prenotazioni (SPEC §3.6): durata, prezzo, ends_at e blocked_until li calcola il trigger
 insert into public.bookings (customer_id, guest_name, guest_phone, barber_id, service_id, starts_at, status, source, notes)
