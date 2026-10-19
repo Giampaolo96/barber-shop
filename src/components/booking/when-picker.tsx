@@ -1,6 +1,7 @@
 "use client";
 
 import Link, { useLinkStatus } from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { BarberPortrait } from "@/components/barber-portrait";
 import { it } from "@/i18n/it";
@@ -10,7 +11,14 @@ import type { WhenBarberDay, WhenDay } from "@/lib/booking/availability";
 import { fetchWhenDay } from "@/lib/booking/availability-actions";
 import { dayParts, formatDayLabel } from "@/lib/booking/format";
 import { summaryStepUrl, whenStepUrl } from "@/lib/booking/paths";
-import { firstFreeAmong, formatNextFree, formatNextFreeDay, formatSlotTime, splitByPeriod } from "@/lib/booking/when";
+import {
+  firstFreeAmong,
+  formatNextFree,
+  formatNextFreeDay,
+  formatSlotTime,
+  initialDay as dayToOpen,
+  splitByPeriod,
+} from "@/lib/booking/when";
 import { isWhenLoading, whenReducer } from "@/lib/booking/when-state";
 import { localDateOf } from "@/lib/domain/local-time";
 import { PendingMark } from "@/themes/active";
@@ -48,13 +56,19 @@ export function WhenPicker({
   initialDay: WhenDay;
 }) {
   const t = it.booking.when;
-  const [view, dispatch] = useReducer(whenReducer, { selected: initialDay.date, shown: initialDay, error: false });
+  // Il giorno da aprire è quello dell'URL, non solo `initialDay`: tornando con la cronologia
+  // (indietro dal riepilogo) il router riusa la pagina resa all'apertura, con il giorno di allora,
+  // mentre l'URL ha il giorno scelto dopo (replaceState qui sotto). Quel giorno si carica subito.
+  const urlDay = useSearchParams().get("giorno");
+  const [openDay] = useState(() => dayToOpen(days, urlDay) ?? initialDay.date);
+  const [view, dispatch] = useReducer(whenReducer, { selected: openDay, shown: initialDay, error: false });
   const { selected, shown, error } = view;
   /** Testo della regione aria-live: il giorno scelto (vuoto all'apertura). */
   const [announcement, setAnnouncement] = useState("");
   /** Colonna su cui portare il focus quando arriva il giorno (dopo "prossimo: …"). */
   const focusAfterLoad = useRef<string | null>(null);
-  const cache = useRef(new Map<string, WhenDay>([[initialDay.date, initialDay]]));
+  // Dopo un ritorno con la cronologia `initialDay` è quello dell'apertura, forse superato: non si tiene.
+  const cache = useRef(new Map<string, WhenDay>(openDay === initialDay.date ? [[initialDay.date, initialDay]] : []));
   const requests = useRef(new Map<string, Promise<WhenDay | null>>());
 
   const dayUrl = useCallback(
@@ -90,13 +104,22 @@ export function WhenPicker({
     [serviceId, preferredId, recentId],
   );
 
-  // Il giorno mostrato finisce sempre nell'URL (anche all'apertura senza `giorno`), senza nuove voci
-  // nella cronologia. Poi si prepara il giorno selezionabile successivo.
   useEffect(() => {
-    window.history.replaceState(null, "", dayUrl(shown.date));
+    if (openDay !== initialDay.date) void load(openDay).then((day) => dispatch({ type: "loaded", date: openDay, day }));
+  }, [openDay, initialDay.date, load]);
+
+  // Il giorno selezionato finisce sempre nell'URL (anche all'apertura senza `giorno`), senza nuove
+  // voci nella cronologia: "Indietro" e il ritorno con la cronologia lo ritrovano.
+  useEffect(() => {
+    window.history.replaceState(null, "", dayUrl(selected));
+  }, [selected, dayUrl]);
+
+  // Si prepara il giorno selezionabile successivo a quello mostrato (non durante un caricamento).
+  useEffect(() => {
+    if (selected !== shown.date) return;
     const next = days.find((d) => d.date > shown.date && d.status !== "closed");
     if (next) void load(next.date);
-  }, [shown.date, days, dayUrl, load]);
+  }, [selected, shown.date, days, load]);
 
   // Dopo "prossimo: …" il focus va sull'intestazione del barbiere, appena il giorno è arrivato.
   useEffect(() => {
@@ -339,8 +362,11 @@ function BarberColumn({
     if (list) setMoreBelow(list.scrollTop + list.clientHeight < list.scrollHeight - 1);
   }, []);
 
-  // Cambiando giorno la colonna torna in cima.
+  // Cambiando giorno la colonna torna in cima; non all'idratazione (lo scorrimento già fatto resta).
+  const shownDate = useRef(date);
   useEffect(() => {
+    if (shownDate.current === date) return;
+    shownDate.current = date;
     if (listRef.current) listRef.current.scrollTop = 0;
   }, [date]);
 

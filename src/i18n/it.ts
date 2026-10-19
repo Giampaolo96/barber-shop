@@ -101,6 +101,7 @@ export const it = {
       upcoming: "In programma",
       past: "Passate e cancellate",
       none: "Nessuna prenotazione.",
+      noUpcoming: "Nessun appuntamento in programma.",
       empty: "Non hai ancora prenotazioni. Scegli un servizio e un orario: bastano pochi tocchi.",
       emptyCta: "Prenota",
       cancelled: "Prenotazione cancellata",
