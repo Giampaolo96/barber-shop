@@ -11,7 +11,7 @@ import { fillText } from "@/lib/admin/text";
 import { EmptyMark } from "@/themes/active";
 
 // "Le mie prenotazioni" (SPEC §5.3): future e passate; cancellazione fino a cancel_limit_min prima,
-// poi "Chiama il negozio".
+// poi "Chiama il negozio". Senza future confermate c'è "Prenota" (anche con passate o cancellate).
 export default async function MyBookingsPage({
   searchParams,
 }: {
@@ -24,6 +24,15 @@ export default async function MyBookingsPage({
   const bookings = await getMyBookings(user.id);
   const { upcoming, past } = splitBookings(bookings ?? [], now);
   const tel = telHref(shop.phone);
+  // Stesso stile del "Prenota" della home.
+  const bookLink = (
+    <Link
+      href={BOOK_PATH}
+      className="flex h-14 w-full items-center justify-center border-[4px] border-double border-ink font-display text-2xl transition-colors hover:bg-ink hover:text-surface active:bg-ink active:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+    >
+      {t.emptyCta}
+    </Link>
+  );
 
   const item = (booking: MyBooking, actions: React.ReactNode) => (
     <li key={booking.id} className="flex flex-col gap-2 border border-line p-4">
@@ -59,12 +68,7 @@ export default async function MyBookingsPage({
         <div className="flex flex-col items-start gap-4 border-y-[3px] border-double border-ink py-8">
           <EmptyMark className="size-10" />
           <p className="font-display text-2xl leading-snug">{t.empty}</p>
-          <Link
-            href={BOOK_PATH}
-            className="inline-flex h-12 items-center border-[4px] border-double border-ink px-6 font-display text-xl transition-colors hover:bg-ink hover:text-surface active:bg-ink active:text-surface"
-          >
-            {t.emptyCta}
-          </Link>
+          {bookLink}
         </div>
       )}
 
@@ -73,7 +77,10 @@ export default async function MyBookingsPage({
           <section className="flex flex-col gap-2">
             <h2 className="border-b-[3px] border-double border-ink pb-2 font-display text-2xl">{t.upcoming}</h2>
             {upcoming.length === 0 ? (
-              <p className="text-muted-foreground">{t.none}</p>
+              <div className="flex flex-col gap-4 py-2">
+                <p>{t.noUpcoming}</p>
+                {bookLink}
+              </div>
             ) : (
               <ul className="flex flex-col gap-2">
                 {upcoming.map((booking) =>
