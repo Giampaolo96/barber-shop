@@ -1,8 +1,9 @@
 // Regressioni e2e – statistiche, riquadro "Da aggiornare" ed elenco (richiesta dell'utente dopo la
 // fetta 9a; SPEC §6.9, ADR 010).
-// Dati: prenotazioni di un ospite su Luca / Taglio in una settimana di gennaio/febbraio fra il 2011
-// e il 2015 scelta a caso (nessun altro e2e usa quegli anni), create con l'API dell'admin demo come
-// in admin-stats.spec.ts. Pulizia nel finally.
+// Dati: prenotazioni di un ospite su Luca / Taglio create con l'API dell'admin demo come in
+// admin-stats.spec.ts, pulizia nel finally. Ogni test ha la sua settimana fissa del 2011 (nessun altro
+// e2e usa quell'anno): i due test girano in parallelo e con settimane scelte a caso potevano
+// coincidere, così "a zero" vedeva le prenotazioni dell'altro.
 
 import { expect, test, type Page } from '@playwright/test';
 
@@ -23,14 +24,9 @@ import {
 
 type Status = 'confirmed' | 'completed';
 
-const pad = (value: number): string => String(value).padStart(2, '0');
-const randomInt = (min: number, max: number): number => min + Math.floor(Math.random() * (max - min + 1));
-
-const isolatedMonday = (): string => {
-  const start = `${randomInt(2011, 2015)}-${pad(randomInt(1, 2))}-${pad(randomInt(1, 20))}`;
-  const weekday = new Date(`${start}T12:00:00Z`).getUTCDay();
-  return plusDays(start, (8 - weekday) % 7);
-};
+/** Lunedì delle settimane dei due test: distinte e non sovrapposte. */
+const TO_UPDATE_MONDAY = '2011-01-10';
+const EMPTY_MONDAY = '2011-01-24';
 
 const GUEST = 'E2E Da aggiornare';
 
@@ -59,7 +55,7 @@ test.describe('Statistiche: "Da aggiornare" (SPEC §6.9)', () => {
   test('il riquadro porta all\'elenco degli appuntamenti passati ancora confermati, con il dettaglio', async ({ page }) => {
     const api = await adminApi(page.request);
     const bookings: string[] = [];
-    const monday = isolatedMonday();
+    const monday = TO_UPDATE_MONDAY;
     const sunday = plusDays(monday, 6);
 
     try {
@@ -96,7 +92,7 @@ test.describe('Statistiche: "Da aggiornare" (SPEC §6.9)', () => {
   });
 
   test('a zero il riquadro non è un collegamento e l\'elenco è vuoto', async ({ page }) => {
-    const monday = isolatedMonday();
+    const monday = EMPTY_MONDAY;
     const sunday = plusDays(monday, 6);
     await loginAsAdmin(page);
     await page.goto(`/admin/statistiche?dal=${monday}&al=${sunday}`);
