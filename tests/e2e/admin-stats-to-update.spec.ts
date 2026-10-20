@@ -1,8 +1,9 @@
 // Regressioni e2e – statistiche, riquadro "Da aggiornare" ed elenco (richiesta dell'utente dopo la
 // fetta 9a; SPEC §6.9, ADR 010).
-// Dati: prenotazioni di un ospite su Luca / Taglio in una settimana di gennaio/febbraio fra il 2011
-// e il 2015 scelta a caso (nessun altro e2e usa quegli anni), create con l'API dell'admin demo come
-// in admin-stats.spec.ts. Pulizia nel finally.
+// Dati: prenotazioni di un ospite su Luca / Taglio create con l'API dell'admin demo come in
+// admin-stats.spec.ts, pulizia nel finally. Ogni test ha la sua settimana fissa del 2011 (nessun altro
+// e2e usa quell'anno): i due test girano in parallelo e con settimane scelte a caso potevano
+// coincidere, così "a zero" vedeva le prenotazioni dell'altro.
 
 import { expect, test, type Page } from '@playwright/test';
 
@@ -23,14 +24,9 @@ import {
 
 type Status = 'confirmed' | 'completed';
 
-const pad = (value: number): string => String(value).padStart(2, '0');
-const randomInt = (min: number, max: number): number => min + Math.floor(Math.random() * (max - min + 1));
-
-const isolatedMonday = (): string => {
-  const start = `${randomInt(2011, 2015)}-${pad(randomInt(1, 2))}-${pad(randomInt(1, 20))}`;
-  const weekday = new Date(`${start}T12:00:00Z`).getUTCDay();
-  return plusDays(start, (8 - weekday) % 7);
-};
+/** Lunedì delle settimane dei due test: distinte e non sovrapposte. */
+const TO_UPDATE_MONDAY = '2011-01-10';
+const EMPTY_MONDAY = '2011-01-24';
 
 const GUEST = 'E2E Da aggiornare';
 
@@ -49,6 +45,18 @@ const booking = async (api: AdminApi, date: string, time: string, status: Status
   return rows[0]?.id ?? '';
 };
 
+/**
+ * Pulizia iniziale: toglie le prenotazioni di prova rimaste nella settimana da un giro interrotto
+ * prima del finally, che altrimenti farebbero fallire i conteggi del giro successivo.
+ */
+const clearWeek = async (api: AdminApi, monday: string): Promise<void> => {
+  const from = encodeURIComponent(romeWinter(monday, '00:00'));
+  const to = encodeURIComponent(romeWinter(plusDays(monday, 7), '00:00'));
+  await api.del(
+    `/rest/v1/bookings?guest_name=eq.${encodeURIComponent(GUEST)}&starts_at=gte.${from}&starts_at=lt.${to}`,
+  );
+};
+
 const toCloseTile = (page: Page) => page.locator('main [data-stat="to-close"]');
 const listRows = (page: Page) =>
   page.getByRole('table', { name: s('admin.stats.toUpdate.tableTitle') }).locator('tbody').getByRole('row');
@@ -59,8 +67,9 @@ test.describe('Statistiche: "Da aggiornare" (SPEC §6.9)', () => {
   test('il riquadro porta all\'elenco degli appuntamenti passati ancora confermati, con il dettaglio', async ({ page }) => {
     const api = await adminApi(page.request);
     const bookings: string[] = [];
-    const monday = isolatedMonday();
+    const monday = TO_UPDATE_MONDAY;
     const sunday = plusDays(monday, 6);
+    await clearWeek(api, monday);
 
     try {
       const toUpdate = await booking(api, monday, '10:00', 'confirmed');
@@ -96,8 +105,9 @@ test.describe('Statistiche: "Da aggiornare" (SPEC §6.9)', () => {
   });
 
   test('a zero il riquadro non è un collegamento e l\'elenco è vuoto', async ({ page }) => {
-    const monday = isolatedMonday();
+    const monday = EMPTY_MONDAY;
     const sunday = plusDays(monday, 6);
+    await clearWeek(await adminApi(page.request), monday);
     await loginAsAdmin(page);
     await page.goto(`/admin/statistiche?dal=${monday}&al=${sunday}`);
     await expect(toCloseTile(page).locator('[data-stat-value]')).toHaveText('0');

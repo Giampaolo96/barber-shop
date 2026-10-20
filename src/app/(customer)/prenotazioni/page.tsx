@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { LinkPending } from "@/components/link-pending";
 import { CancelBookingButton } from "@/components/booking/cancel-booking-button";
 import { it } from "@/i18n/it";
 import { formatDateTime, telHref } from "@/lib/booking/format";
+import { getVerifiedUserId } from "@/lib/auth/current-user";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
 import { BOOK_PATH, MY_BOOKINGS_PATH } from "@/lib/booking/paths";
 import { getMyBookings, type MyBooking } from "@/lib/booking/queries";
@@ -17,20 +19,22 @@ export default async function MyBookingsPage({
 }: {
   searchParams: Promise<{ esito?: string }>;
 }) {
-  const { user, shop } = await loadBookingPageContext();
+  // Le prenotazioni (RLS: solo le proprie) partono appena getUser() ha verificato l'utente, insieme
+  // alla lettura del profilo; la pagina mostra qualcosa solo dopo requireRole (loadBookingPageContext).
+  const [{ shop }, bookings] = await Promise.all([loadBookingPageContext(), loadOwnBookings()]);
   const { esito } = await searchParams;
   const t = it.booking.list;
   const now = new Date();
-  const bookings = await getMyBookings(user.id);
   const { upcoming, past } = splitBookings(bookings ?? [], now);
   const tel = telHref(shop.phone);
   // Stesso stile del "Prenota" della home.
   const bookLink = (
     <Link
       href={BOOK_PATH}
-      className="flex h-14 w-full items-center justify-center border-[4px] border-double border-ink font-display text-2xl transition-colors hover:bg-ink hover:text-surface active:bg-ink active:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="relative flex h-14 w-full items-center justify-center border-[4px] border-double border-ink font-display text-2xl transition-colors hover:bg-ink hover:text-surface active:bg-ink active:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       {t.emptyCta}
+      <LinkPending />
     </Link>
   );
 
@@ -57,9 +61,10 @@ export default async function MyBookingsPage({
           <p>{it.booking.errors.listLoad}</p>
           <Link
             href={MY_BOOKINGS_PATH}
-            className="inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface"
+            className="relative inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface"
           >
             {it.booking.errors.retry}
+            <LinkPending />
           </Link>
         </div>
       )}
@@ -116,4 +121,9 @@ export default async function MyBookingsPage({
       )}
     </main>
   );
+}
+
+async function loadOwnBookings(): Promise<MyBooking[] | null> {
+  const userId = await getVerifiedUserId();
+  return userId ? getMyBookings(userId) : null;
 }

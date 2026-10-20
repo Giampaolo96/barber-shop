@@ -29,6 +29,7 @@ import {
   rowWith,
   s,
   staffLogin,
+  waitForStaffArea,
   supabaseUrl,
   uniqueEmail,
   uniqueName,
@@ -236,6 +237,7 @@ test.describe('Admin – account staff dei barbieri (SPEC §2, §3.3, §5.5)', (
       await expect(blockButton(page)).toBeVisible();
       await expect.poll(async () => (await profileOf(api, profileId))?.is_blocked).toBe(false);
       await staffLogin(barber, email, PASSWORD);
+      await waitForStaffArea(barber);
       await expectPath(barber, '/admin');
       await expect(adminNavLink(barber, 'admin.nav.calendar')).toBeVisible();
       await barber.context().close();

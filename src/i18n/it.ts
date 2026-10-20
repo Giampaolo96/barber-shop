@@ -154,7 +154,6 @@ export const it = {
         "Hai fatto troppe prenotazioni nelle ultime 24 ore: riprova più tardi o chiama il negozio.",
       customerOverlap: "Hai già un appuntamento in questo orario.",
       notFound: "Prenotazione non trovata.",
-      profileLoad: "Non è stato possibile verificare il tuo profilo. Riprova tra poco.",
       listLoad: "Non è stato possibile caricare le tue prenotazioni. Riprova tra poco.",
       retry: "Riprova",
       notCancellable: "Questa prenotazione non si può cancellare.",

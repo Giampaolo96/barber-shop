@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkPending } from "@/components/link-pending";
 import { it } from "@/i18n/it";
 import { BOOK_PATH } from "@/lib/booking/paths";
 
@@ -9,9 +10,10 @@ export function RestartNotice() {
       <p>{it.booking.summary.unavailable}</p>
       <Link
         href={BOOK_PATH}
-        className="inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface"
+        className="relative inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface"
       >
         {it.booking.summary.restart}
+        <LinkPending />
       </Link>
     </div>
   );

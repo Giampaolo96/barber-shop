@@ -1179,3 +1179,84 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 - Alternativa scartata: `key` su `<WhenPicker>` (per esempio il giorno). Nel ripristino dalla cache le props sono quelle della prima apertura, quindi la `key` non cambierebbe e non risolverebbe nulla; in compenso azzererebbe stato, giorni in memoria e scorrimento delle colonne a ogni rimontaggio.
 - Colonne: tornano in cima solo al cambio di giorno, non all'idratazione (uno scorrimento fatto prima dell'idratazione restava azzerato; era la causa dell'instabilità di `booking-when-columns.spec.ts` "cambio di giorno").
 - Le mie prenotazioni: "Prenota" (stile del pulsante della home, 56 px) compare anche quando non ci sono prenotazioni future confermate ma ci sono passate o cancellate, con il testo `it.booking.list.noUpcoming`; con la lista vuota resta il testo di prima.
+
+## Prestazioni: meno attese nel caricamento delle pagine (2026-10-20)
+
+**Misura iniziale** (build di produzione locale, Supabase locale, 5 richieste per pagina dopo una di riscaldamento; strumentazione temporanea, poi rimossa: `fetch` che registra le chiamate a Supabase e `Server-Timing` nel proxy). Un'"ondata" è un gruppo di chiamate in parallelo; le ondate sono in sequenza e in produzione ognuna costa almeno un viaggio verso Supabase.
+- `getClaims()` verifica il JWT in locale: chiavi ES256 (in locale e sul progetto cloud), JWKS in cache a livello di modulo per 10 minuti (un solo fetch in 464 richieste).
+- La produzione rispondeva ancora da iad1 (`X-Vercel-Id: fra1::iad1::…`) dopo lo spostamento in dub1: il cambio di regione vale dal deploy successivo.
+- Senza `loading.tsx` il prefetch dei Link non portava nulla di utile: al tocco partiva sempre la richiesta completa, senza riscontro.
+
+**Fatto** (approvato dall'utente: punti 1, 2, 3, 4, 6; del 5 solo il matcher; il 7, nome del negozio in cache per i metadati, rimandato)
+- Scheletri `loading.tsx` statici (nessuna animazione) per listino, "Quando?", riepilogo e Le mie prenotazioni, con contenitori e altezze delle pagine: verificato con Playwright a 390×844 che titolo, liste, striscia dei giorni, colonne e pannello non si spostano all'arrivo del contenuto. Listino ed elenco prenotazioni in route group (`prenota/(servizio)`, `prenotazioni/(elenco)`), così il loro scheletro non avvolge "Quando?", il riepilogo e la conferma.
+- Area staff **senza** scheletro: `admin/(panel)/loading.tsx` faceva rispondere 200 invece di 404 a `notFound()` (la risposta parte prima della pagina; e2e `admin-calendar.spec.ts`) e mostrava lo scheletro mentre i test delle statistiche leggevano le righe. La pagina del calendario deve restare in `(panel)/page.tsx` (`calendar-access.test.ts`), quindi lo scheletro non si può limitare al calendario.
+- Una sola lettura del profilo per rendering: `getCurrentUser` legge anche `no_show_count`; il blocco della prenotazione non rilegge `profiles` (`getBookingProfile` rimossa). `getVerifiedUserId` (getUser in `cache()`) fa partire prenotazioni e prossima prenotazione insieme alla lettura del profilo. `requireRole` e `getUser` nelle pagine invariati; nessuna pagina mostra dati prima di `requireRole`.
+- Letture indipendenti in `Promise.all` con i controlli: listino, "Quando?" (servizio, barbieri, panoramica), riepilogo (servizio e barbieri), home, calendario (impostazioni e schede insieme a `requireRole`; filtro per ruolo con `staffBarbersFor` dopo).
+- `getBookableServices` in `cache()`; `ShopInfo` con le impostazioni della disponibilità e `loadInput` usa `getShopInfo()` invece di rileggere `shop_settings`.
+- Proxy: matcher senza `/icon/…` e `/apple-icon`; logica invariata. "Quando?": `prefetch={false}` sugli orari della griglia (il riscontro al tocco è `SlotPending`).
+
+**Prima → dopo** (stesse pagine e stesso metodo; mediane in ms, documento / navigazione RSC)
+
+| Pagina | Ondate | Chiamate | Documento | RSC |
+|---|---|---|---|---|
+| Home (cliente) | 4 → 3 | 7 → 7 | 50 → 50 | 48 → 45 |
+| Listino | 5 → 3 | 6 → 5 | 50 → 46 | 55 → 43 |
+| "Quando?" | 7 → 4 (5 in viaggi di rete) | 11 → 9 | 79 → 56 | 66 → 50 |
+| Riepilogo | 6 → 3 | 7 → 6 | 56 → 43 | 57 → 42 |
+| Le mie prenotazioni | 5 → 3 | 6 → 5 | 52 → 44 | 50 → 41 |
+| Calendario, giorno | 6 → 4 | 11 → 11 | 62 → 52 | 54 → 45 |
+| Calendario, settimana | 6 → 4 | 12 → 12 | 69 → 57 | 55 → 46 |
+| Home anonima | 1 → 1 | 3 → 3 | 11 → 9 | 8 → 8 |
+
+- In locale ogni query costa 2–5 ms e `getUser` circa 30 ms, quindi i millisecondi cambiano poco: in produzione conta il numero di ondate, ognuna almeno un viaggio di rete. In "Quando?" impostazioni → disponibilità restano in sequenza dentro la seconda ondata (in parallelo con `getUser`).
+- Sessione nel browser (home, listino, "Quando?", calendario, con i prefetch): 77 → 72 passaggi dal proxy; le icone non passano più dal proxy.
+- `notFound()` delle pagine con scheletro (impostazioni del negozio mancanti) ora risponde 200 con la pagina "non trovata", non 404: caso di configurazione rotta, i redirect di accesso li fa prima il proxy.
+- Review (subagent `reviewer`): nessun bloccante. Applicate: `AccessNotice` sostituito da `BlockedNotice` (il caso "profilo non leggibile" non esiste più: con la lettura unica un errore su `profiles` dà utente null e `requireRole` rimanda al login, come prima quando falliva la prima lettura; la miglioria 5 della review di fetta 8b è assorbita, `it.booking.errors.profileLoad` rimosso); errore della lettura del profilo registrato (`loadProfile`).
+- Compromessi noti: "Quando?" calcola la panoramica anche per un cliente bloccato o un servizio non prenotabile (casi rari, scartata prima di rendere); la home legge la prossima prenotazione anche per lo staff (filtrata per il proprio id, nessun risultato, non mostrata). Lo scheletro del riepilogo non ha "Indietro" (il link dipende dall'URL): durante il caricamento si torna con il tasto del browser.
+- Esito: lint, typecheck, Vitest (51 file, 1986 test) ed e2e (148/148) verdi sul codice finale. **Da tenere d'occhio**: `admin-stats-default-grouping.spec.ts` ("ogni periodo rapido…") è fallito in 3 giri completi su 6 (0 righe contate subito dopo "Applica"), sempre verde da solo (21/21 ripetuto con `booking-when.spec.ts`) e verde nel giro di confronto sul codice di partenza (un solo giro). La pagina delle statistiche non è cambiata e non ha scheletri né Suspense; il test conta le righe appena cambia l'URL di un `<form method="get">` nativo, quindi può leggere il documento ancora in arrivo. Un giro ha avuto anche un'attesa scaduta su "Primo libero" (`booking-when.spec.ts`), mai ripetuta.
+
+## Attese stabili negli e2e (2026-10-20)
+
+- `admin-stats-default-grouping.spec.ts` (commit `307a752`): dopo "Applica" (modulo GET nativo) aspetta il raggruppamento mostrato ("Automatico (…)") e la tabella "Per servizio"; i periodi rapidi aspettano anche le date del periodo. Asserzioni invariate.
+- Login dello staff: misurato in un giro completo normale il passaggio a `/admin` dopo il login, prima e dopo il commit perf (`4a86085` e `60015c4`): mediana 1872 e 1874 ms, nessun caso oltre 5 s in 64 e 61 login, massimo 3,9 e 4,9 s. Nessun peggioramento.
+- `loginAsAdmin` e `loginAsBarber` (`admin-helpers.ts`) aspettano fino a 15 s il menu dell'area staff (`waitForStaffArea`) prima del controllo del percorso; stessa attesa in `admin-staff-accounts.spec.ts` dopo lo sblocco. Asserzioni invariate. Nella suite admin con `--repeat-each=10` non è più fallito nessun login degli helper; i conflitti di dati rimasti (`admin-calendar-cancelled-overlap`, `admin-stats-to-update` "a zero") vengono dalle copie parallele della ripetizione.
+- **Da tenere d'occhio**: `my-bookings-book-cta.spec.ts` è fallito una volta sotto carico, alla registrazione del cliente ("link inviato" non comparso su `/accedi`), prima di arrivare a Le mie prenotazioni.
+
+## Niente scheletri, riscontro sul link toccato (2026-10-20)
+
+**Causa.** React (quello incluso in Next) mostra il contenuto sospeso non prima di 300 ms dopo il fallback (`globalMostRecentFallbackTime + 300` in `react-dom-client`). Con gli scheletri `loading.tsx` il contenuto vero arrivava sempre circa 300 ms dopo lo scheletro, anche con il server a 40–150 ms: più lento che senza scheletro.
+
+**Decisione dell'utente.** Tolti tutti gli scheletri del commit perf (listino, "Quando?", riepilogo, Le mie prenotazioni; `src/components/skeleton.tsx`, `it.loading`); listino ed elenco tornano a `prenota/page.tsx` e `prenotazioni/page.tsx`. Al loro posto `LinkPending` (`src/components/link-pending.tsx`, `useLinkStatus`): il link toccato diventa pieno con il segno del tema mentre la pagina si apre, lo stesso stato che avevano gli orari (`SlotPending` sostituito). È su: righe del listino, "Prenota" (home e Le mie prenotazioni), "Prenotazioni" nell'intestazione, "Le mie prenotazioni" in home e nel biglietto, "Indietro" del flusso, "Ricomincia", "Cambia orario", i link della conferma. Verificato con Playwright a 390×844: il link non si sposta (stessa posizione prima e durante l'attesa), il segno si anima solo con `prefers-reduced-motion: no-preference` (`animation: none` con `reduce`). Le altre ottimizzazioni del commit perf restano.
+
+**Misure** (build di produzione locale, cliente demo; mediane in ms, max fra parentesi; 15 tocchi in sequenza e 4 schede × 5 in parallelo)
+
+Tocco su "Primo libero" → URL / titolo / contenuto vero del riepilogo:
+
+| Codice | Sequenza | 4 paralleli |
+|---|---|---|
+| `4a86085` (prima del perf) | 135 / 149 / **151** | 430 / 454 / **459** |
+| `60015c4` (perf, con scheletro) | 90 / 106 / **415** | 128 / 185 / **579** |
+| Finale (senza scheletri, `LinkPending`) | 108 / 122 / **125** (155) | 318 / 346 / **351** (477) |
+
+Tocco su "Prenota" in home → URL / righe del listino:
+
+| Codice | Sequenza | 4 paralleli |
+|---|---|---|
+| `4a86085` | 88 / **95** (133) | 216 / **224** (348) |
+| Finale | 77 / **86** (97) | 189 / **197** (241) |
+
+In dev (stessa misura su "Primo libero", contenuto vero): `4a86085` 283 in sequenza e 772 in parallelo; con lo scheletro 585 e 880; senza scheletro 338 e 800.
+
+**`my-bookings-book-cta.spec.ts` (indagine).** Fallito in 3 giri completi su 10 col dev server, sempre alla registrazione del cliente: schermata di errore generica dopo una server action (`/accedi` due volte, `/auth/confirm` una). Nel log del server solo `SyntaxError: Unexpected end of JSON input at JSON.parse (<anonymous>)` sulla POST dell'azione, nessun frame dell'app; nel browser "An unexpected response was received from the server".
+- Il codice dell'app su quel percorso non lancia: `requestMagicLink` restituisce gli errori di Supabase come stato e `resetLoginCode` è in un `.catch`; la lettura unica di utente e profilo (`getVerifiedUserId` → `loadProfile`) restituisce null su errore, come prima (`requireRole` rimanda al login); un cliente appena registrato col profilo incompleto viene rimandato dal proxy a `/profilo/completa` prima del rendering. L'avviso "profilo non leggibile" copriva solo il fallimento di una seconda lettura che non esiste più.
+- Next in dev rilegge i manifest dal disco a ogni richiesta e lo stesso Next documenta che possono essere letti mentre Turbopack li riscrive durante una compilazione (`load-components.js`, 3 tentativi solo in dev).
+- 110 esecuzioni ripetute dei test di login del cliente col dev server: nessun errore. 2 giri completi sulla build di produzione (stessi worker, nessun tentativo in più): l'errore non compare mai e il test passa in entrambi.
+- Conclusione: lettura concorrente dei file di Next durante la compilazione al volo del dev server, non un'eccezione del codice dell'app; nessuna correzione nel codice. In CI gli e2e girano sulla build di produzione.
+
+**Altri e2e instabili visti in questi giri** (nessuno legato al codice dell'app):
+- `admin-stats-to-update.spec.ts` "a zero": i due test dello stesso file scelgono a caso una settimana fra gennaio e febbraio 2011–2015 e girano in parallelo; se la scelgono uguale, "a zero" vede le 2 prenotazioni dell'altro ("Received: 2"). Fallito in 2 giri normali.
+- `offline.spec.ts` (solo build di produzione, service worker): fallito una volta in un giro completo, 5/5 ripetuto da solo.
+
+**Note per i prossimi giri e2e**
+- **Causa nota dei fallimenti solo in dev**: errore del dev server di Next che legge a metà i propri manifest mentre li riscrive durante una compilazione al volo. Sintomo: `SyntaxError: Unexpected end of JSON input at JSON.parse (<anonymous>)` nel log del server su una POST di server action, schermata di errore generica nel browser ("An unexpected response was received from the server"). Se compare solo col dev server e non sulla build di produzione, non è un difetto dell'app.
+- **Da tenere d'occhio**: `offline.spec.ts` (solo build di produzione) è fallito una volta in un giro completo; da solo passa.

@@ -92,6 +92,7 @@ Il nero profondo richiama il negozio di sera: neon bianchi (al massimo con una l
 - Ogni animazione parte una volta (caricamento o pressione) e finisce: niente `infinite`, niente loop.
 - Usi ammessi: scia e volo della home, atterraggio della mosca sulla conferma, orari della griglia che compaiono in rapida sequenza (ritardo limitato), pulsanti e scelte che si invertono in nero alla pressione (`active:`). Nel tema neon anche: deriva delle luci all'apertura, accensione del pulsante di conferma, dissolvenza d'ingresso delle pagine, bagliore che cresce al passaggio (transizione breve di `box-shadow`).
 - Stati vuoti: un testo e un invito all'azione; nell'area clienti anche la mosca piccola.
+- Riscontro al tocco: i link che aprono una pagina dell'area clienti (listino, "Quando?", riepilogo, Le mie prenotazioni) diventano pieni con il segno del tema mentre la pagina si apre (`LinkPending`, `src/components/link-pending.tsx`, lo stesso stato degli orari), sovrapposti al link: niente spostamenti; il segno si muove solo se il movimento è ammesso. Niente scheletri `loading.tsx`: React mostra il contenuto non prima di 300 ms dopo uno scheletro, più di quanto risponde il server (40–150 ms).
 - Nell'area staff niente marmo né mosca.
 
 ## Cosa NON fare

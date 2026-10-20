@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkPending } from "@/components/link-pending";
 import type { ReactNode } from "react";
 import { EmailLinkError } from "@/components/auth/email-link-error";
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -11,7 +12,7 @@ import { getShopInfo } from "@/lib/booking/queries";
 import { AmbientBackground } from "@/themes/active";
 
 const linkClass =
-  "inline-flex h-11 items-center px-2 text-sm font-medium underline-offset-4 hover:underline";
+  "relative inline-flex h-11 items-center px-2 text-sm font-medium underline-offset-4 hover:underline";
 
 export default async function CustomerLayout({ children }: { children: ReactNode }) {
   const [user, shop] = await Promise.all([getCurrentUser(), getShopInfo()]);
@@ -37,6 +38,7 @@ export default async function CustomerLayout({ children }: { children: ReactNode
                 <>
                   <Link href={MY_BOOKINGS_PATH} className={linkClass}>
                     {it.nav.bookings}
+                    <LinkPending />
                   </Link>
                   <Link href="/profilo" className={linkClass}>
                     {it.nav.profile}

@@ -9,9 +9,11 @@ import { formatDayLabel } from "@/lib/booking/format";
 import { weekDates } from "@/lib/calendar/grid";
 import {
   type DayViewData,
-  getStaffBarbers,
+  getBarbersWithOwn,
   loadDayView,
   loadWeekView,
+  type StaffBarbers,
+  staffBarbersFor,
   type WeekViewData,
 } from "@/lib/calendar/page-data";
 import { type CalendarBarber, type CalendarSettings, getCalendarSettings } from "@/lib/calendar/queries";
@@ -33,13 +35,31 @@ type CalendarData = {
   week: WeekViewData | null;
 };
 
-async function loadCalendar(user: CurrentUser, params: SearchParams): Promise<CalendarData | null> {
+type ServerClient = Awaited<ReturnType<typeof createClient>>;
+
+type CalendarBase = { settings: CalendarSettings; staff: StaffBarbers };
+
+/** Letture che non dipendono dal ruolo (RLS): partono insieme a requireRole. null se non riescono. */
+async function loadCalendarBase(supabase: ServerClient): Promise<CalendarBase | null> {
   try {
-    const supabase = await createClient();
-    const settings = await getCalendarSettings(supabase);
+    const [settings, staff] = await Promise.all([getCalendarSettings(supabase), getBarbersWithOwn(supabase)]);
+    return { settings, staff };
+  } catch (error) {
+    console.error("AdminCalendarPage", error);
+    return null;
+  }
+}
+
+async function loadCalendar(
+  supabase: ServerClient,
+  user: CurrentUser,
+  { settings, staff }: CalendarBase,
+  params: SearchParams,
+): Promise<CalendarData | null> {
+  try {
     const today = localDateOf(new Date(), settings.timezone);
     const query = parseCalendarQuery(params, today);
-    const { barbers, ownBarberId } = await getStaffBarbers(supabase, user);
+    const { barbers, ownBarberId } = staffBarbersFor(user, staff);
     const base = { settings, today, query, barbers, ownBarberId, day: null, week: null };
     if (barbers.length === 0) return base;
     if (query.view === "settimana") {
@@ -55,9 +75,16 @@ async function loadCalendar(user: CurrentUser, params: SearchParams): Promise<Ca
 // Calendario dello staff (SPEC §6.1): vista giorno con una colonna per barbiere, vista settimana a
 // griglia per un barbiere alla volta (fetta 8c). Il barbiere vede solo la propria scheda.
 export default async function AdminCalendarPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  // I layout non si rieseguono a ogni navigazione: ogni pagina ricontrolla il ruolo.
-  const user = await requireRole(["barber", "admin"]);
-  const data = await loadCalendar(user, await searchParams);
+  // I layout non si rieseguono a ogni navigazione: ogni pagina ricontrolla il ruolo. Impostazioni e
+  // schede si leggono insieme al controllo; si filtrano per ruolo e si mostrano solo dopo requireRole.
+  // Il client (cookie) si crea fuori dai try: l'errore di Next sull'uso dinamico non va intercettato.
+  const supabase = await createClient();
+  const [user, base, params] = await Promise.all([
+    requireRole(["barber", "admin"]),
+    loadCalendarBase(supabase),
+    searchParams,
+  ]);
+  const data = base ? await loadCalendar(supabase, user, base, params) : null;
 
   if (!data) {
     return (

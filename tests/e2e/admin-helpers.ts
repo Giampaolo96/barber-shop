@@ -146,13 +146,25 @@ export const staffLogin = async (page: Page, email: string, password: string): P
   await page.getByRole('button', { name: s('auth.staffLogin.submit') }).click();
 };
 
+/**
+ * Dopo il login aspetta l'area staff (il suo menu) fino a 15 s: sotto carico, in dev, il redirect a
+ * /admin può superare i 5 s di expectPath. Poi il controllo del percorso, invariato.
+ */
+export const waitForStaffArea = async (page: Page): Promise<void> => {
+  await page
+    .getByRole('navigation', { name: s('admin.nav.label'), exact: true })
+    .waitFor({ state: 'visible', timeout: 15_000 });
+};
+
 export const loginAsAdmin = async (page: Page): Promise<void> => {
   await staffLogin(page, ADMIN_EMAIL, DEMO_PASSWORD);
+  await waitForStaffArea(page);
   await expectPath(page, '/admin');
 };
 
 export const loginAsBarber = async (page: Page): Promise<void> => {
   await staffLogin(page, BARBER_EMAIL, DEMO_PASSWORD);
+  await waitForStaffArea(page);
   await expectPath(page, '/admin');
 };
 
