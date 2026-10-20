@@ -9,7 +9,7 @@
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { DESKTOP, SEED, adminApi, cleanup, loginAsAdmin, romeWinter, s } from './admin-helpers';
+import { DESKTOP, SEED, adminApi, cleanup, loginAsAdmin, romeWinter, s, sf } from './admin-helpers';
 
 const randomInt = (min: number, max: number): number => min + Math.floor(Math.random() * (max - min + 1));
 const pad = (value: number): string => String(value).padStart(2, '0');
@@ -24,13 +24,30 @@ const shortcut = (page: Page, key: string) =>
   });
 const raggruppa = (page: Page): string | null => new URL(page.url()).searchParams.get('raggruppa');
 
-/** Apre un periodo rapido e aspetta la pagina del suo link. */
+/**
+ * Aspetta che la pagina mostrata abbia in vigore il raggruppamento indicato (lo riporta il testo di
+ * "Automatico") e che le tabelle siano arrivate tutte: "Per servizio" segue quella dell'andamento, quindi
+ * le righe da contare ci sono. Dopo "Applica" (modulo GET nativo) l'URL cambia prima che il nuovo
+ * documento sia arrivato: il solo URL non basta.
+ */
+const expectShownGrouping = async (page: Page, granularity: 'day' | 'week' | 'month'): Promise<void> => {
+  await expect(groupBy(page).locator('option[value=""]')).toHaveText(
+    sf('admin.stats.granularity.auto', { granularity: s(`admin.stats.granularity.${granularity}`) }),
+  );
+  await expect(page.getByRole('table', { name: s('admin.stats.byServiceTitle') })).toBeAttached();
+};
+
+/** Apre un periodo rapido e aspetta la pagina del suo link, con le date del periodo nei filtri. */
 const openShortcut = async (page: Page, key: string): Promise<void> => {
   const link = shortcut(page, key);
   const href = await link.getAttribute('href');
   expect(href).toBeTruthy();
   await link.click();
   await page.waitForURL((url) => `${url.pathname}${url.search}` === href);
+  const target = new URL(href ?? '', page.url()).searchParams;
+  await expect(page.getByLabel(s('admin.stats.fromLabel'), { exact: true })).toHaveValue(target.get('dal') ?? '');
+  await expect(page.getByLabel(s('admin.stats.toLabel'), { exact: true })).toHaveValue(target.get('al') ?? '');
+  await expect(page.getByRole('table', { name: s('admin.stats.byServiceTitle') })).toBeAttached();
 };
 
 /** Giorni del mese corrente secondo il calendario di Roma. */
@@ -109,6 +126,7 @@ test.describe('Statistiche: raggruppamento predefinito in base al periodo', () =
     await groupBy(page).selectOption('giorno');
     await page.getByRole('button', { name: s('admin.stats.apply'), exact: true }).click();
     await expect.poll(() => raggruppa(page)).toBe('giorno');
+    await expectShownGrouping(page, 'day');
     expect(await trendRows(page).count()).toBeGreaterThanOrEqual(365);
     await openShortcut(page, 'last3Months');
     await expect.poll(() => raggruppa(page)).toBe('giorno');
@@ -118,6 +136,7 @@ test.describe('Statistiche: raggruppamento predefinito in base al periodo', () =
     // "Automatico" toglie la scelta: torna il predefinito del periodo
     await groupBy(page).selectOption('');
     await page.getByRole('button', { name: s('admin.stats.apply'), exact: true }).click();
+    await expectShownGrouping(page, 'week');
     await expect(groupBy(page)).toHaveValue('');
     const automatic = await trendRows(page).count();
     expect(automatic).toBeGreaterThanOrEqual(13);
