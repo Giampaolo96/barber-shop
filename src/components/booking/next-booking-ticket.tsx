@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkPending } from "@/components/link-pending";
 import { it } from "@/i18n/it";
 import { fillText } from "@/lib/admin/text";
 import { bookingCountdown, type Countdown } from "@/lib/booking/countdown";
@@ -50,9 +51,10 @@ export function NextBookingTicket({
         <p>{fillText(it.home.withBarber, { service: booking.serviceName, barber: booking.barberName })}</p>
         <Link
           href={MY_BOOKINGS_PATH}
-          className="inline-flex h-11 items-center text-sm font-medium underline underline-offset-4 hover:no-underline"
+          className="relative inline-flex h-11 items-center text-sm font-medium underline underline-offset-4 hover:no-underline"
         >
           {t.manage}
+          <LinkPending />
         </Link>
       </div>
     </section>

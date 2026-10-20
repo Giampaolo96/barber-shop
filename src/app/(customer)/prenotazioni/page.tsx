@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkPending } from "@/components/link-pending";
 import { CancelBookingButton } from "@/components/booking/cancel-booking-button";
 import { it } from "@/i18n/it";
 import { formatDateTime, telHref } from "@/lib/booking/format";
@@ -30,9 +31,10 @@ export default async function MyBookingsPage({
   const bookLink = (
     <Link
       href={BOOK_PATH}
-      className="flex h-14 w-full items-center justify-center border-[4px] border-double border-ink font-display text-2xl transition-colors hover:bg-ink hover:text-surface active:bg-ink active:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="relative flex h-14 w-full items-center justify-center border-[4px] border-double border-ink font-display text-2xl transition-colors hover:bg-ink hover:text-surface active:bg-ink active:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       {t.emptyCta}
+      <LinkPending />
     </Link>
   );
 
@@ -59,9 +61,10 @@ export default async function MyBookingsPage({
           <p>{it.booking.errors.listLoad}</p>
           <Link
             href={MY_BOOKINGS_PATH}
-            className="inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface"
+            className="relative inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface"
           >
             {it.booking.errors.retry}
+            <LinkPending />
           </Link>
         </div>
       )}

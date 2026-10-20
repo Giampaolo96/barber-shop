@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkPending } from "@/components/link-pending";
 import { notFound, redirect } from "next/navigation";
 import { it } from "@/i18n/it";
 import { COMPLETE_PROFILE_PATH } from "@/lib/auth/access";
@@ -15,7 +16,7 @@ const actionBase = "flex h-12 items-center justify-center border border-on-marbl
 /** Azione principale: piena (e accesa nei temi con la luce), si svuota al passaggio e alla pressione. */
 const primaryActionClass = `${actionBase} glow bg-on-marble text-marble hover:bg-marble hover:text-on-marble active:bg-marble active:text-on-marble`;
 /** Azioni secondarie: bordo, si riempiono al passaggio e alla pressione. */
-const actionClass = `${actionBase} glow-hover hover:bg-on-marble hover:text-marble active:bg-on-marble active:text-marble`;
+const actionClass = `${actionBase} relative glow-hover hover:bg-on-marble hover:text-marble active:bg-on-marble active:text-marble`;
 
 // Schermata dopo la conferma (fetta 8b, SPEC §5.2): solo il cliente proprietario (RLS), altrimenti
 // 404; una prenotazione propria cancellata o già iniziata rimanda a "Le mie prenotazioni".
@@ -35,9 +36,10 @@ export default async function BookingConfirmedPage({ params }: { params: Promise
           <p>{t.loadError}</p>
           <Link
             href={MY_BOOKINGS_PATH}
-            className="inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface active:bg-ink active:text-surface"
+            className="relative inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface active:bg-ink active:text-surface"
           >
             {t.myBookings}
+            <LinkPending />
           </Link>
         </div>
       </main>
@@ -74,6 +76,7 @@ export default async function BookingConfirmedPage({ params }: { params: Promise
           </a>
           <Link href={MY_BOOKINGS_PATH} className={actionClass}>
             {t.myBookings}
+            <LinkPending />
           </Link>
           <Link href="/" className={actionClass}>
             {t.backHome}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkPending } from "@/components/link-pending";
 import { secondaryLinkClass } from "@/components/auth/secondary-link";
 import { NextBookingTicket } from "@/components/booking/next-booking-ticket";
 import { InstallBanner } from "@/components/pwa/install-banner";
@@ -80,18 +81,20 @@ export default async function HomePage() {
                 )}
                 <Link
                   href={MY_BOOKINGS_PATH}
-                  className="inline-flex h-11 w-fit items-center text-sm font-medium underline underline-offset-4 hover:no-underline"
+                  className="relative inline-flex h-11 w-fit items-center text-sm font-medium underline underline-offset-4 hover:no-underline"
                 >
                   {t.myBookings}
+                  <LinkPending />
                 </Link>
               </section>
             ))}
 
           <Link
             href={BOOK_PATH}
-            className="flex h-14 items-center justify-center border-[4px] border-double border-ink font-display text-2xl text-glow glow hover:bg-ink hover:text-surface active:bg-ink active:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="relative flex h-14 items-center justify-center border-[4px] border-double border-ink font-display text-2xl text-glow glow hover:bg-ink hover:text-surface active:bg-ink active:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             {t.book}
+            <LinkPending />
           </Link>
 
           <InstallBanner />

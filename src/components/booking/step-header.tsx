@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkPending } from "@/components/link-pending";
 import { it } from "@/i18n/it";
 
 /** Schermate del flusso: servizio, "Quando?", riepilogo (fetta 8e). */
@@ -37,13 +38,13 @@ export function StepHeader({
         {backHref ? (
           <Link
             href={backHref}
-            className="-ml-2 inline-flex h-11 w-fit items-center px-2 text-sm font-medium underline underline-offset-4 hover:no-underline"
+            className="relative -ml-2 inline-flex h-11 w-fit items-center px-2 text-sm font-medium underline underline-offset-4 hover:no-underline"
           >
             {it.booking.back}
+            <LinkPending markClassName="size-5" />
           </Link>
         ) : (
-          // Stessa altezza del link: lo scheletro del riepilogo (senza "Indietro") non sposta la pagina.
-          <span className="h-11" />
+          <span />
         )}
         <p className="text-sm text-muted-foreground tabular-nums">
           {it.booking.step.replace("{current}", String(step)).replace("{total}", String(BOOKING_STEPS))}

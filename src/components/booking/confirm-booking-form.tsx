@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { LinkPending } from "@/components/link-pending";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -60,8 +61,9 @@ export function ConfirmBookingForm({
         <div role="alert" className="flex flex-col gap-2 border-l-2 border-destructive pl-3 text-destructive">
           <p>{bookingErrorText(state.code)}</p>
           {SLOT_ERRORS.has(state.code) && (
-            <Link href={changeTimeHref} className="inline-flex h-11 items-center font-medium text-ink underline underline-offset-4">
+            <Link href={changeTimeHref} className="relative inline-flex h-11 items-center font-medium text-ink underline underline-offset-4">
               {t.changeTime}
+              <LinkPending />
             </Link>
           )}
         </div>

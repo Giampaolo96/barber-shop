@@ -39,8 +39,6 @@ export const it = {
     bookings: "Prenotazioni",
     staffArea: "Area staff",
   },
-  /** Annuncio per gli screen reader mentre una pagina si carica (scheletri). */
-  loading: "Caricamento in corso",
   booking: {
     step: "Passo {current} di {total}",
     back: "Indietro",

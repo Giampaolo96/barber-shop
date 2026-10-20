@@ -1221,3 +1221,42 @@ L'interruttore d'emergenza è verificato una volta su un Chromium pulito (script
 - Login dello staff: misurato in un giro completo normale il passaggio a `/admin` dopo il login, prima e dopo il commit perf (`4a86085` e `60015c4`): mediana 1872 e 1874 ms, nessun caso oltre 5 s in 64 e 61 login, massimo 3,9 e 4,9 s. Nessun peggioramento.
 - `loginAsAdmin` e `loginAsBarber` (`admin-helpers.ts`) aspettano fino a 15 s il menu dell'area staff (`waitForStaffArea`) prima del controllo del percorso; stessa attesa in `admin-staff-accounts.spec.ts` dopo lo sblocco. Asserzioni invariate. Nella suite admin con `--repeat-each=10` non è più fallito nessun login degli helper; i conflitti di dati rimasti (`admin-calendar-cancelled-overlap`, `admin-stats-to-update` "a zero") vengono dalle copie parallele della ripetizione.
 - **Da tenere d'occhio**: `my-bookings-book-cta.spec.ts` è fallito una volta sotto carico, alla registrazione del cliente ("link inviato" non comparso su `/accedi`), prima di arrivare a Le mie prenotazioni.
+
+## Niente scheletri, riscontro sul link toccato (2026-10-20)
+
+**Causa.** React (quello incluso in Next) mostra il contenuto sospeso non prima di 300 ms dopo il fallback (`globalMostRecentFallbackTime + 300` in `react-dom-client`). Con gli scheletri `loading.tsx` il contenuto vero arrivava sempre circa 300 ms dopo lo scheletro, anche con il server a 40–150 ms: più lento che senza scheletro.
+
+**Decisione dell'utente.** Tolti tutti gli scheletri del commit perf (listino, "Quando?", riepilogo, Le mie prenotazioni; `src/components/skeleton.tsx`, `it.loading`); listino ed elenco tornano a `prenota/page.tsx` e `prenotazioni/page.tsx`. Al loro posto `LinkPending` (`src/components/link-pending.tsx`, `useLinkStatus`): il link toccato diventa pieno con il segno del tema mentre la pagina si apre, lo stesso stato che avevano gli orari (`SlotPending` sostituito). È su: righe del listino, "Prenota" (home e Le mie prenotazioni), "Prenotazioni" nell'intestazione, "Le mie prenotazioni" in home e nel biglietto, "Indietro" del flusso, "Ricomincia", "Cambia orario", i link della conferma. Verificato con Playwright a 390×844: il link non si sposta (stessa posizione prima e durante l'attesa), il segno si anima solo con `prefers-reduced-motion: no-preference` (`animation: none` con `reduce`). Le altre ottimizzazioni del commit perf restano.
+
+**Misure** (build di produzione locale, cliente demo; mediane in ms, max fra parentesi; 15 tocchi in sequenza e 4 schede × 5 in parallelo)
+
+Tocco su "Primo libero" → URL / titolo / contenuto vero del riepilogo:
+
+| Codice | Sequenza | 4 paralleli |
+|---|---|---|
+| `4a86085` (prima del perf) | 135 / 149 / **151** | 430 / 454 / **459** |
+| `60015c4` (perf, con scheletro) | 90 / 106 / **415** | 128 / 185 / **579** |
+| Finale (senza scheletri, `LinkPending`) | 108 / 122 / **125** (155) | 318 / 346 / **351** (477) |
+
+Tocco su "Prenota" in home → URL / righe del listino:
+
+| Codice | Sequenza | 4 paralleli |
+|---|---|---|
+| `4a86085` | 88 / **95** (133) | 216 / **224** (348) |
+| Finale | 77 / **86** (97) | 189 / **197** (241) |
+
+In dev (stessa misura su "Primo libero", contenuto vero): `4a86085` 283 in sequenza e 772 in parallelo; con lo scheletro 585 e 880; senza scheletro 338 e 800.
+
+**`my-bookings-book-cta.spec.ts` (indagine).** Fallito in 3 giri completi su 10 col dev server, sempre alla registrazione del cliente: schermata di errore generica dopo una server action (`/accedi` due volte, `/auth/confirm` una). Nel log del server solo `SyntaxError: Unexpected end of JSON input at JSON.parse (<anonymous>)` sulla POST dell'azione, nessun frame dell'app; nel browser "An unexpected response was received from the server".
+- Il codice dell'app su quel percorso non lancia: `requestMagicLink` restituisce gli errori di Supabase come stato e `resetLoginCode` è in un `.catch`; la lettura unica di utente e profilo (`getVerifiedUserId` → `loadProfile`) restituisce null su errore, come prima (`requireRole` rimanda al login); un cliente appena registrato col profilo incompleto viene rimandato dal proxy a `/profilo/completa` prima del rendering. L'avviso "profilo non leggibile" copriva solo il fallimento di una seconda lettura che non esiste più.
+- Next in dev rilegge i manifest dal disco a ogni richiesta e lo stesso Next documenta che possono essere letti mentre Turbopack li riscrive durante una compilazione (`load-components.js`, 3 tentativi solo in dev).
+- 110 esecuzioni ripetute dei test di login del cliente col dev server: nessun errore. 2 giri completi sulla build di produzione (stessi worker, nessun tentativo in più): l'errore non compare mai e il test passa in entrambi.
+- Conclusione: lettura concorrente dei file di Next durante la compilazione al volo del dev server, non un'eccezione del codice dell'app; nessuna correzione nel codice. In CI gli e2e girano sulla build di produzione.
+
+**Altri e2e instabili visti in questi giri** (nessuno legato al codice dell'app):
+- `admin-stats-to-update.spec.ts` "a zero": i due test dello stesso file scelgono a caso una settimana fra gennaio e febbraio 2011–2015 e girano in parallelo; se la scelgono uguale, "a zero" vede le 2 prenotazioni dell'altro ("Received: 2"). Fallito in 2 giri normali.
+- `offline.spec.ts` (solo build di produzione, service worker): fallito una volta in un giro completo, 5/5 ripetuto da solo.
+
+**Note per i prossimi giri e2e**
+- **Causa nota dei fallimenti solo in dev**: errore del dev server di Next che legge a metà i propri manifest mentre li riscrive durante una compilazione al volo. Sintomo: `SyntaxError: Unexpected end of JSON input at JSON.parse (<anonymous>)` nel log del server su una POST di server action, schermata di errore generica nel browser ("An unexpected response was received from the server"). Se compare solo col dev server e non sulla build di produzione, non è un difetto dell'app.
+- **Da tenere d'occhio**: `offline.spec.ts` (solo build di produzione) è fallito una volta in un giro completo; da solo passa.

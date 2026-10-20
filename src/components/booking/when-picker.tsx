@@ -3,7 +3,8 @@
 // Il giorno all'apertura si riallinea all'URL anche dopo il ritorno con la cronologia (Next ripristina
 // dalla cache la pagina della prima apertura): perché serve, vedi docs/PROGRESS.md, fetta 8e,
 // "Indietro" dal riepilogo (2026-10-19).
-import Link, { useLinkStatus } from "next/link";
+import Link from "next/link";
+import { LinkPending } from "@/components/link-pending";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { BarberPortrait } from "@/components/barber-portrait";
@@ -24,7 +25,6 @@ import {
 } from "@/lib/booking/when";
 import { isWhenLoading, whenReducer } from "@/lib/booking/when-state";
 import { localDateOf } from "@/lib/domain/local-time";
-import { PendingMark } from "@/themes/active";
 
 export type WhenBarber = { id: string; name: string; photoUrl: string | null };
 
@@ -175,7 +175,7 @@ export function WhenPicker({
                   time: formatSlotTime(first.startsAt, timezone),
                   barber: firstBarber.name,
                 })}
-                <SlotPending />
+                <LinkPending />
               </Link>
             ) : (
               <p className="flex h-12 items-center text-muted-foreground">{t.noSlots}</p>
@@ -547,22 +547,11 @@ function SlotList({
               className="glow-hover relative flex h-11 items-center justify-center border border-control-rest text-sm font-medium tabular-nums hover:border-ink hover:bg-ink hover:text-surface focus-visible:border-ink active:border-ink active:bg-ink active:text-surface"
             >
               {time}
-              <SlotPending />
+              <LinkPending />
             </Link>
           </li>
         );
       })}
     </ul>
-  );
-}
-
-/** Mentre si apre il riepilogo l'orario toccato diventa pieno, con il segno del tema. */
-function SlotPending() {
-  const { pending } = useLinkStatus();
-  if (!pending) return null;
-  return (
-    <span aria-hidden="true" className="glow absolute inset-0 flex items-center justify-center bg-ink text-surface">
-      <PendingMark className="size-6" />
-    </span>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkPending } from "@/components/link-pending";
 import { BlockedNotice } from "@/components/booking/blocked-notice";
 import { StepHeader } from "@/components/booking/step-header";
 import { it } from "@/i18n/it";
@@ -48,7 +49,7 @@ function ServiceList({ services }: { services: BookableService[] }) {
             <Link
               href={href}
               aria-label={`${service.name}, ${duration}, ${price}`}
-              className="glow-hover flex min-h-16 flex-col justify-center gap-1 py-3 hover:bg-ink hover:text-surface active:bg-ink active:text-surface [&:active_.text-muted-foreground]:text-surface [&:hover_.text-muted-foreground]:text-surface"
+              className="glow-hover relative flex min-h-16 flex-col justify-center gap-1 py-3 hover:bg-ink hover:text-surface active:bg-ink active:text-surface [&:active_.text-muted-foreground]:text-surface [&:hover_.text-muted-foreground]:text-surface"
             >
               <span className="flex items-baseline gap-2 px-2 font-display text-2xl leading-tight">
                 <span>{service.name}</span>
@@ -59,6 +60,7 @@ function ServiceList({ services }: { services: BookableService[] }) {
                 {duration}
                 {service.description && <span className="block">{service.description}</span>}
               </span>
+              <LinkPending />
             </Link>
           </li>
         );
