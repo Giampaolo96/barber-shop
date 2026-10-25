@@ -124,3 +124,41 @@ export function rescaleScroll(oldLayout: RowLayout, newLayout: RowLayout, scroll
   const fraction = (scrollLeft - before.start) / (before.end - before.start);
   return after.start + fraction * (after.end - after.start);
 }
+
+/**
+ * Colonna più a sinistra visibile come identità (fetta 8g, rotazione): giorno, indice del barbiere e
+ * frazione della sua larghezza già uscita a sinistra. Se il bordo cade nello spazio prima della colonna
+ * (gap o spazio-giorno) `fraction` è negativa: la parte di quello spazio ancora da attraversare (-1..0).
+ */
+export type RowAnchor = { day: string; barberIndex: number; fraction: number };
+
+export function captureAnchor(layout: RowLayout, scrollLeft: number): RowAnchor {
+  const index = layout.columns.findIndex((c) => c.end > scrollLeft);
+  const column = index < 0 ? layout.columns.at(-1) : layout.columns[index];
+  if (!column) return { day: "", barberIndex: 0, fraction: 0 };
+  if (index < 0) return { day: column.date, barberIndex: column.barberIndex, fraction: 1 };
+  if (scrollLeft >= column.start) {
+    return { day: column.date, barberIndex: column.barberIndex, fraction: (scrollLeft - column.start) / (column.end - column.start) };
+  }
+  const previousEnd = layout.columns[index - 1]?.end;
+  // Prima colonna della fila (scrollLeft ≤ 0, anche il rimbalzo di iOS): al bordo.
+  if (previousEnd === undefined) return { day: column.date, barberIndex: column.barberIndex, fraction: 0 };
+  return {
+    day: column.date,
+    barberIndex: column.barberIndex,
+    fraction: (scrollLeft - column.start) / (column.start - previousEnd),
+  };
+}
+
+/** scrollLeft che rimette la colonna dell'ancora alla stessa frazione nel nuovo layout, in [0, max]. */
+export function restoreAnchor(layout: RowLayout, anchor: RowAnchor, maxScrollLeft: number): number {
+  const index = layout.columns.findIndex((c) => c.date === anchor.day && c.barberIndex === anchor.barberIndex);
+  const column = layout.columns[index];
+  if (!column) return 0;
+  const previousEnd = layout.columns[index - 1]?.end ?? column.start;
+  const left =
+    anchor.fraction >= 0
+      ? column.start + anchor.fraction * (column.end - column.start)
+      : column.start + anchor.fraction * (column.start - previousEnd);
+  return Math.min(Math.max(0, left), Math.max(0, maxScrollLeft));
+}

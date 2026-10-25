@@ -69,12 +69,11 @@ Il nero profondo richiama il negozio di sera: neon bianchi (al massimo con una l
 | Classe | Dove | Token |
 |---|---|---|
 | `text-glow` | titoli, nome del negozio, date e orari grandi; **mai sul testo lungo** | `--glow-text` |
-| `glow` | azione principale (pulsante pieno, "Prenota", "Primo libero", "Aggiungi al calendario"); il bagliore cresce al passaggio e al focus | `--glow-box`, `--glow-primary-hover` |
+| `glow` | azione principale (pulsante pieno, "Prenota", "Aggiungi al calendario"); il bagliore cresce al passaggio e al focus | `--glow-box`, `--glow-primary-hover` |
 | `glow-hover` | pulsanti con bordo, orari, giorni, righe del listino: si illuminano al passaggio e al focus | `--glow-box-hover` |
 | `[aria-current]` | elemento selezionato (giorno, vista del calendario, barbiere della settimana): si accende senza classi | `--glow-box` |
 | `glass` | **solo** pannelli grandi: riepilogo e dettagli della conferma | `--glass-bg`, `--glass-border`, `--glass-filter`, `--glass-pad` |
 | `glass-ink` | biglietto della prossima prenotazione (blocco nero in Mosca, vetro nel neon) | `--glass-ink-*` |
-| `emphasis` | "Primo libero": pieno in Mosca, contorno neon che si riempie al passaggio nel neon (come "Prenota") | `--emphasis-*` |
 | `sticky-bar` | striscia dei giorni, unico elemento fisso: fondo pieno in Mosca; nel neon velato e sfocato solo sugli schermi bassi (dove la pagina scorre), trasparente su quelli alti | `--sticky-bar-bg`, `--sticky-bar-filter` |
 | `portrait` | ritratti dei barbieri | `--portrait-*` |
 | `mark-glow` | la mosca in volo e posata | `--glow-mark` |

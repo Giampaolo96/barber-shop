@@ -18,18 +18,25 @@ export type DayCacheAction =
   | { type: "loaded"; date: string; requestId: number; day: WhenDay }
   /** Errore della richiesta `requestId`. */
   | { type: "failed"; date: string; requestId: number }
-  /** Nuovo tentativo di un giorno in errore: la voce sparisce e la coda lo richiede (nextRequests). */
-  | { type: "retry"; date: string };
+  /**
+   * Più giorni insieme (ricarica in background, fetta 8g): ognuno diventa caricato, tranne se ha una
+   * richiesta singola più recente in corso. I giorni assenti dalla risposta restano come sono.
+   */
+  | { type: "loadedMany"; requestId: number; days: WhenDay[] };
 
 export function dayCacheReducer(state: DayCache, action: DayCacheAction): DayCache {
+  if (action.type === "loadedMany") {
+    if (action.days.length === 0) return state;
+    const next = { ...state };
+    for (const day of action.days) {
+      const entry = state[day.date];
+      if (entry?.status === "loading" && entry.requestId > action.requestId) continue;
+      next[day.date] = { status: "loaded", day };
+    }
+    return next;
+  }
   const entry = state[action.date];
   switch (action.type) {
-    case "retry": {
-      if (entry?.status !== "error") return state;
-      const rest = { ...state };
-      delete rest[action.date];
-      return rest;
-    }
     case "request":
       return { ...state, [action.date]: { status: "loading", requestId: action.requestId } };
     case "loaded":

@@ -59,8 +59,9 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+      # WebKit per il progetto mobile-webkit (rotazione di "Quando?", fetta 8g).
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
 
       # Con CI=true il webServer di Playwright esegue build + start (build di produzione).
       - name: E2E tests

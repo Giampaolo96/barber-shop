@@ -59,14 +59,12 @@ export const it = {
     /** Passo "Quando?" (SPEC §5.2, fetta 8e). */
     when: {
       title: "Quando?",
-      firstFree: "Primo libero: {time} con {barber}",
       slotLabel: "{time} con {barber}",
       /** Oggi non mostrato (nelle colonne c'è solo il divisore "Pomeriggio"): resta perché lo usano i test di accettazione e per usi futuri. */
       morning: "Mattina",
       afternoon: "Pomeriggio",
       /** Divisore fra mattina e pomeriggio quando la colonna è stretta. */
       afternoonShort: "Pom.",
-      noSlots: "Nessun orario libero",
       /** Colonna di un barbiere senza orari nel giorno scelto. */
       columnNoSlots: "Nessun orario",
       /** Gruppo della colonna di un barbiere in un giorno della fila. */
@@ -87,6 +85,8 @@ export const it = {
       dayClosed: "{day}, chiuso",
       /** Annuncio per gli screen reader quando cambia il giorno. */
       dayAnnounce: "Orari di {day}",
+      /** Annuncio di un giorno senza orari liberi. */
+      dayAnnounceEmpty: "{day}, nessun orario libero",
     },
     summary: {
       title: "Riepilogo",

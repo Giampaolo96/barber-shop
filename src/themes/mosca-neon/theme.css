@@ -74,12 +74,6 @@
   --portrait-filter: grayscale(1) brightness(0.84) contrast(1.05);
   --portrait-glow: 0 0 var(--neon-wide) var(--neon-halo);
 
-  /* "Primo libero": contorno neon che si riempie al passaggio, come "Prenota". */
-  --emphasis-bg: transparent;
-  --emphasis-fg: var(--ink);
-  --emphasis-hover-bg: var(--ink);
-  --emphasis-hover-fg: var(--surface);
-
   /* Striscia dei giorni: fondo velato e sfocato dove la pagina le scorre sotto (vedi più in basso). */
   --sticky-bar-bg: #0b0b0c8c;
   --sticky-bar-filter: blur(10px);
