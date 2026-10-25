@@ -30,13 +30,13 @@ export default async function ChooseWhenPage({
   const query = params.success ? params.data : null;
   // Le letture dipendono solo dall'URL: partono insieme ai controlli di accesso, la pagina mostra
   // qualcosa solo dopo requireRole (in loadBookingPageContext). Un preferito che non fa il servizio
-  // non ha orari, quindi non conta nel "Primo libero" e più sotto viene scartato.
+  // più sotto viene scartato.
   const [{ shop, access }, bookable, allBarbers, overview] = await Promise.all([
     loadBookingPageContext(),
     query ? getBookableService(query.servizio) : null,
     query ? getBarbersForService(query.servizio) : [],
     query
-      ? getWhenOverview({ serviceId: query.servizio, requestedDay: query.giorno, barberId: query.barbiere })
+      ? getWhenOverview({ serviceId: query.servizio, requestedDay: query.giorno })
       : null,
   ]);
   // Al cliente bloccato non si mostra nulla del servizio, come prima della lettura in parallelo.
@@ -99,7 +99,6 @@ function When({
       serviceId={serviceId}
       timezone={timezone}
       preferredId={preferredId ?? null}
-      recentId={overview.recentId}
       barbers={barbers}
       days={overview.days}
       initialDay={overview.day}

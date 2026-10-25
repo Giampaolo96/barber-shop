@@ -26,7 +26,6 @@ import { fetchWhenDay } from "@/lib/booking/availability-actions";
 import { dayParts, formatDayLabel } from "@/lib/booking/format";
 import { summaryStepUrl, whenStepUrl } from "@/lib/booking/paths";
 import {
-  firstFreeAmong,
   formatNextFree,
   formatNextFreeDay,
   formatSlotTime,
@@ -101,8 +100,7 @@ const dayOfRow = (el: HTMLElement, layout: RowLayout, chosen: string | null): st
 const sameDays = (a: string[], b: string[]): boolean => a.length === b.length && a.every((d, i) => d === b[i]);
 
 /**
- * "Quando?" (SPEC §5.2, fette 8e e 8f): striscia dei giorni in alto, "Primo libero" e una fila
- * continua di colonne, per ogni giorno della fila una per barbiere. Il giorno selezionato è quello
+ * "Quando?" (SPEC §5.2, fette 8e, 8f e 8g): striscia dei giorni in alto e una fila continua di colonne, per ogni giorno della fila una per barbiere. Il giorno selezionato è quello
  * della colonna più a sinistra visibile: la striscia lo segue a ogni frame, URL e annuncio solo a fila
  * ferma. Si disegnano solo i giorni vicini alla zona visibile (gli altri sono segnaposto della stessa
  * larghezza); i giorni si chiedono uno alla volta, al massimo tre insieme, e restano in memoria.
@@ -111,17 +109,14 @@ export function WhenPicker({
   serviceId,
   timezone,
   preferredId,
-  recentId,
   barbers,
   days,
   initialDay,
 }: {
   serviceId: string;
   timezone: string;
-  /** Barbiere arrivato dall'URL: colonna evidenziata e precedenza nel "Primo libero". */
+  /** Barbiere arrivato dall'URL: colonna evidenziata, conservato negli URL del flusso. */
   preferredId: string | null;
-  /** Barbiere dell'ultimo appuntamento: precedenza nel "Primo libero" dopo il preferito. */
-  recentId: string | null;
   /** Già nell'ordine delle colonne. */
   barbers: WhenBarber[];
   days: DayStatus[];
@@ -194,22 +189,17 @@ export function WhenPicker({
     (date: string) => {
       const requestId = ++requestSeq.current;
       dispatch({ type: "request", date, requestId });
-      fetchWhenDay({ serviceId, date, barberId: preferredId ?? undefined, recentBarberId: recentId ?? undefined })
+      fetchWhenDay({ serviceId, date })
         .then((result) =>
           dispatch(
             result.ok
-              ? {
-                  type: "loaded",
-                  date,
-                  requestId,
-                  day: { date: result.date, firstFree: result.firstFree, barbers: result.barbers },
-                }
+              ? { type: "loaded", date, requestId, day: { date: result.date, barbers: result.barbers } }
               : { type: "failed", date, requestId },
           ),
         )
         .catch(() => dispatch({ type: "failed", date, requestId }));
     },
-    [serviceId, preferredId, recentId],
+    [serviceId],
   );
 
   // Coda: prima il giorno selezionato, poi i vicini dal più prossimo; al massimo tre insieme. Un
@@ -268,11 +258,16 @@ export function WhenPicker({
       const first = committedRef.current === null;
       committedRef.current = date;
       window.history.replaceState(null, "", dayUrl(date));
-      if (!first) setAnnouncement(fillText(t.dayAnnounce, { day: formatDayLabel(date) }));
+      if (!first) {
+        // Senza orari l'annuncio lo dice (le colonne mostrano "Nessun orario").
+        const entry = cacheRef.current[date];
+        const empty = entry?.status === "loaded" && entry.day.barbers.every((b) => b.slots.length === 0);
+        setAnnouncement(fillText(empty ? t.dayAnnounceEmpty : t.dayAnnounce, { day: formatDayLabel(date) }));
+      }
       // Un giorno non caricato si riprova quando torna selezionato, passando dalla coda.
       if (cacheRef.current[date]?.status === "error") dispatch({ type: "retry", date });
     },
-    [dayUrl, t.dayAnnounce],
+    [dayUrl, t.dayAnnounce, t.dayAnnounceEmpty],
   );
 
   const settle = useCallback(() => {
@@ -443,15 +438,6 @@ export function WhenPicker({
   };
 
   const drawnSet = new Set(drawn);
-  const selectedEntry = cache[selected];
-  const first =
-    selectedEntry?.status === "loaded"
-      ? firstFreeAmong(
-          selectedEntry.day,
-          barbers.map((b) => b.id),
-        )
-      : null;
-  const firstBarber = first ? barbers.find((b) => b.id === first.barberId) : undefined;
 
   return (
     <div className="flex flex-col gap-3 tall:min-h-0 tall:flex-1">
@@ -459,30 +445,6 @@ export function WhenPicker({
       <p aria-live="polite" className="sr-only">
         {announcement}
       </p>
-
-      {/* Altezza fissa: con o senza "Primo libero" (e durante il caricamento) le colonne non si spostano. */}
-      <div className="h-12 shrink-0">
-        {selectedEntry?.status === "error" ? (
-          <p role="alert" className="flex h-12 items-center border-l-2 border-destructive pl-3 text-destructive">
-            {it.booking.errors.generic}
-          </p>
-        ) : selectedEntry?.status !== "loaded" ? (
-          <div aria-hidden="true" className="h-12 bg-disabled" />
-        ) : first && firstBarber ? (
-          <Link
-            href={summaryStepUrl(serviceId, firstBarber.id, first.startsAt, preferredId ?? undefined)}
-            className="on-ink emphasis glow text-glow relative flex h-12 items-center border border-ink px-4 font-medium"
-          >
-            {fillText(t.firstFree, {
-              time: formatSlotTime(first.startsAt, timezone),
-              barber: firstBarber.name,
-            })}
-            <LinkPending />
-          </Link>
-        ) : (
-          <p className="flex h-12 items-center text-muted-foreground">{t.noSlots}</p>
-        )}
-      </div>
 
       {/* @container: la larghezza delle colonne si calcola sulla larghezza utile (senza i margini). */}
       <div className="relative @container flex flex-col tall:min-h-0 tall:flex-1">

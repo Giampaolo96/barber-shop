@@ -2,4 +2,4 @@
 export type { Interval } from "./intervals";
 export type { AvailabilityInput, BarberAvailabilityInput, DayStatus } from "./slots";
 export { availableDays, computeSlots, computeSlotsByBarber, dayStatuses, nextSlotByBarber } from "./slots";
-export { firstFree, pickBarber } from "./assign";
+export { pickBarber } from "./assign";

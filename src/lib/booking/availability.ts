@@ -8,7 +8,6 @@ import {
   computeSlots,
   computeSlotsByBarber,
   dayStatuses,
-  firstFree,
   nextSlotByBarber,
   type AvailabilityInput,
   type BarberAvailabilityInput,
@@ -168,11 +167,7 @@ export async function getAvailableDays(args: {
 /** Orari di un barbiere nel giorno; `next` = primo orario nei giorni dopo, solo se il giorno è pieno. */
 export type WhenBarberDay = { barberId: string; slots: string[]; next: string | null };
 
-export type WhenDay = {
-  date: string;
-  firstFree: { barberId: string; startsAt: string } | null;
-  barbers: WhenBarberDay[];
-};
+export type WhenDay = { date: string; barbers: WhenBarberDay[] };
 
 export type WhenDayResult = ({ ok: true } & WhenDay) | { ok: false; error: "invalid" | "error" };
 
@@ -188,12 +183,7 @@ export type WhenOverview =
     }
   | { ok: false };
 
-const whenDaySchema = z.object({
-  serviceId: z.uuid(),
-  date: localDate,
-  barberId: z.uuid().optional(),
-  recentBarberId: z.uuid().optional(),
-});
+const whenDaySchema = z.object({ serviceId: z.uuid(), date: localDate });
 
 /**
  * Barbiere dell'ultimo appuntamento già iniziato del cliente in sessione (RLS: solo le proprie
@@ -222,15 +212,13 @@ async function loadRecentBarberId(now: Date): Promise<string | null> {
   );
 }
 
-/** Orari del giorno per barbiere, "Primo libero" e prossimo orario dei barbieri pieni. */
-function whenDayOf(input: AvailabilityInput, date: string, lastDay: string, preferred: string[]): WhenDay {
+/** Orari del giorno per barbiere e prossimo orario dei barbieri pieni. */
+function whenDayOf(input: AvailabilityInput, date: string, lastDay: string): WhenDay {
   const slotsByBarber = computeSlotsByBarber(input, date);
   const full = input.barbers.filter((b) => (slotsByBarber[b.barberId] ?? []).length === 0);
   const next = full.length > 0 ? nextSlotByBarber({ ...input, barbers: full }, date, lastDay) : {};
-  const first = firstFree(input, date, preferred);
   return {
     date,
-    firstFree: first ? { barberId: first.barberId, startsAt: first.startsAt.toISOString() } : null,
     barbers: input.barbers.map((b) => ({
       barberId: b.barberId,
       slots: (slotsByBarber[b.barberId] ?? []).map((d) => d.toISOString()),
@@ -243,11 +231,7 @@ function whenDayOf(input: AvailabilityInput, date: string, lastDay: string, pref
  * Apertura di "Quando?": una lettura dell'intero periodo prenotabile per la striscia dei giorni,
  * il giorno iniziale (quello richiesto se non chiuso, altrimenti il primo con orari) e i suoi orari.
  */
-export async function getWhenOverview(args: {
-  serviceId: string;
-  requestedDay?: string;
-  barberId?: string;
-}): Promise<WhenOverview> {
+export async function getWhenOverview(args: { serviceId: string; requestedDay?: string }): Promise<WhenOverview> {
   try {
     const [loaded, recentId] = await Promise.all([
       loadInput(args.serviceId, "any", null, null),
@@ -257,11 +241,10 @@ export async function getWhenOverview(args: {
     if (!loaded.input) return { ok: true, days: [], day: null, recentId };
     const days = dayStatuses(loaded.input, loaded.today, loaded.lastDay);
     const date = initialDay(days, args.requestedDay);
-    const preferred = [args.barberId, recentId].filter((id): id is string => !!id);
     return {
       ok: true,
       days,
-      day: date ? whenDayOf(loaded.input, date, loaded.lastDay, preferred) : null,
+      day: date ? whenDayOf(loaded.input, date, loaded.lastDay) : null,
       recentId,
     };
   } catch (error) {
@@ -273,26 +256,18 @@ export async function getWhenOverview(args: {
 /**
  * Cambio di giorno in "Quando?": una lettura dal giorno scelto all'ultimo giorno prenotabile (serve
  * per il prossimo orario dei barbieri pieni). Giorno fuori dal periodo prenotabile: invalid.
- * `recentBarberId`: barbiere dell'ultimo appuntamento, calcolato all'apertura da getWhenOverview e
- * rimandato dal client (è un dato del cliente stesso; conta solo come precedenza nel "Primo libero").
  */
-export async function getWhenDay(args: {
-  serviceId: string;
-  date: string;
-  barberId?: string;
-  recentBarberId?: string;
-}): Promise<WhenDayResult> {
+export async function getWhenDay(args: { serviceId: string; date: string }): Promise<WhenDayResult> {
   const parsed = whenDaySchema.safeParse(args);
   if (!parsed.success) return { ok: false, error: "invalid" };
-  const { serviceId, date, barberId, recentBarberId: recentId } = parsed.data;
+  const { serviceId, date } = parsed.data;
 
   try {
     const loaded = await loadInput(serviceId, "any", date, null);
     if (!loaded.ok) return { ok: false, error: "error" };
     if (date < loaded.today || date > loaded.lastDay) return { ok: false, error: "invalid" };
-    if (!loaded.input) return { ok: true, date, firstFree: null, barbers: [] };
-    const preferred = [barberId, recentId].filter((id): id is string => !!id);
-    return { ok: true, ...whenDayOf(loaded.input, date, loaded.lastDay, preferred) };
+    if (!loaded.input) return { ok: true, date, barbers: [] };
+    return { ok: true, ...whenDayOf(loaded.input, date, loaded.lastDay) };
   } catch (error) {
     console.error("getWhenDay", error);
     return { ok: false, error: "error" };
