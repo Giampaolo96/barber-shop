@@ -1,6 +1,8 @@
+// modificato in fetta 8g con l'approvazione dell'utente (2026-10-25): tolto "Primo libero" (firstFree,
+// testi firstFree e noSlots) e i parametri barberId / recentBarberId di fetchWhenDay.
 // Test di accettazione – FETTA 8e (SPEC §11: "Prenotazione da telefono: servizio → quando → conferma").
 // Regole: SPEC §5.2 passo 2 ("Quando?": striscia dei giorni, giorni chiusi e senza posti, giorno
-// iniziale, "Primo libero", sezioni per barbiere e loro ordine, Mattina/Pomeriggio, prossimo orario
+// iniziale, sezioni per barbiere e loro ordine, Mattina/Pomeriggio, prossimo orario
 // libero, vecchi URL), §4 (motore e regola di "qualsiasi barbiere"), §3.1 (max_horizon_days),
 // §9 (testi in italiano), CLAUDE.md regole 2, 5, 6 e Sicurezza (Zod, solo orari in uscita) +
 // decisioni approvate per la fetta 8e (docs/PROGRESS.md, "Fetta 8e").
@@ -14,9 +16,6 @@
 //       (computeSlots); altrimenti "full".
 //     nextSlotByBarber(input, afterDate: string, to: string): Record<string, Date | null>
 //       per ogni barbiere dell'input il primo slot nei giorni locali dopo afterDate fino a `to` incluso.
-//     firstFree(input, date: string, preferredBarberIds: string[]): { barberId: string; startsAt: Date } | null
-//       primo orario del giorno fra tutti i barbieri; a parità il primo preferito libero a quell'ora,
-//       altrimenti pickBarber con conteggi = intervalli busy che iniziano quel giorno locale per barbiere.
 //   src/lib/booking/when.ts (puro, nessun I/O):
 //     orderBarbers<T extends { id: string; name: string }>(barbers: T[], opts: { preferredId?: string | null; recentId?: string | null }): T[]
 //     recentBarberId(bookings: Array<{ barberId: string | null; startsAt: string; status: string }>, now: Date): string | null
@@ -29,13 +28,12 @@
 //     whenStepUrl(serviceId: string, opts?: { day?: string; barberId?: string }): string
 //     legacyWhenUrl(params: Record<string, string | undefined>): string   (vecchi /prenota/barbiere e /prenota/orario)
 //   src/lib/booking/availability-actions.ts ("use server"):
-//     fetchWhenDay({ serviceId, date, barberId? }) →
-//       { ok: true; date: string; firstFree: { barberId: string; startsAt: string } | null;
-//         barbers: Array<{ barberId: string; slots: string[]; next: string | null }> }
+//     fetchWhenDay({ serviceId, date }) →
+//       { ok: true; date: string; barbers: Array<{ barberId: string; slots: string[]; next: string | null }> }
 //       | { ok: false; error: "invalid" | "error" }
 //     input validato con Zod, una sola chiamata ad availability_inputs per richiesta.
-//   src/i18n/it.ts, it.booking.when: title, firstFree, slotLabel, morning, afternoon, noSlots,
-//     nextFree, preferred, dayClosed (valori sotto).
+//   src/i18n/it.ts, it.booking.when: title, slotLabel, morning, afternoon, nextFree, preferred,
+//     dayClosed (valori sotto).
 //
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
 
@@ -64,11 +62,6 @@ type EngineModule = {
   pickBarber: (input: AvailabilityInput, start: Date, bookingCounts: Record<string, number>) => string | null;
   dayStatuses: (input: AvailabilityInput, from: string, to: string) => DayStatus[];
   nextSlotByBarber: (input: AvailabilityInput, afterDate: string, to: string) => Record<string, Date | null>;
-  firstFree: (
-    input: AvailabilityInput,
-    date: string,
-    preferredBarberIds: string[],
-  ) => { barberId: string; startsAt: Date } | null;
 };
 
 type WhenModule = {
@@ -96,12 +89,11 @@ type WhenDayResult =
   | {
       ok: true;
       date: string;
-      firstFree: { barberId: string; startsAt: string } | null;
       barbers: Array<{ barberId: string; slots: string[]; next: string | null }>;
     }
   | { ok: false; error: 'invalid' | 'error' };
 type ActionsModule = {
-  fetchWhenDay: (args: { serviceId: string; date: string; barberId?: string }) => Promise<WhenDayResult>;
+  fetchWhenDay: (args: { serviceId: string; date: string }) => Promise<WhenDayResult>;
 };
 
 const load = async <T>(specifier: string): Promise<T> => (await import(/* @vite-ignore */ specifier)) as T;
@@ -289,84 +281,6 @@ describe('nextSlotByBarber – SPEC §5.2: prossimo orario libero nei giorni suc
       '2027-03-05',
     );
     expect(result[B1]?.toISOString()).toBe(at('2027-03-05', '15:00').toISOString());
-  });
-});
-
-// ---------------------------------------------------------------------------
-// firstFree – SPEC §5.2 "Primo libero", §4 (regola di "qualsiasi barbiere")
-// ---------------------------------------------------------------------------
-describe('firstFree – SPEC §5.2 "Primo libero" e §4', () => {
-  const DAY = '2027-03-02';
-
-  test('primo orario del giorno fra tutti i barbieri, anche se il preferito ha un orario più tardi', () => {
-    need('engine', 'firstFree');
-    const result = engine.firstFree(
-      input({
-        barbers: [barber(B1, { work: [iv(DAY, '09:30', '12:00')] }), barber(B2, { work: [iv(DAY, '09:00', '12:00')] })],
-      }),
-      DAY,
-      [B1],
-    );
-    expect(result).toEqual({ barberId: B2, startsAt: at(DAY, '09:00') });
-  });
-
-  test('parità al primo orario: vince il preferito se è libero a quell\'ora (qualunque sia l\'ordine in input)', () => {
-    need('engine', 'firstFree');
-    const data = input({
-      barbers: [barber(B1, { work: [iv(DAY, '09:00', '12:00')] }), barber(B2, { work: [iv(DAY, '09:00', '12:00')] })],
-    });
-    expect(engine.firstFree(data, DAY, [B1])).toEqual({ barberId: B1, startsAt: at(DAY, '09:00') });
-    expect(engine.firstFree(data, DAY, [B2])).toEqual({ barberId: B2, startsAt: at(DAY, '09:00') });
-  });
-
-  test('preferiti in ordine (URL, poi ultimo appuntamento): il primo non libero a quell\'ora si salta, vince il successivo libero', () => {
-    need('engine', 'firstFree');
-    const data = input({
-      barbers: [
-        barber(B1, { work: [iv(DAY, '09:00', '12:00')] }),
-        barber(B2, { work: [iv(DAY, '09:00', '12:00')] }),
-        barber(B3, { work: [iv(DAY, '09:00', '12:00')], busy: [iv(DAY, '09:00', '09:30')] }),
-      ],
-    });
-    expect(engine.firstFree(data, DAY, [B3, B2])).toEqual({ barberId: B2, startsAt: at(DAY, '09:00') });
-  });
-
-  test('preferito non libero: pickBarber con conteggi = prenotazioni (busy) che iniziano quel giorno locale', () => {
-    need('engine', 'firstFree');
-    const data = input({
-      barbers: [
-        // 2 prenotazioni nel giorno
-        barber(B1, { work: [iv(DAY, '09:00', '18:00')], busy: [iv(DAY, '15:00', '15:30'), iv(DAY, '16:00', '16:30')] }),
-        // 0 nel giorno, 3 il giorno prima (non contano)
-        barber(B2, {
-          work: [iv(DAY, '09:00', '18:00'), iv('2027-03-01', '10:00', '18:00')],
-          busy: [iv('2027-03-01', '10:00', '10:30'), iv('2027-03-01', '11:00', '11:30'), iv('2027-03-01', '12:00', '12:30')],
-        }),
-        // preferito, occupato alle 9:00
-        barber(B3, { work: [iv(DAY, '09:00', '18:00')], busy: [iv(DAY, '09:00', '09:30')] }),
-      ],
-    });
-    const result = engine.firstFree(data, DAY, [B3]);
-    expect(result).toEqual({ barberId: B2, startsAt: at(DAY, '09:00') });
-    expect(result?.barberId).toBe(engine.pickBarber(data, at(DAY, '09:00'), { [B1]: 2, [B2]: 0, [B3]: 1 }));
-  });
-
-  test('senza preferiti, parità: stesso esito di pickBarber (a parità di conteggi il criterio deterministico di §4)', () => {
-    need('engine', 'firstFree');
-    const data = input({
-      barbers: [barber(B1, { work: [iv(DAY, '09:00', '12:00')] }), barber(B2, { work: [iv(DAY, '09:00', '12:00')] })],
-    });
-    const result = engine.firstFree(data, DAY, []);
-    expect(result?.startsAt).toEqual(at(DAY, '09:00'));
-    expect(result?.barberId).toBe(engine.pickBarber(data, at(DAY, '09:00'), {}));
-  });
-
-  test('nessuno slot nel giorno → null', () => {
-    need('engine', 'firstFree');
-    const data = input({
-      barbers: [barber(B1, { work: [iv(DAY, '09:00', '10:00')], busy: [iv(DAY, '09:00', '10:00')] }), barber(B2)],
-    });
-    expect(engine.firstFree(data, DAY, [B1])).toBeNull();
   });
 });
 
@@ -661,11 +575,9 @@ describe('legacyWhenUrl – SPEC §5.2: i vecchi /prenota/barbiere e /prenota/or
 describe('testi della fetta 8e in src/i18n/it.ts (SPEC §9)', () => {
   test.each([
     ['booking.when.title', 'Quando?'],
-    ['booking.when.firstFree', 'Primo libero: {time} con {barber}'],
     ['booking.when.slotLabel', '{time} con {barber}'],
     ['booking.when.morning', 'Mattina'],
     ['booking.when.afternoon', 'Pomeriggio'],
-    ['booking.when.noSlots', 'Nessun orario libero'],
     ['booking.when.nextFree', 'prossimo: {when}'],
     ['booking.when.preferred', 'Il tuo barbiere'],
     ['booking.when.dayClosed', '{day}, chiuso'],
@@ -853,21 +765,20 @@ describe('fetchWhenDay – SPEC §5.2, §4, CLAUDE.md regola 6: solo orari e id 
     vi.useRealTimers();
   });
 
-  test('input non valido (servizio non uuid, data inesistente, barbiere non uuid) → invalid, nessuna lettura', async () => {
+  test('input non valido (servizio non uuid, data inesistente) → invalid, nessuna lettura', async () => {
     const { fetchWhenDay } = await load<ActionsModule>('@/lib/booking/availability-actions');
     expect(fetchWhenDay, 'export mancante: fetchWhenDay').toBeTypeOf('function');
     for (const args of [
       { serviceId: 'taglio', date: DATE },
       { serviceId: SERVICE, date: '2027-02-30' },
       { serviceId: SERVICE, date: '02/03/2027' },
-      { serviceId: SERVICE, date: DATE, barberId: 'mario' },
     ]) {
       expect(await fetchWhenDay(args), JSON.stringify(args)).toEqual({ ok: false, error: 'invalid' });
     }
     expect(fake.rpcCalls).toEqual([]);
   });
 
-  test('una sola chiamata ad availability_inputs; orari per barbiere, primo libero, prossimo orario; nessuna service_role', async () => {
+  test('una sola chiamata ad availability_inputs; orari per barbiere, prossimo orario; nessuna service_role', async () => {
     const { fetchWhenDay } = await load<ActionsModule>('@/lib/booking/availability-actions');
     expect(fetchWhenDay, 'export mancante: fetchWhenDay').toBeTypeOf('function');
     const result = await fetchWhenDay({ serviceId: SERVICE, date: DATE });
@@ -877,7 +788,6 @@ describe('fetchWhenDay – SPEC §5.2, §4, CLAUDE.md regola 6: solo orari e id 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.date).toBe(DATE);
-    expect(result.firstFree).toEqual({ barberId: B1, startsAt: '2027-03-02T08:00:00.000Z' });
 
     const byId = Object.fromEntries(result.barbers.map((b) => [b.barberId, b]));
     expect(byId[B1]?.slots).toEqual(['2027-03-02T08:00:00.000Z', '2027-03-02T08:15:00.000Z', '2027-03-02T08:30:00.000Z']);
@@ -889,12 +799,11 @@ describe('fetchWhenDay – SPEC §5.2, §4, CLAUDE.md regola 6: solo orari e id 
   test('l\'uscita contiene solo le chiavi previste: nessun dato di prenotazioni o clienti', async () => {
     const { fetchWhenDay } = await load<ActionsModule>('@/lib/booking/availability-actions');
     expect(fetchWhenDay, 'export mancante: fetchWhenDay').toBeTypeOf('function');
-    const result = await fetchWhenDay({ serviceId: SERVICE, date: DATE, barberId: B2 });
+    const result = await fetchWhenDay({ serviceId: SERVICE, date: DATE });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(Object.keys(result).sort()).toEqual(['barbers', 'date', 'firstFree', 'ok']);
-    if (result.firstFree) expect(Object.keys(result.firstFree).sort()).toEqual(['barberId', 'startsAt']);
+    expect(Object.keys(result).sort()).toEqual(['barbers', 'date', 'ok']);
     for (const entry of result.barbers) expect(Object.keys(entry).sort()).toEqual(['barberId', 'next', 'slots']);
 
     const json = JSON.stringify(result);

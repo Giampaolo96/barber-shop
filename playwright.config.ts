@@ -31,11 +31,18 @@ export default defineConfig({
       // Le impostazioni del negozio sono condivise: il loro test gira a parte, dopo gli altri.
       testIgnore: /admin-settings\.spec\.ts$/,
     },
+    // Rotazione di "Quando?" anche su WebKit (fetta 8g): solo quel file; mobile-chromium lo esegue comunque.
+    {
+      name: "mobile-webkit",
+      use: { ...devices["iPhone 14"] },
+      testMatch: /booking-when-rotation\.spec\.ts$/,
+    },
     {
       name: "admin-settings",
       use: { ...devices["Pixel 7"] },
       testMatch: /admin-settings\.spec\.ts$/,
-      dependencies: ["mobile-chromium"],
+      // Dopo tutti gli altri: modifica shop_settings, che anche la rotazione legge.
+      dependencies: ["mobile-chromium", "mobile-webkit"],
     },
   ],
   webServer: {

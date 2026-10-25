@@ -1,7 +1,8 @@
 // modificato in fetta 8f con l'approvazione dell'utente (2026-10-25)
+// modificato in fetta 8g con l'approvazione dell'utente (2026-10-25): tolto "Primo libero" (test, helper e riga del contratto).
 // Test di accettazione e2e – FETTA 8e (SPEC §11: "Prenotazione da telefono: servizio → quando →
 // conferma"). Regole: SPEC §5.2 (flusso in 3 schermate, pagina "Quando?", striscia dei giorni,
-// "Primo libero", sezioni per barbiere, barbiere senza posti, vecchi URL), §4, §9 (tap target ≥ 44 px,
+// sezioni per barbiere, barbiere senza posti, vecchi URL), §4, §9 (tap target ≥ 44 px,
 // testi in italiano) + decisioni approvate per la fetta 8e (docs/PROGRESS.md, "Fetta 8e").
 // Tutti i test a 390×844 (riferimento telefono di SPEC §5.2).
 //
@@ -30,7 +31,6 @@
 //     fila in ./when-row-helpers.ts e booking-when-row.spec.ts.
 //   - orari: link (o pulsanti) con nome accessibile it.booking.when.slotLabel ("9:30 con <nome>"),
 //     alti almeno 44 px.
-//   - "Primo libero": link o pulsante con nome it.booking.when.firstFree ("Primo libero: 9:00 con <nome>").
 //   - barbiere senza posti: it.booking.when.columnNoSlots ("Nessun orario") e link con nome
 //     it.booking.when.nextFree ("prossimo: mar 20, 9:30") a /prenota/quando con quel giorno; senza orari
 //     nel periodo solo columnNoSlots.
@@ -181,9 +181,6 @@ const barberSection = (page: Page, name: string, day: string): Locator => whenCo
 
 const slot = (scope: Locator, time: string, barber: string): Locator =>
   linkOrButton(scope, sf('booking.when.slotLabel', { time, barber }));
-
-const firstFreeButton = (page: Page, time: string, barber: string): Locator =>
-  linkOrButton(main(page), sf('booking.when.firstFree', { time, barber }));
 
 /** Indici (in `names`) dei barbieri nell'ordine delle colonne del giorno `day`. */
 const sectionOrder = (page: Page, names: string[], day: string): Promise<number[]> =>
@@ -340,63 +337,6 @@ test('flusso 8e: dal listino a "Quando?", cambio giorno (anche da tastiera), ora
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ barber_id: betaId, status: 'confirmed' });
     expect(new Date(rows[0]?.starts_at ?? '').getTime()).toBe(expectedStart);
-  } finally {
-    await cleanup(api, data);
-  }
-});
-
-// ---------------------------------------------------------------------------
-// 2. "Primo libero" (SPEC §5.2, §4)
-// ---------------------------------------------------------------------------
-test('"Primo libero": primo orario del giorno fra le sezioni, vince il preferito se libero a quell\'ora; porta al riepilogo', async ({
-  page,
-  request,
-}) => {
-  const api = await adminApi(request);
-  const data: Created = { services: [], barbers: [], bookings: [] };
-  try {
-    const service = await newService(api, data, 'Primo libero');
-    const first = uniqueName('Primo');
-    const second = uniqueName('Secondo');
-    const late = uniqueName('Tardi');
-    const firstId = await newBarber(api, data, service.id, first, { weekdays: ALL_WEEK, start: '09:00', end: '18:00' });
-    const secondId = await newBarber(api, data, service.id, second, { weekdays: ALL_WEEK, start: '09:00', end: '18:00' });
-    const lateId = await newBarber(api, data, service.id, late, { weekdays: ALL_WEEK, start: '10:00', end: '18:00' });
-    await signUpCustomer(page, 'primolibero');
-    const day = plusDays(today(), 2);
-    const url = (barber?: string): string =>
-      `${WHEN_PATH}?servizio=${service.id}&giorno=${day}${barber ? `&barbiere=${barber}` : ''}`;
-
-    // Il primo orario del giorno è alle 9:00 nelle sezioni di "Primo" e "Secondo", non prima
-    await page.goto(url());
-    await expect(slot(barberSection(page, first, day), '9:00', first)).toBeVisible();
-    await expect(slot(barberSection(page, second, day), '9:00', second)).toBeVisible();
-    await expect(slot(barberSection(page, late, day), '10:00', late)).toBeVisible();
-    // Senza preferito, parità alle 9:00: uno dei due liberi (regola di "qualsiasi", sul server)
-    const either = new RegExp(
-      `^${escapeRegExp(sf('booking.when.firstFree', { time: '9:00', barber: '§' })).replace('§', `(?:${escapeRegExp(first)}|${escapeRegExp(second)})`)}$`,
-    );
-    await expect(linkOrButton(main(page), either)).toBeVisible();
-
-    // Preferito libero alle 9:00 → vince il preferito
-    await page.goto(url(secondId));
-    await expect(firstFreeButton(page, '9:00', second)).toBeVisible();
-    await page.goto(url(firstId));
-    await expect(firstFreeButton(page, '9:00', first)).toBeVisible();
-
-    // Preferito non libero alle 9:00 → comunque il primo orario, con uno dei barbieri liberi
-    await page.goto(url(lateId));
-    await expect(linkOrButton(main(page), either)).toBeVisible();
-    await expect(firstFreeButton(page, '10:00', late)).toHaveCount(0);
-
-    // Il tocco porta direttamente al riepilogo con quel barbiere e quell'orario
-    await page.goto(url(secondId));
-    await tap(firstFreeButton(page, '9:00', second));
-    await expectPath(page, '/prenota/riepilogo');
-    expect(searchParam(page, 'servizio')).toBe(service.id);
-    expect(searchParam(page, 'barbiere')).toBe(secondId);
-    expect(new Date(searchParam(page, 'inizio') ?? '').getTime()).toBe(localInstant(day, '09:00'));
-    await expect(main(page)).toContainText(second);
   } finally {
     await cleanup(api, data);
   }

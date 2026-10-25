@@ -1,12 +1,13 @@
 // modificato in fetta 8f con l'approvazione dell'utente (2026-10-25)
+// modificato in fetta 8g con l'approvazione dell'utente (2026-10-25): tolto "Primo libero" (firstFree
+// nel dato di prova e test di firstFreeAmong); asserzioni della cache invariate.
 // Correzioni e rifiniture dalla review della fetta 8e (decisioni approvate in docs/PROGRESS.md,
-// "Fetta 8e"): giorno iniziale senza giorni con posti, risposte arrivate in ritardo, "Primo libero"
-// limitato ai barbieri della pagina.
+// "Fetta 8e"): giorno iniziale senza giorni con posti, risposte arrivate in ritardo.
 import { describe, expect, test } from 'vitest';
 
 import type { DayStatus } from '@/lib/availability';
 import type { WhenDay } from '@/lib/booking/availability';
-import { firstFreeAmong, initialDay } from '@/lib/booking/when';
+import { initialDay } from '@/lib/booking/when';
 import { dayCacheReducer, type DayCache } from '@/lib/booking/when-state';
 
 describe('initialDay – nessun giorno con posti nel periodo → stato vuoto', () => {
@@ -40,7 +41,6 @@ describe('initialDay – nessun giorno con posti nel periodo → stato vuoto', (
 const B1 = 'b8e00000-0000-4000-8000-000000000001';
 const dayOf = (date: string, slot: string): WhenDay => ({
   date,
-  firstFree: { barberId: B1, startsAt: slot },
   barbers: [{ barberId: B1, slots: [slot], next: null }],
 });
 const DAY0 = dayOf('2027-03-01', '2027-03-01T09:00:00.000Z');
@@ -99,39 +99,5 @@ describe('dayCacheReducer – cache per giorno con id di richiesta (review 8e, a
     expect(cache[DAY_A.date]?.status, 'nuovo tentativo in caricamento').toBe('loading');
     cache = dayCacheReducer(cache, { type: 'loaded', date: DAY_A.date, requestId: 2, day: DAY_A });
     expect(cache[DAY_A.date]).toMatchObject({ status: 'loaded', day: DAY_A });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// "Primo libero" fra i barbieri della pagina
-// ---------------------------------------------------------------------------
-describe('firstFreeAmong – il "Primo libero" usa solo i barbieri mostrati', () => {
-  const B2 = 'b8e00000-0000-4000-8000-000000000002';
-  const B3 = 'b8e00000-0000-4000-8000-000000000003';
-  const day = {
-    firstFree: { barberId: B3, startsAt: '2027-03-02T08:00:00.000Z' },
-    barbers: [
-      { barberId: B1, slots: ['2027-03-02T09:00:00.000Z'] },
-      { barberId: B2, slots: ['2027-03-02T08:30:00.000Z', '2027-03-02T09:00:00.000Z'] },
-      { barberId: B3, slots: ['2027-03-02T08:00:00.000Z'] },
-    ],
-  };
-
-  test('barbiere scelto dal server fra quelli della pagina → quello', () => {
-    expect(firstFreeAmong(day, [B1, B2, B3])).toEqual(day.firstFree);
-  });
-
-  test('barbiere scelto dal server assente dalla pagina → primo orario fra quelli mostrati', () => {
-    expect(firstFreeAmong(day, [B1, B2])).toEqual({ barberId: B2, startsAt: '2027-03-02T08:30:00.000Z' });
-  });
-
-  test('parità fra i barbieri mostrati → il primo nell\'ordine della pagina', () => {
-    const same = '2027-03-02T09:00:00.000Z';
-    const tie = { firstFree: null, barbers: [{ barberId: B1, slots: [same] }, { barberId: B2, slots: [same] }] };
-    expect(firstFreeAmong(tie, [B2, B1])).toEqual({ barberId: B2, startsAt: same });
-  });
-
-  test('nessun orario fra i barbieri mostrati → null', () => {
-    expect(firstFreeAmong({ firstFree: null, barbers: [] }, [B1])).toBeNull();
   });
 });
