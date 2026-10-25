@@ -1,6 +1,6 @@
 # ADR 013 – "Quando?" a fila continua di giorni
 
-Data: 2026-10-25 · Stato: accettata · Fetta 8f · Aggiorna ADR 012 (passo "Quando?") e SPEC §5.2
+Data: 2026-10-25 · Stato: accettata · Fetta 8f · Aggiorna ADR 012 (passo "Quando?") e SPEC §5.2 · Dati, coda delle richieste, "Primo libero" e ridimensionamento superati da ADR 014 (fetta 8g)
 
 ## Contesto
 
