@@ -32,9 +32,7 @@ import {
   initialDay as dayToOpen,
   splitByPeriod,
 } from "@/lib/booking/when";
-import { nextRequests } from "@/lib/booking/when-queue";
 import {
-  dayAtScroll,
   firstColumnOffset,
   initialWindow,
   renderWindow,
@@ -49,21 +47,12 @@ import { localDateOf } from "@/lib/domain/local-time";
 
 export type WhenBarber = { id: string; name: string; photoUrl: string | null };
 
-/**
- * Richieste di giorni partite e non finite, al massimo (le altre aspettano nella coda della finestra).
- * Una sola, sotto il limite di 3 della SPEC: Next esegue le server action una alla volta, quindi più
- * richieste insieme non vanno più veloci ma restano in fila e, se si tocca un orario, la conferma del
- * riepilogo passa dopo di loro (app-router-instance.js di Next).
- */
-const MAX_REQUESTS = 1;
 /** Ripiego di scrollend (Safari): la fila è ferma dopo questo tempo senza eventi di scorrimento. */
 const SETTLE_MS = 150;
-/**
- * I giorni vicini si chiedono solo dopo questo tempo a fila ferma. Le server action di Next partono una
- * alla volta: richieste fatte mentre si scorre o subito prima di toccare un orario farebbero aspettare
- * la conferma del riepilogo. Il giorno selezionato si chiede subito.
- */
-const PREFETCH_DELAY_MS = 600;
+/** Pagina tornata visibile con orari più vecchi di così: si ricaricano in background (ADR 014). */
+const STALE_MS = 2 * 60_000;
+/** Ricarica di tutti i giorni: GET e non una server action, così non fa aspettare la conferma (ADR 014). */
+const DAYS_PATH = "/prenota/quando/orari";
 
 /** id del nome in testa alla colonna di un barbiere in un giorno (anche destinazione del focus). */
 const headingIdOf = (barberId: string, date: string): string => `barber-${barberId}-${date}`;
@@ -100,10 +89,11 @@ const dayOfRow = (el: HTMLElement, layout: RowLayout, chosen: string | null): st
 const sameDays = (a: string[], b: string[]): boolean => a.length === b.length && a.every((d, i) => d === b[i]);
 
 /**
- * "Quando?" (SPEC §5.2, fette 8e, 8f e 8g): striscia dei giorni in alto e una fila continua di colonne, per ogni giorno della fila una per barbiere. Il giorno selezionato è quello
- * della colonna più a sinistra visibile: la striscia lo segue a ogni frame, URL e annuncio solo a fila
- * ferma. Si disegnano solo i giorni vicini alla zona visibile (gli altri sono segnaposto della stessa
- * larghezza); i giorni si chiedono uno alla volta, al massimo tre insieme, e restano in memoria.
+ * "Quando?" (SPEC §5.2, fette 8e, 8f e 8g): striscia dei giorni in alto e una fila continua di colonne,
+ * per ogni giorno della fila una per barbiere. Il giorno selezionato è quello della colonna più a
+ * sinistra visibile: la striscia lo segue a ogni frame, URL e annuncio solo a fila ferma. Si disegnano
+ * solo i giorni vicini alla zona visibile (gli altri sono segnaposto della stessa larghezza); gli orari
+ * di tutti i giorni arrivano con la pagina e si ricaricano in background quando la pagina torna visibile.
  */
 export function WhenPicker({
   serviceId,
@@ -111,6 +101,7 @@ export function WhenPicker({
   preferredId,
   barbers,
   days,
+  whenDays,
   initialDay,
 }: {
   serviceId: string;
@@ -120,38 +111,30 @@ export function WhenPicker({
   /** Già nell'ordine delle colonne. */
   barbers: WhenBarber[];
   days: DayStatus[];
-  initialDay: WhenDay;
+  /** Orari di tutti i giorni della fila, calcolati dal server con la pagina. */
+  whenDays: WhenDay[];
+  initialDay: string;
 }) {
   const t = it.booking.when;
   const fromServer = useFromServer();
   const row = useMemo(() => rowDays(days), [days]);
   // Il giorno da aprire è quello dell'URL, non solo `initialDay`: tornando con la cronologia
   // (indietro dal riepilogo) il router riusa la pagina resa all'apertura, con il giorno di allora,
-  // mentre l'URL ha il giorno scelto dopo (replaceState qui sotto). Quel giorno si carica subito.
+  // mentre l'URL ha il giorno scelto dopo (replaceState qui sotto).
   const urlDay = useSearchParams().get("giorno");
   const [openDay] = useState(() => {
-    const day = dayToOpen(days, urlDay) ?? initialDay.date;
+    const day = dayToOpen(days, urlDay) ?? initialDay;
     return row.includes(day) ? day : (row[0] ?? day);
   });
-  // Dopo un ritorno con la cronologia `initialDay` è quello dell'apertura, forse superato: non si tiene.
-  const [cache, dispatch] = useReducer(dayCacheReducer, undefined, (): DayCache =>
-    openDay === initialDay.date ? { [initialDay.date]: { status: "loaded", day: initialDay } } : {},
+  const [cache, dispatch] = useReducer(dayCacheReducer, whenDays, (list): DayCache =>
+    Object.fromEntries(list.map((day): [string, DayEntry] => [day.date, { status: "loaded", day }])),
   );
+  /** Istante degli orari mostrati (apertura o ultima ricarica riuscita). */
+  const loadedAt = useRef(0);
   /** Giorno della colonna più a sinistra visibile (segue lo scorrimento a ogni frame). */
   const [selected, setSelected] = useState(openDay);
   /** Giorni disegnati; gli altri sono segnaposto. */
   const [drawn, setDrawn] = useState(() => initialWindow(row, openDay, barbers.length));
-  /** Fila ferma da PREFETCH_DELAY_MS: si possono chiedere anche i giorni vicini. */
-  const [idle, setIdle] = useState(false);
-  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /**
-   * Giorni da caricare: i visibili e uno per lato. Più stretti dei disegnati perché le server action
-   * di Next partono una alla volta: una coda lunga farebbe aspettare la conferma del riepilogo.
-   */
-  const [near, setNear] = useState(() => {
-    const index = row.indexOf(openDay);
-    return row.slice(Math.max(0, index - 1), index + 2);
-  });
   /** Testo della regione aria-live: il giorno a fila ferma (vuoto all'apertura). */
   const [announcement, setAnnouncement] = useState("");
 
@@ -177,8 +160,6 @@ export function WhenPicker({
   const focusAfter = useRef<{ barberId: string; date: string } | null>(null);
   /** Cresce a ogni "prossimo: …": fa ripartire l'effetto del focus anche se la finestra non cambia. */
   const [focusRequest, setFocusRequest] = useState(0);
-  /** Larghezza utile della fila (senza i margini interni), misurata con il resto della geometria. */
-  const usableWidth = useRef(0);
 
   const dayUrl = useCallback(
     (date: string) => whenStepUrl(serviceId, { day: date, barberId: preferredId ?? undefined }),
@@ -202,37 +183,37 @@ export function WhenPicker({
     [serviceId],
   );
 
-  // Coda: prima il giorno selezionato, poi i vicini dal più prossimo; al massimo tre insieme. Un
-  // giorno uscito dalla zona visibile prima di partire non parte più (nextRequests).
+  // Freschezza: tornando visibile con orari più vecchi di STALE_MS parte una sola richiesta per tutti i
+  // giorni della fila. Gli orari mostrati restano fino alla risposta; un errore li lascia com'erano.
   useEffect(() => {
-    const center = row.indexOf(selected);
-    const neighbours = idle ? near : [];
-    const wanted = [selected, ...[...neighbours].sort((a, b) => Math.abs(row.indexOf(a) - center) - Math.abs(row.indexOf(b) - center))];
-    const entries = Object.entries(cache) as Array<[string, DayEntry]>;
-    for (const date of nextRequests({
-      wanted,
-      inFlight: entries.filter(([, e]) => e.status === "loading").map(([d]) => d),
-      cached: entries.filter(([, e]) => e.status !== "loading").map(([d]) => d),
-      limit: MAX_REQUESTS,
-    })) {
-      request(date);
-    }
-  }, [cache, near, idle, selected, row, request]);
-
-  /** La fila si muove: niente richieste dei giorni vicini finché non si ferma. */
-  const pausePrefetch = useCallback(() => {
-    if (idleTimer.current) clearTimeout(idleTimer.current);
-    idleTimer.current = null;
-    setIdle(false);
-  }, []);
-  /** La fila è ferma: i giorni vicini si chiedono fra PREFETCH_DELAY_MS. */
-  const resumePrefetch = useCallback(() => {
-    if (idleTimer.current) clearTimeout(idleTimer.current);
-    idleTimer.current = setTimeout(() => setIdle(true), PREFETCH_DELAY_MS);
-  }, []);
-  useEffect(() => () => {
-    if (idleTimer.current) clearTimeout(idleTimer.current);
-  }, []);
+    loadedAt.current = Date.now();
+    let inFlight = false;
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible" || inFlight) return;
+      if (Date.now() - loadedAt.current <= STALE_MS) return;
+      // Dopo la mezzanotte i giorni passati non si chiedono più (fuori dal periodo prenotabile).
+      const today = localDateOf(new Date(), timezone);
+      const from = row.find((date) => date >= today);
+      const to = row.at(-1);
+      if (!from || !to) return;
+      inFlight = true;
+      const requestId = ++requestSeq.current;
+      const params = new URLSearchParams({ servizio: serviceId, da: from, a: to });
+      fetch(`${DAYS_PATH}?${params}`, { cache: "no-store" })
+        .then(async (response) => {
+          if (!response.ok) return;
+          const body = (await response.json()) as { days: WhenDay[] };
+          loadedAt.current = Date.now();
+          dispatch({ type: "loadedMany", requestId, days: body.days });
+        })
+        .catch(() => {})
+        .finally(() => {
+          inFlight = false;
+        });
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [row, serviceId, timezone]);
 
   /** Misura la fila (colonne, gap, spazio fra i giorni) dal primo e dal secondo giorno disegnati o segnaposto. */
   const measure = useCallback((): RowLayout | null => {
@@ -246,8 +227,6 @@ export function WhenPicker({
     const gap = count > 1 ? (firstBox.width - count * columnWidth) / (count - 1) : 0;
     const second = groups[1]?.getBoundingClientRect();
     const dayGap = second ? second.left - firstBox.right : 0;
-    const style = getComputedStyle(el);
-    usableWidth.current = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
     return rowLayout({ days: row, barberCount: count, columnWidth, gap, dayGap });
   }, [row, barbers.length]);
 
@@ -258,16 +237,16 @@ export function WhenPicker({
       const first = committedRef.current === null;
       committedRef.current = date;
       window.history.replaceState(null, "", dayUrl(date));
+      const entry = cacheRef.current[date];
       if (!first) {
         // Senza orari l'annuncio lo dice (le colonne mostrano "Nessun orario").
-        const entry = cacheRef.current[date];
         const empty = entry?.status === "loaded" && entry.day.barbers.every((b) => b.slots.length === 0);
         setAnnouncement(fillText(empty ? t.dayAnnounceEmpty : t.dayAnnounce, { day: formatDayLabel(date) }));
       }
-      // Un giorno non caricato si riprova quando torna selezionato, passando dalla coda.
-      if (cacheRef.current[date]?.status === "error") dispatch({ type: "retry", date });
+      // Un giorno non caricato (errore, o assente dagli orari della pagina) si riprova quando torna selezionato.
+      if (!entry || entry.status === "error") request(date);
     },
-    [dayUrl, t.dayAnnounce, t.dayAnnounceEmpty],
+    [dayUrl, request, t.dayAnnounce, t.dayAnnounceEmpty],
   );
 
   const settle = useCallback(() => {
@@ -281,8 +260,7 @@ export function WhenPicker({
     chosenRef.current = day;
     setSelected(day);
     commit(day);
-    resumePrefetch();
-  }, [commit, resumePrefetch]);
+  }, [commit]);
 
   /** Per ogni frame di scorrimento: giorno selezionato (se non c'è uno scorrimento comandato) e finestra. */
   const update = useCallback(() => {
@@ -297,11 +275,7 @@ export function WhenPicker({
     const around = renderWindow(layout, left, el.clientWidth);
     const next = around.includes(current) ? around : [...around, current].sort();
     setDrawn((previous) => (sameDays(previous, next) ? previous : next));
-    const from = Math.max(0, row.indexOf(dayAtScroll(layout, left)) - 1);
-    const to = row.indexOf(dayAtScroll(layout, left + usableWidth.current - 1)) + 2;
-    const visible = row.slice(from, to);
-    setNear((previous) => (sameDays(previous, visible) ? previous : visible));
-  }, [row]);
+  }, []);
 
   /** Porta la prima colonna del giorno al bordo sinistro (morbido, istantaneo con il movimento ridotto). */
   const scrollToDay = useCallback(
@@ -310,7 +284,6 @@ export function WhenPicker({
       const layout = layoutRef.current;
       if (!el || !layout || !row.includes(date)) return false;
       lockRef.current = date;
-      pausePrefetch();
       setSelected(date);
       setDrawn((previous) => (previous.includes(date) ? previous : [...previous, date].sort()));
       // Le colonne del giorno di arrivo partono dall'inizio.
@@ -327,7 +300,7 @@ export function WhenPicker({
       settleTimer.current = setTimeout(settle, smooth && !reduced ? 1000 : SETTLE_MS);
       return true;
     },
-    [row, settle, pausePrefetch],
+    [row, settle],
   );
 
   // Misura iniziale, posizione del giorno di apertura (se lo script non l'ha già fatto, per esempio
@@ -347,7 +320,6 @@ export function WhenPicker({
     chosenRef.current = day;
     setSelected(day);
     commit(day);
-    resumePrefetch();
     // Solo all'apertura: dopo, la fila la muovono lo scorrimento e scrollToDay.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -360,7 +332,6 @@ export function WhenPicker({
     if (!el) return;
     const onScroll = () => {
       if (!frame.current) frame.current = requestAnimationFrame(update);
-      pausePrefetch();
       // Con scrollend la fine la segna il browser (anche dopo uno scorrimento comandato già partito).
       if (hasScrollEnd()) {
         if (settleTimer.current) clearTimeout(settleTimer.current);
@@ -387,7 +358,7 @@ export function WhenPicker({
       if (frame.current) cancelAnimationFrame(frame.current);
       if (settleTimer.current) clearTimeout(settleTimer.current);
     };
-  }, [update, settle, pausePrefetch]);
+  }, [update, settle]);
 
   // Larghezza cambiata (rotazione, finestra, testo ingrandito): resta la stessa colonna a sinistra.
   useEffect(() => {

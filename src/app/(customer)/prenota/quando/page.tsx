@@ -18,9 +18,9 @@ const paramsSchema = z.object({
   barbiere: z.uuid().optional().catch(undefined),
 });
 
-// Passo 2 di 3 (SPEC §5.2, fetta 8e): "Quando?", gli orari liberi di tutti i barbieri del servizio
-// nel giorno scelto. Striscia dei giorni e primo giorno resi dal server da una sola lettura del
-// periodo prenotabile; dopo l'idratazione il cambio di giorno chiede solo quel giorno.
+// Passo 2 di 3 (SPEC §5.2, fette 8e, 8f e 8g): "Quando?", gli orari liberi di tutti i barbieri del
+// servizio in una fila di giorni. Striscia dei giorni e orari di tutti i giorni della fila resi dal
+// server da una sola lettura del periodo prenotabile: scorrendo non parte nessuna richiesta.
 export default async function ChooseWhenPage({
   searchParams,
 }: {
@@ -86,7 +86,7 @@ function When({
   const preferredId = allBarbers.some((b) => b.id === requestedBarberId) ? requestedBarberId : undefined;
   if (!overview.ok) return <p role="alert">{it.booking.errors.generic}</p>;
   if (allBarbers.length === 0) return <RestartNotice />;
-  if (!overview.day) return <p className="text-muted-foreground">{it.booking.time.noDays}</p>;
+  if (!overview.initialDay) return <p className="text-muted-foreground">{it.booking.time.noDays}</p>;
 
   const barbers = orderBarbers(allBarbers, { preferredId, recentId: overview.recentId }).map((b) => ({
     id: b.id,
@@ -101,7 +101,8 @@ function When({
       preferredId={preferredId ?? null}
       barbers={barbers}
       days={overview.days}
-      initialDay={overview.day}
+      whenDays={overview.whenDays}
+      initialDay={overview.initialDay}
     />
   );
 }

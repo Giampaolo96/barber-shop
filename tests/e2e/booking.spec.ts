@@ -1,4 +1,5 @@
 // modificato in fetta 8f con l'approvazione dell'utente (2026-10-25): intestazioni dei barbieri cercate nel giorno selezionato.
+// modificato in fetta 8g con l'approvazione dell'utente (2026-10-25): lastSlot cerca solo nelle colonne del giorno selezionato.
 // Test di accettazione e2e – FETTA 5 (SPEC §11: "Prenotazione e cancellazione end-to-end con Playwright").
 // Flussi principali del cliente: SPEC §5.1 (home con "Prenota" e prossima prenotazione), §5.2 (flusso
 // in max 4 schermate), §5.3 (Le mie prenotazioni, cancellazione fino al limite, "Chiama il negozio"),
@@ -165,11 +166,17 @@ const choice = (page: Page, text: string): Locator => {
   return main(page).getByRole('link', { name }).or(main(page).getByRole('button', { name })).first();
 };
 
+/** Colonne del giorno selezionato nella striscia (fetta 8g: anche gli altri giorni disegnati hanno orari). */
+const selectedDayColumns = (page: Page): Locator =>
+  main(page).locator('section[data-day]').filter({
+    has: page.locator('xpath=self::*[@data-day = //nav//a[@aria-current="date"]/@data-day]'),
+  });
+
 /** Ultimo orario del giorno selezionato (lontano dall'anticipo minimo), di un barbiere o di chiunque. */
 const lastSlot = (page: Page, barber?: string): Locator =>
-  main(page)
+  selectedDayColumns(page)
     .getByRole('button', { name: slotName(barber) })
-    .or(main(page).getByRole('link', { name: slotName(barber) }))
+    .or(selectedDayColumns(page).getByRole('link', { name: slotName(barber) }))
     .last();
 
 const confirmButton = (page: Page): Locator => page.getByRole('button', { name: 'Conferma prenotazione' });

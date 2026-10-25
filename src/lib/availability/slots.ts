@@ -191,3 +191,35 @@ export function nextSlotByBarber(
     }),
   );
 }
+
+/** Orari di un barbiere in un giorno di slotsByDay; `next` solo se quel giorno non ne ha. */
+export type BarberDaySlots = { barberId: string; slots: Date[]; next: Date | null };
+
+/**
+ * Orari di ogni barbiere in ogni giorno locale di [from, to] (inclusi, anche i giorni chiusi, vuoti),
+ * da una sola preparazione dell'input ("Quando?", fetta 8g). Per ogni giorno un elemento per barbiere,
+ * nell'ordine dell'input. `next` = primo orario nei giorni dopo fino a `to` incluso, solo per i barbieri
+ * senza orari quel giorno (come nextSlotByBarber).
+ */
+export function slotsByDay(input: AvailabilityInput, from: string, to: string): Record<string, BarberDaySlots[]> {
+  const p = prepare(input);
+  const dates: string[] = [];
+  for (let date = from; date <= to; date = addDays(date, 1)) dates.push(date);
+  const slots = dates.map((date) => p.barbers.map((b) => barberSlots(p, b, date)));
+
+  const result: Record<string, BarberDaySlots[]> = {};
+  // Dall'ultimo giorno indietro: per ogni barbiere il primo orario dei giorni già visti.
+  const upcoming: Array<Date | null> = p.barbers.map(() => null);
+  for (let d = dates.length - 1; d >= 0; d--) {
+    const day = slots[d] ?? [];
+    result[dates[d] ?? ""] = p.barbers.map((b, i) => {
+      const own = day[i] ?? [];
+      return { barberId: b.barberId, slots: own, next: own.length === 0 ? upcoming[i] ?? null : null };
+    });
+    day.forEach((own, i) => {
+      if (own[0]) upcoming[i] = own[0];
+    });
+  }
+  // Chiavi nell'ordine dei giorni.
+  return Object.fromEntries(dates.map((date) => [date, result[date] ?? []]));
+}
