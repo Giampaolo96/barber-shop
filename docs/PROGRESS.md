@@ -19,7 +19,7 @@
 | 8d | completata | 2026-10-16 | Vedi "Fetta 8d" sotto; manca la prova di caricamento da iPhone |
 | 8e | completata | 2026-10-16 | Vedi "Fetta 8e" sotto; manca la prova su iPhone e una decisione su "oggi chiuso" |
 | 8f | completata | 2026-10-25 | Vedi "Fetta 8f" sotto; manca la prova su iPhone |
-| 8g | in corso | 2026-10-25 | Vedi "Fetta 8g" sotto: commit 1–3 fatti, scorrimento unico (commit 4) in sospeso |
+| 8g | completata | 2026-10-25 | Vedi "Fetta 8g" sotto; scorrimento invariato (deciso su iPhone) |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
 | 9b | da fare | | Privacy e account prima del go-live (SPEC §11) |
 
@@ -1336,7 +1336,7 @@ In dev (stessa misura su "Primo libero", contenuto vero): `4a86085` 283 in seque
 
 ## Fetta 8g – "Quando?": rifiniture della fila continua
 
-**Stato**: commit 1–3 completati il 2026-10-25 sul branch `fetta-8g` (da `origin/main` `e546e57`, test di accettazione in `e510440`). Il commit 4 (scorrimento unico) è in sospeso finché l'utente non sceglie la variante provando su iPhone le pagine di `prototypes/scorrimento-8g/` (non committate, escluse con `.git/info/exclude`).
+**Stato**: completata il 2026-10-25 sul branch `fetta-8g` (da `origin/main` `e546e57`, test di accettazione in `e510440`). Niente commit 4: provate su iPhone le 5 varianti di `prototypes/scorrimento-8g/` (non committate, escluse con `.git/info/exclude`), l'utente ha deciso di tenere lo scorrimento attuale, risultato il più naturale (ADR 014 §4).
 
 **Decisioni (approvate dall'utente il 2026-10-25)**
 - Via "Primo libero" (riquadro, stato vuoto, testi, `firstFree` del motore, `firstFreeAmong`, parametri di `fetchWhenDay`); tolta anche l'utility `emphasis`, usata solo da lì. Annuncio aria-live `dayAnnounceEmpty` per un giorno senza orari; nessun annuncio dopo una rotazione.
@@ -1379,7 +1379,15 @@ In dev (stessa misura su "Primo libero", contenuto vero): `4a86085` 283 in seque
 - e2e, intera suite in primo piano: 161/161. In un giro precedente, il primo dopo l'avvio a freddo del dev server, era fallito una volta `booking-when-loading.spec.ts:267` (ricarica dopo `visibilitychange`); il dettaglio dell'errore è stato sovrascritto dal giro successivo e non si è ripetuto (161/161 nel giro dopo, 18/18 nei giri ripetuti). **Da tenere d'occhio.**
 - File nuovi (`booking-when-loading`, `booking-when-rotation` su Chromium e WebKit) con `--repeat-each=3`: 18/18, prima e dopo la correzione.
 
+**Ricarica a freddo (prima del push, richiesta dell'utente)**
+- `booking-when-loading.spec.ts` 5 volte, ognuna con un dev server nuovo: 20/20.
+- Intera suite 2 volte con la cache del dev server cancellata (`.next/dev`): 161/161 entrambe.
+- Il fallimento unico di `booking-when-loading.spec.ts:267` non si è ripetuto; resta senza dettaglio dell'errore. Da tenere d'occhio.
+
+**Scorrimento (chiuso)**
+- Decisione dell'utente dopo la prova su iPhone: resta lo scorrimento attuale (fila orizzontale, colonne che scorrono da sole). Non si implementa nessuna variante; i test sospesi (4, 5, 6 dell'elenco e `booking-when-single-scroll.spec.ts`) non si scrivono.
+
 **Problemi aperti**
-- Commit 4 (scorrimento unico) e i test sospesi (4, 5, 6 dell'elenco e `booking-when-single-scroll.spec.ts`): dipendono dalla variante scelta.
-- Da provare a mano su iPhone: vedi il report della fetta.
+- Da provare a mano su iPhone: rotazione (giorno lontano, a metà fra due giorni, colonna scorsa), pagina in orizzontale con la barra di Safari, nessuna attesa scorrendo fino all'ultimo giorno, ricarica tornando all'app dopo più di 2 minuti.
+- Migliorie della review non applicate: elenco sopra.
 

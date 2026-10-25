@@ -1,6 +1,6 @@
 # ADR 014 – "Quando?": orari di tutti i giorni, rotazione e scorrimento
 
-Data: 2026-10-25 · Stato: accettata (punti 1–3); punto 4 in sospeso · Fetta 8g · Aggiorna ADR 013 e SPEC §5.2
+Data: 2026-10-25 · Stato: accettata · Fetta 8g · Aggiorna ADR 013 e SPEC §5.2
 
 ## Contesto
 
@@ -39,7 +39,7 @@ La colonna più a sinistra si ricorda come identità, `RowAnchor = { day, barber
 
 **Causa trovata in WebKit.** WebKit riscala da solo `scrollLeft` quando cambia il layout e manda `scroll` e `scrollend` *prima* del ResizeObserver. Con la fetta 8f, `scrollend` faceva scegliere il giorno con le misure vecchie: in Playwright WebKit, aperto sul 4 novembre e ruotato, la fila finiva sull'11–12 e l'URL cambiava. Con l'inizio del ridimensionamento anticipato all'evento `resize` il giorno resta il 4 sia in Chromium sia in WebKit (e2e `booking-when-rotation.spec.ts`, progetto `mobile-webkit`).
 
-### 4. Un solo scorrimento per entrambe le direzioni (in sospeso)
+### 4. Un solo scorrimento per entrambe le direzioni: scartato, resta lo scorrimento attuale
 Verificato nei sorgenti di WebKit (main del 2026-10-25):
 - `Source/WebKit/UIProcess/ios/WKScrollView.mm`: lo scorrimento della pagina imposta `self.directionalLockEnabled = YES`.
 - `Source/WebKit/UIProcess/RemoteLayerTree/ios/RemoteLayerTreeViews.mm`, `WKChildScrollView`: è lo `UIScrollView` creato per ogni elemento `overflow: auto`. Non imposta `directionalLockEnabled`, e il default di UIKit è `NO`. Nel repository la proprietà compare solo in `WKScrollView.mm`.
@@ -54,9 +54,11 @@ Le varianti sono in pagine di prova non committate (`prototypes/scorrimento-8g/`
 4. C, pagina verticale e fila orizzontale, con le testate fuori dalla fila che seguono con `animation-timeline` su una `scroll-timeline` della fila;
 5. D, come C con le testate dentro la fila.
 
-La scelta si fa dopo la prova su iPhone, in un commit separato che si annulla con `git revert`.
+**Decisione (utente, 2026-10-25, dopo la prova delle 5 varianti su iPhone):** resta lo scorrimento attuale, la fila orizzontale con ogni colonna che scorre da sola (SPEC §5.2, "Scorrimento"). È risultata la più naturale nelle prove su iPhone. Nessuna implementazione delle varianti A–D; i test sospesi per lo scorrimento unico non si scrivono e quelli della fetta 8f sullo scorrimento delle colonne restano validi.
 
 ## Conseguenze
+
+- Lo scorrimento resta quello della fetta 8f; il problema del passaggio dall'orizzontale al verticale durante l'inerzia della fila resta un comportamento noto di iOS (due scorrimenti annidati), giudicato accettabile rispetto alle alternative provate.
 
 - Scorrendo su qualunque giorno non parte nessuna richiesta e non compare nessuno stato di caricamento (e2e `booking-when-loading.spec.ts`).
 - La pagina pesa circa 6 KB compressi in più e il server lavora circa 10 ms in più (build di produzione locale).
