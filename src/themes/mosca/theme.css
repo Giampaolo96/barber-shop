@@ -51,10 +51,6 @@
   --portrait-mat: transparent;
   --portrait-filter: grayscale(1);
   --portrait-glow: none;
-  --emphasis-bg: var(--ink);
-  --emphasis-fg: var(--surface);
-  --emphasis-hover-bg: var(--surface);
-  --emphasis-hover-fg: var(--ink);
   --sticky-bar-bg: var(--surface);
   --sticky-bar-filter: none;
 }

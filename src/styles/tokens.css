@@ -124,20 +124,6 @@
   }
 }
 
-/*
- * Scorciatoia in evidenza ("Primo libero"): pieno che si svuota al passaggio nel tema senza luce,
- * contorno neon che si riempie in quello con la luce. Il bordo lo dà l'elemento.
- */
-@utility emphasis {
-  background-color: var(--emphasis-bg);
-  color: var(--emphasis-fg);
-  &:hover,
-  &:active {
-    background-color: var(--emphasis-hover-bg);
-    color: var(--emphasis-hover-fg);
-  }
-}
-
 /* Barra fissa in alto (striscia dei giorni): fondo pieno, o velato e sfocato sopra le luci. */
 @utility sticky-bar {
   background-color: var(--sticky-bar-bg);
