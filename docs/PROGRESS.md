@@ -19,6 +19,7 @@
 | 8d | completata | 2026-10-16 | Vedi "Fetta 8d" sotto; manca la prova di caricamento da iPhone |
 | 8e | completata | 2026-10-16 | Vedi "Fetta 8e" sotto; manca la prova su iPhone e una decisione su "oggi chiuso" |
 | 8f | completata | 2026-10-25 | Vedi "Fetta 8f" sotto; manca la prova su iPhone |
+| 8g | in corso | 2026-10-25 | Vedi "Fetta 8g" sotto: commit 1–3 fatti, scorrimento unico (commit 4) in sospeso |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
 | 9b | da fare | | Privacy e account prima del go-live (SPEC §11) |
 
@@ -1332,4 +1333,53 @@ In dev (stessa misura su "Primo libero", contenuto vero): `4a86085` 283 in seque
   - il nuovo tentativo dopo un errore parte solo quando il giorno torna selezionato (non c'è un pulsante "Riprova");
   - un commento in `tests/e2e/admin-helpers.ts` (`randomTag`) che ricordi che la pulizia di `booking-when-row.spec.ts` legge l'età dal prefisso del tag.
 - Da provare a mano su iPhone (Safari e PWA): blocco dell'asse fra fila e colonne, aggancio, ripiego senza `scrollend`, apertura con `?giorno=` senza salto, "Indietro" e gesto indietro, rotazione.
+
+## Fetta 8g – "Quando?": rifiniture della fila continua
+
+**Stato**: commit 1–3 completati il 2026-10-25 sul branch `fetta-8g` (da `origin/main` `e546e57`, test di accettazione in `e510440`). Il commit 4 (scorrimento unico) è in sospeso finché l'utente non sceglie la variante provando su iPhone le pagine di `prototypes/scorrimento-8g/` (non committate, escluse con `.git/info/exclude`).
+
+**Decisioni (approvate dall'utente il 2026-10-25)**
+- Via "Primo libero" (riquadro, stato vuoto, testi, `firstFree` del motore, `firstFreeAmong`, parametri di `fetchWhenDay`); tolta anche l'utility `emphasis`, usata solo da lì. Annuncio aria-live `dayAnnounceEmpty` per un giorno senza orari; nessun annuncio dopo una rotazione.
+- Orari di tutti i giorni della fila con la pagina (`slotsByDay` nel motore, `whenDays` in `getWhenOverview`); coda e precaricamento ritardato tolti.
+- Ricarica in background con `GET /prenota/quando/orari` (dinamico, `requireRole` per prima, Zod, periodo prenotabile, cliente bloccato 403, `private, no-store`) quando la pagina torna visibile con orari più vecchi di 2 minuti ("2 minuti" letto come età dei dati). `loadedMany` sovrascrive anche un giorno caricato da una richiesta singola finita durante la ricarica (dati forse un po' più vecchi; accettato).
+- Rotazione: ancora `{ day, barberIndex, fraction }` solo a fila ferma; posizione verticale a parte (scrollTop per colonna sugli schermi alti, `window.scrollY` sotto i 600 px).
+- `booking.spec.ts`: `lastSlot` limitato al giorno selezionato (approvato durante l'implementazione: prima prendeva l'ultimo orario della pagina e funzionava solo perché i giorni vicini non avevano ancora orari).
+- Progetto Playwright `mobile-webkit` (iPhone 14) solo per `booking-when-rotation.spec.ts`; `admin-settings` gira dopo anche questo.
+
+**Fatto**
+- Commit: `5a62c1e` feat (via "Primo libero"), `feb6503` perf (orari di tutti i giorni, route handler), `7938c43` fix (rotazione), `4c3202d` chore (`emphasis`), `676b894` docs (SPEC §5.2 e §11, ADR 014, nota in ADR 013).
+- Primo orario a 390×844: 320 px dall'alto (prima circa 380), 9 orari visibili per colonna.
+- Misure (cliente demo, seed con 3 barbieri e 30 giorni, mediane; dettagli in ADR 014):
+  - build di produzione, documento: 86 → 96 ms; 121 → 352 KB crudi, 9,2 → 15 KB gzip;
+  - build di produzione, navigazione RSC: 64 → 80 ms; 15 → 69 KB, 3,2 → 5,7 KB gzip;
+  - dev, documento: 276 → 242 ms (rumore del dev server); 128 → 360 KB, 11 → 17 KB gzip.
+  - Sotto le soglie (+150 ms, 30 KB compressi): strada "tutto con la pagina".
+- Rotazione, causa trovata in WebKit: riscala da solo `scrollLeft` e manda `scroll`/`scrollend` prima del ResizeObserver; `scrollend` sceglieva il giorno con le misure vecchie (aperto sul 4/11, finiva sull'11–12 e cambiava l'URL). Ora il ridimensionamento parte dall'evento `resize` e da ogni scroll con la larghezza della fila cambiata.
+- Scorrimento unico: verificato nei sorgenti di WebKit che `WKChildScrollView` (elementi `overflow: auto`) non ha `directionalLockEnabled` (default `NO`), solo `WKScrollView` (la pagina); rischio di diagonale nella variante A (ADR 014). Pagine di prova: attuale, A, B, C (testate con `animation-timeline`), D.
+- Screenshot in `.playwright-mcp/quando-8g/` a 390×844, 844×390 e 1280×800: apertura, in basso, a metà fra due giorni, giorno senza posti (assenze temporanee sul DB locale, poi rimosse).
+
+**Review** (subagent `reviewer`)
+- Un bloccante, corretto: l'evento `resize` della finestra faceva partire un ridimensionamento anche quando cambiava solo l'altezza (barra di Safari che compare e sparisce scorrendo in orizzontale); dopo 150 ms la pagina sotto i 600 px tornava alla posizione di prima del gesto. Ora parte solo se cambia `window.innerWidth`. Da verificare su iPhone in orizzontale.
+- Migliorie non applicate (decide l'utente):
+  - M1: test del 403 per il cliente bloccato, del profilo incompleto e dello staff sul route handler;
+  - M2: `getWhenDays` non controlla che il servizio sia prenotabile (escono comunque solo orari, come già con `fetchWhenDay`);
+  - M3: se l'effetto del ResizeObserver riparte durante un ridimensionamento, `resizing` resta `true` fino al primo scroll;
+  - M4: `pageY` vecchio passando da schermo alto a basso;
+  - M5: dopo mezzanotte i giorni passati restano nella fila (la conferma li rifiuta);
+  - M6: `inFlight` della ricarica in un `useRef`;
+  - M7: validare la forma della risposta della ricarica;
+  - M8: memoria verticale in un `useRef` invece che in uno stato mutato;
+  - M9: periodo calcolato due volte (`dayStatuses` e `slotsByDay`), circa 10 ms;
+  - M10: in `getWhenDays` due letture di "oggi" (a cavallo della mezzanotte);
+  - M11: `rescaleScroll` senza usi nella pagina (resta con i suoi test);
+  - M12: commento di `availability-actions.ts` da aggiornare (la route richiede il ruolo, la server action no).
+
+**Esiti** (codice finale, dopo la correzione della review)
+- lint e typecheck puliti; Vitest 55 file, 2046 test verdi.
+- e2e, intera suite in primo piano: 161/161. In un giro precedente, il primo dopo l'avvio a freddo del dev server, era fallito una volta `booking-when-loading.spec.ts:267` (ricarica dopo `visibilitychange`); il dettaglio dell'errore è stato sovrascritto dal giro successivo e non si è ripetuto (161/161 nel giro dopo, 18/18 nei giri ripetuti). **Da tenere d'occhio.**
+- File nuovi (`booking-when-loading`, `booking-when-rotation` su Chromium e WebKit) con `--repeat-each=3`: 18/18, prima e dopo la correzione.
+
+**Problemi aperti**
+- Commit 4 (scorrimento unico) e i test sospesi (4, 5, 6 dell'elenco e `booking-when-single-scroll.spec.ts`): dipendono dalla variante scelta.
+- Da provare a mano su iPhone: vedi il report della fetta.
 

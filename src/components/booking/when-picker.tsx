@@ -465,8 +465,16 @@ export function WhenPicker({
       start();
       align(after);
     });
-    // L'evento della finestra arriva prima degli scroll provocati dal cambio di layout.
-    window.addEventListener("resize", start);
+    // L'evento della finestra arriva prima degli scroll provocati dal cambio di layout. Solo se cambia la
+    // larghezza: la barra di Safari che compare e sparisce scorrendo cambia solo l'altezza, e farebbe
+    // tornare indietro la pagina (sotto i 600 px) o la fila a gesto in corso.
+    let windowWidth = window.innerWidth;
+    const onWindowResize = () => {
+      if (window.innerWidth === windowWidth) return;
+      windowWidth = window.innerWidth;
+      start();
+    };
+    window.addEventListener("resize", onWindowResize);
     // La fila (rotazione, finestra) e il primo giorno, sempre presente: con il solo testo ingrandito
     // la fila resta larga uguale ma cambiano colonne e spazi.
     observer.observe(el);
@@ -474,7 +482,7 @@ export function WhenPicker({
     if (firstDay) observer.observe(firstDay);
     return () => {
       observer.disconnect();
-      window.removeEventListener("resize", start);
+      window.removeEventListener("resize", onWindowResize);
       if (resizeTimer.current) clearTimeout(resizeTimer.current);
     };
   }, [measure, update, vertical]);
