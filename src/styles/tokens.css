@@ -58,6 +58,8 @@
   --color-on-marble: var(--ink-on-marble);
   --color-line: var(--line);
   --color-control-rest: var(--ink-control-rest);
+  --color-surface-control: var(--surface-control);
+  --color-day-divider: var(--day-divider);
   --color-disabled: var(--surface-disabled);
   --color-ink-disabled: var(--ink-disabled);
   --color-danger: var(--danger);
@@ -73,6 +75,14 @@
   --radius-2xl: var(--radius);
   --radius-3xl: var(--radius);
   --radius-4xl: var(--radius);
+  /* Spazio fra le caselle (gap-control) e fra i giorni della fila (ml-day). */
+  --spacing-control: var(--control-gap);
+  --spacing-day: var(--day-gap);
+}
+
+/* Angoli delle caselle di orari e giorni di "Quando?" (fetta 8f): valore del tema, anche 0. */
+@utility rounded-control {
+  border-radius: var(--radius-control);
 }
 
 /* Tratteggio informativo (assenze e chiusure nel calendario), non decorativo. */

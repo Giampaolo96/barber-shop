@@ -1,32 +1,47 @@
-// Stato della pagina "Quando?" durante il cambio di giorno (SPEC §5.2, fetta 8e): funzione pura,
-// così il caso delle risposte arrivate in ritardo è testabile senza browser.
+// Giorni caricati della fila di "Quando?" (SPEC §5.2, fetta 8f): una voce per giorno, funzione pura,
+// così le risposte arrivate in ritardo sono testabili senza browser. Ogni richiesta ha un id: una
+// risposta vecchia dello stesso giorno (per esempio dopo un nuovo tentativo) non sovrascrive la più recente.
 import type { WhenDay } from "./availability";
 
-export type WhenView = {
-  /** Ultimo giorno toccato nella striscia. */
-  selected: string;
-  /** Giorno di cui si vedono gli orari: durante il caricamento resta il precedente. */
-  shown: WhenDay;
-  /** Il caricamento del giorno selezionato non è riuscito. */
-  error: boolean;
-};
+export type DayEntry =
+  | { status: "loading"; requestId: number }
+  | { status: "loaded"; day: WhenDay }
+  | { status: "error"; requestId: number };
 
-export type WhenAction =
-  /** Scelta di un giorno; `cached` se è già in memoria. */
-  | { type: "select"; date: string; cached?: WhenDay }
-  /** Risposta del server per `date` (null = errore). */
-  | { type: "loaded"; date: string; day: WhenDay | null };
+/** Chiave: giorno `YYYY-MM-DD`. Un giorno assente non è mai stato chiesto. */
+export type DayCache = Record<string, DayEntry>;
 
-export function whenReducer(state: WhenView, action: WhenAction): WhenView {
+export type DayCacheAction =
+  /** Parte una richiesta per `date`. */
+  | { type: "request"; date: string; requestId: number }
+  /** Risposta della richiesta `requestId`. */
+  | { type: "loaded"; date: string; requestId: number; day: WhenDay }
+  /** Errore della richiesta `requestId`. */
+  | { type: "failed"; date: string; requestId: number }
+  /** Nuovo tentativo di un giorno in errore: la voce sparisce e la coda lo richiede (nextRequests). */
+  | { type: "retry"; date: string };
+
+export function dayCacheReducer(state: DayCache, action: DayCacheAction): DayCache {
+  const entry = state[action.date];
   switch (action.type) {
-    case "select":
-      return { selected: action.date, shown: action.cached ?? state.shown, error: false };
+    case "retry": {
+      if (entry?.status !== "error") return state;
+      const rest = { ...state };
+      delete rest[action.date];
+      return rest;
+    }
+    case "request":
+      return { ...state, [action.date]: { status: "loading", requestId: action.requestId } };
     case "loaded":
-      // Una risposta per un giorno che non è più quello selezionato si ignora.
-      if (action.date !== state.selected) return state;
-      return action.day ? { ...state, shown: action.day, error: false } : { ...state, error: true };
+    case "failed":
+      // Vale solo la risposta della richiesta in corso per quel giorno.
+      if (entry?.status !== "loading" || entry.requestId !== action.requestId) return state;
+      return {
+        ...state,
+        [action.date]:
+          action.type === "loaded"
+            ? { status: "loaded", day: action.day }
+            : { status: "error", requestId: action.requestId },
+      };
   }
 }
-
-/** Scheletri visibili: il giorno selezionato non è ancora arrivato (e non è fallito). */
-export const isWhenLoading = (state: WhenView): boolean => !state.error && state.selected !== state.shown.date;

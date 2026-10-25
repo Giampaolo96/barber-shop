@@ -69,8 +69,15 @@ export const it = {
       noSlots: "Nessun orario libero",
       /** Colonna di un barbiere senza orari nel giorno scelto. */
       columnNoSlots: "Nessun orario",
-      /** Regione della colonna di un barbiere. */
-      columnLabel: "Orari di {name}",
+      /** Gruppo della colonna di un barbiere in un giorno della fila. */
+      columnLabel: "Orari di {name}, {day}",
+      /** Regione della fila continua di colonne (giorno × barbiere). */
+      rowLabel: "Orari liberi per giorno e barbiere",
+      /** Pulsanti ai lati della fila (desktop). */
+      prevDay: "Giorno precedente",
+      nextDay: "Giorno successivo",
+      /** Colonne di un giorno il cui caricamento non è riuscito (si riprova quando il giorno torna selezionato). */
+      dayError: "Orari non caricati",
       nextFree: "prossimo: {when}",
       /** Prima riga del link al prossimo orario nella colonna stretta (sotto: giorno e ora). */
       nextFreeLead: "prossimo:",
@@ -78,7 +85,6 @@ export const it = {
       /** Etichetta visibile nella testata stretta della colonna (per lo screen reader resta `preferred`). */
       preferredShort: "Il tuo",
       dayClosed: "{day}, chiuso",
-      barbersLabel: "Orari liberi per barbiere",
       /** Annuncio per gli screen reader quando cambia il giorno. */
       dayAnnounce: "Orari di {day}",
     },

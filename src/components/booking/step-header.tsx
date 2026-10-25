@@ -51,9 +51,14 @@ export function StepHeader({
         </p>
       </div>
       {compact ? (
-        <div className="flex flex-wrap items-baseline gap-x-3">
-          <h1 className="font-display text-3xl leading-tight text-glow">{title}</h1>
-          {subtitle && <p className="font-display text-base italic text-muted-foreground">{subtitle}</p>}
+        // Una riga sola: con un servizio dal nome lungo il sottotitolo si tronca e gli orari non scendono (fetta 8f).
+        <div className="flex min-w-0 items-baseline gap-x-3">
+          <h1 className="shrink-0 font-display text-3xl leading-tight text-glow">{title}</h1>
+          {subtitle && (
+            <p title={subtitle} className="min-w-0 truncate font-display text-base italic text-muted-foreground">
+              {subtitle}
+            </p>
+          )}
         </div>
       ) : (
         <div className="flex items-end justify-between gap-4">

@@ -1,4 +1,5 @@
 // Test di accettazione e2e – FETTA 8f ("Quando?": fila continua di giorni; comportamento approvato
+// modificato in fetta 8f con l'approvazione dell'utente (2026-10-25): replaceState di Next (__NA) esclusi dal conteggio; avanzi di giri interrotti rimossi in beforeAll.
 // dall'utente il 2026-10-25). SPEC §5.2 (striscia dei giorni, colonne per barbiere, scorrimento).
 // A 390×844 (riferimento telefono), l'ultimo test anche a 1280×800.
 //
@@ -134,6 +135,28 @@ const rowService = async (
   const days = Array.from({ length: horizon }, (_, i) => plusDays(today(), i + 1)).filter((d) => TUE_SAT.includes(isoWeekday(d)));
   return { serviceId, barbers, days };
 };
+
+/**
+ * Avanzi di giri interrotti (pulizia saltata per un timeout): servizi "E2E Fila …" più vecchi di 10
+ * minuti, con i loro barbieri e prenotazioni. Il tag di uniqueName comincia con Date.now() in base 36:
+ * i dati dei test in corso negli altri worker sono più recenti e restano.
+ */
+test.beforeAll(async ({ request }) => {
+  const api = await adminApi(request);
+  const prefix = uniqueName('Fila').replace(/[^ ]+$/, '');
+  const services = await api.get<Array<{ id: string; name: string }>>(
+    `/rest/v1/services?select=id,name&name=like.${encodeURIComponent(`${prefix}*`)}`,
+  );
+  const stale = services.filter((s) => {
+    const createdAt = parseInt((s.name.slice(prefix.length).match(/^[0-9a-z]{8}/) ?? ['0'])[0], 36);
+    return Date.now() - createdAt > 10 * 60_000;
+  });
+  if (stale.length === 0) return;
+  const links = await api.get<Array<{ barber_id: string }>>(
+    `/rest/v1/barber_services?select=barber_id&service_id=in.(${stale.map((s) => s.id).join(',')})`,
+  );
+  await cleanup(api, { barbers: [...new Set(links.map((l) => l.barber_id))], services: stale.map((s) => s.id) });
+});
 
 const whenUrl = (serviceId: string, day: string, preferredId?: string): string =>
   `${WHEN_PATH}?servizio=${serviceId}&giorno=${day}${preferredId ? `&barbiere=${preferredId}` : ''}`;
@@ -477,7 +500,10 @@ test('scorrimento rapido su più giorni: la striscia segue, replaceState una sol
           const replaceState = history.replaceState;
           w.__replaceStateCalls = 0;
           history.replaceState = function (this: History, ...args: Parameters<History['replaceState']>) {
-            w.__replaceStateCalls += 1;
+            // Solo le chiamate della pagina: Next, dopo ognuna, ne fa una sua con lo stato interno __NA
+            // per allineare il router (modificato in fetta 8f con l'approvazione dell'utente, 2026-10-25).
+            const data = args[0] as { __NA?: boolean } | null;
+            if (!data?.__NA) w.__replaceStateCalls += 1;
             return replaceState.apply(this, args);
           };
           const before = row.scrollLeft;

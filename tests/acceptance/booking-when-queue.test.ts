@@ -1,3 +1,4 @@
+// modificato in fetta 8f con l'approvazione dell'utente (2026-10-25): nuovo tentativo dopo un errore attraverso la coda.
 // Test di accettazione – FETTA 8f (approvati dall'utente il 2026-10-25): coda delle richieste dei
 // giorni di "Quando?" (SPEC §5.2: una richiesta per giorno; fetta 8f: cache per giorno, richieste
 // senza doppioni, al massimo 3 contemporanee). Logica pura, senza I/O (CLAUDE.md regola 5).
@@ -16,6 +17,7 @@
 import { describe, expect, test } from 'vitest';
 
 import { nextRequests } from '@/lib/booking/when-queue';
+import { dayCacheReducer, type DayCache, type DayEntry } from '@/lib/booking/when-state';
 
 const D = ['2027-03-02', '2027-03-03', '2027-03-04', '2027-03-05', '2027-03-06', '2027-03-09', '2027-03-10', '2027-03-11'];
 const [d0 = '', d1 = '', d2 = '', d3 = '', d4 = '', d5 = '', d6 = '', d7 = ''] = D;
@@ -90,5 +92,41 @@ describe('nextRequests – priorità nell\'ordine dato (fetta 8f)', () => {
     const copy = structuredClone(input);
     nextRequests(input);
     expect(input).toEqual(copy);
+  });
+});
+
+// Nuovo tentativo dopo un errore (review fetta 8f): l'azione "retry" della cache toglie la voce in
+// errore e il giorno riparte dalla coda, con lo stesso limite di 3 richieste contemporanee.
+describe('nuovo tentativo dopo un errore – passa dalla coda (fetta 8f)', () => {
+  const inputOf = (cache: DayCache, wanted: string[]) => {
+    const entries = Object.entries(cache) as Array<[string, DayEntry]>;
+    return {
+      wanted,
+      inFlight: entries.filter(([, e]) => e.status === 'loading').map(([d]) => d),
+      cached: entries.filter(([, e]) => e.status !== 'loading').map(([d]) => d),
+      limit: LIMIT,
+    };
+  };
+
+  test("un giorno in errore non riparte da solo; dopo \"retry\" riparte solo se c'è posto nella coda", () => {
+    let cache = dayCacheReducer({}, { type: 'request', date: d0, requestId: 1 });
+    cache = dayCacheReducer(cache, { type: 'failed', date: d0, requestId: 1 });
+    expect(nextRequests(inputOf(cache, [d0])), 'in errore: niente richieste automatiche').toEqual([]);
+
+    // Tre richieste in corso: il nuovo tentativo aspetta
+    for (const [i, date] of [d1, d2, d3].entries()) cache = dayCacheReducer(cache, { type: 'request', date, requestId: 2 + i });
+    cache = dayCacheReducer(cache, { type: 'retry', date: d0 });
+    expect(cache[d0], 'la voce in errore sparisce').toBeUndefined();
+    expect(nextRequests(inputOf(cache, [d0, d1, d2, d3])), 'tre in corso: il nuovo tentativo aspetta').toEqual([]);
+
+    // Una richiesta finisce: il nuovo tentativo parte
+    cache = dayCacheReducer(cache, { type: 'failed', date: d1, requestId: 2 });
+    expect(nextRequests(inputOf(cache, [d0, d1, d2, d3]))).toEqual([d0]);
+  });
+
+  test('"retry" su un giorno non in errore non cambia nulla', () => {
+    const cache = dayCacheReducer({}, { type: 'request', date: d0, requestId: 1 });
+    expect(dayCacheReducer(cache, { type: 'retry', date: d0 })).toBe(cache);
+    expect(dayCacheReducer(cache, { type: 'retry', date: d4 })).toBe(cache);
   });
 });

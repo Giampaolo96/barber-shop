@@ -19,6 +19,13 @@
   --ring-on-ink: var(--surface);
   /* Bordo a riposo degli elementi ripetuti (orari): pieno come gli altri. */
   --ink-control-rest: var(--ink);
+  /* Caselle di orari e giorni di "Quando?" (fetta 8f): angoli vivi, fondo pieno, spazio stretto. */
+  --radius-control: 0rem;
+  --surface-control: var(--surface);
+  --control-gap: 0.375rem;
+  /* Fila continua di "Quando?": spazio e linea fra l'ultima colonna di un giorno e la prima del successivo. */
+  --day-gap: 1rem;
+  --day-divider: var(--line);
   /* Velo dietro i dialoghi. */
   --scrim: #00000066;
   color-scheme: light;
