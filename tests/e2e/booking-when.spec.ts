@@ -1,3 +1,4 @@
+// modificato in fetta 8f con l'approvazione dell'utente (2026-10-25)
 // Test di accettazione e2e – FETTA 8e (SPEC §11: "Prenotazione da telefono: servizio → quando →
 // conferma"). Regole: SPEC §5.2 (flusso in 3 schermate, pagina "Quando?", striscia dei giorni,
 // "Primo libero", sezioni per barbiere, barbiere senza posti, vecchi URL), §4, §9 (tap target ≥ 44 px,
@@ -20,10 +21,13 @@
 //     aria-current="date"; giorno chiuso non link, aria-disabled="true", testo per screen reader
 //     it.booking.when.dayClosed ("{day}, chiuso"); sticky in alto; Tab entra sul giorno selezionato,
 //     ←/→ spostano il focus, Invio seleziona; il giorno selezionato finisce nell'URL (`giorno`).
-//   - una colonna per barbiere, affiancate: <section> (regione it.booking.when.columnLabel, "Orari di
-//     <nome>") con un heading che contiene il nome; la bio non si mostra; nella colonna del preferito
-//     dall'URL il testo it.booking.when.preferred (per lo screen reader; a vista "Il tuo"). Sugli schermi
-//     alti almeno 600 px scorrono solo le colonne, la pagina no; sotto scorre la pagina intera.
+//   - una colonna per barbiere e per giorno, in una fila orizzontale continua (fetta 8f, regione
+//     it.booking.when.rowLabel): <section role="group"> con nome it.booking.when.columnLabel ("Orari di
+//     <nome>, <giorno>", giorno = formatDayLabel, es. "mer 21 ott"), data-day e data-barber, con un
+//     heading che contiene il nome; la bio non si mostra; nella colonna del preferito dall'URL il testo
+//     it.booking.when.preferred (per lo screen reader; a vista "Il tuo"). Sugli schermi alti almeno
+//     600 px scorrono solo le colonne, la pagina no; sotto scorre la pagina intera. Dettagli della
+//     fila in ./when-row-helpers.ts e booking-when-row.spec.ts.
 //   - orari: link (o pulsanti) con nome accessibile it.booking.when.slotLabel ("9:30 con <nome>"),
 //     alti almeno 44 px.
 //   - "Primo libero": link o pulsante con nome it.booking.when.firstFree ("Primo libero: 9:00 con <nome>").
@@ -54,6 +58,7 @@ import {
   type AdminApi,
 } from './admin-helpers';
 import { confirmHref, newestEmailId, waitForNewEmail } from './mailpit';
+import { selectedDate, whenColumn } from './when-row-helpers';
 
 test.use({ viewport: { width: 390, height: 844 } });
 
@@ -171,11 +176,8 @@ const dayItems = (page: Page): Locator => daysNav(page).locator('a[href], [aria-
 const dayLink = (page: Page, date: string): Locator => daysNav(page).locator(`a[href*="giorno=${date}"]`);
 const selectedDay = (page: Page): Locator => daysNav(page).locator('[aria-current="date"]');
 
-/** Sezione del barbiere: <section> con un heading che contiene il nome. */
-const barberSection = (page: Page, name: string): Locator =>
-  main(page)
-    .locator('section')
-    .filter({ has: page.getByRole('heading', { name }) });
+/** Colonna del barbiere nel giorno `day` (fetta 8f: una colonna per barbiere e per giorno). */
+const barberSection = (page: Page, name: string, day: string): Locator => whenColumn(page, name, day);
 
 const slot = (scope: Locator, time: string, barber: string): Locator =>
   linkOrButton(scope, sf('booking.when.slotLabel', { time, barber }));
@@ -183,10 +185,10 @@ const slot = (scope: Locator, time: string, barber: string): Locator =>
 const firstFreeButton = (page: Page, time: string, barber: string): Locator =>
   linkOrButton(main(page), sf('booking.when.firstFree', { time, barber }));
 
-/** Indici (in `names`) dei barbieri nell'ordine delle sezioni della pagina. */
-const sectionOrder = (page: Page, names: string[]): Promise<number[]> =>
+/** Indici (in `names`) dei barbieri nell'ordine delle colonne del giorno `day`. */
+const sectionOrder = (page: Page, names: string[], day: string): Promise<number[]> =>
   main(page)
-    .locator('section')
+    .locator(`section[data-day="${day}"]`)
     .evaluateAll(
       (sections, list) =>
         sections
@@ -254,7 +256,7 @@ test('flusso 8e: dal listino a "Quando?", cambio giorno (anche da tastiera), ora
     await expect(dayLink(page, day)).toHaveAttribute('aria-current', 'date');
 
     // Sezioni per nome (nessun preferito, cliente senza storico), senza "Il tuo barbiere"
-    expect(await sectionOrder(page, [alfa, beta])).toEqual([0, 1]);
+    expect(await sectionOrder(page, [alfa, beta], day)).toEqual([0, 1]);
     await expect(main(page).getByText(s('booking.when.preferred'))).toHaveCount(0);
 
     // Tastiera: Tab entra sul giorno selezionato
@@ -282,7 +284,7 @@ test('flusso 8e: dal listino a "Quando?", cambio giorno (anche da tastiera), ora
 
     // SPEC §5.2: riferimento 390 px, nessuno scorrimento orizzontale della pagina
     const time = lastStartBefore23(settings.slot_granularity_min);
-    const target = slot(barberSection(page, beta), time, beta);
+    const target = slot(barberSection(page, beta, next), time, beta);
     await expect(target).toBeVisible();
     const overflow = await page.evaluate(() => ({
       scroll: document.documentElement.scrollWidth,
@@ -367,9 +369,9 @@ test('"Primo libero": primo orario del giorno fra le sezioni, vince il preferito
 
     // Il primo orario del giorno è alle 9:00 nelle sezioni di "Primo" e "Secondo", non prima
     await page.goto(url());
-    await expect(slot(barberSection(page, first), '9:00', first)).toBeVisible();
-    await expect(slot(barberSection(page, second), '9:00', second)).toBeVisible();
-    await expect(slot(barberSection(page, late), '10:00', late)).toBeVisible();
+    await expect(slot(barberSection(page, first, day), '9:00', first)).toBeVisible();
+    await expect(slot(barberSection(page, second, day), '9:00', second)).toBeVisible();
+    await expect(slot(barberSection(page, late, day), '10:00', late)).toBeVisible();
     // Senza preferito, parità alle 9:00: uno dei due liberi (regola di "qualsiasi", sul server)
     const either = new RegExp(
       `^${escapeRegExp(sf('booking.when.firstFree', { time: '9:00', barber: '§' })).replace('§', `(?:${escapeRegExp(first)}|${escapeRegExp(second)})`)}$`,
@@ -429,10 +431,10 @@ test('barbiere senza posti: "Nessun orario" con il link al prossimo giorno; senz
     await expect(dayLink(page, day)).toHaveAttribute('aria-current', 'date');
 
     // B ha orari nel giorno
-    await expect(slot(barberSection(page, b), '6:00', b)).toBeVisible();
+    await expect(slot(barberSection(page, b, day), '6:00', b)).toBeVisible();
 
     // A: "Nessun orario" e "prossimo: <giorno>, 6:00" verso il giorno dopo
-    const sectionA = barberSection(page, a);
+    const sectionA = barberSection(page, a, day);
     await expect(sectionA.getByText(s('booking.when.columnNoSlots'), { exact: true })).toBeVisible();
     await expect(sectionA.getByRole('link', { name: /^\d{1,2}:\d{2} con / })).toHaveCount(0);
     const nextDay = plusDays(day, 1);
@@ -440,7 +442,7 @@ test('barbiere senza posti: "Nessun orario" con il link al prossimo giorno; senz
     await expect(nextLink).toBeVisible();
 
     // C: solo "Nessun orario", senza link "prossimo"
-    const sectionC = barberSection(page, c);
+    const sectionC = barberSection(page, c, day);
     await expect(sectionC.getByText(s('booking.when.columnNoSlots'), { exact: true })).toBeVisible();
     const nextPrefix = new RegExp(`^${escapeRegExp(s('booking.when.nextFree').split('{when}')[0] ?? '')}`);
     await expect(sectionC.getByRole('link', { name: nextPrefix })).toHaveCount(0);
@@ -460,7 +462,7 @@ test('barbiere senza posti: "Nessun orario" con il link al prossimo giorno; senz
     await tap(nextLink);
     await expectWhenUrl(page, { servizio: service.id, giorno: nextDay });
     await expect(dayLink(page, nextDay)).toHaveAttribute('aria-current', 'date');
-    await expect(slot(barberSection(page, a), '6:00', a)).toBeVisible();
+    await expect(slot(barberSection(page, a, nextDay), '6:00', a)).toBeVisible();
   } finally {
     await cleanup(api, data);
   }
@@ -498,9 +500,9 @@ ${bioHidden}` });
     await expectWhenUrl(page, { servizio: service.id, barbiere: betaId, giorno: day });
     await expect(dayLink(page, day)).toHaveAttribute('aria-current', 'date');
     // Il preferito dall'URL viene prima anche se l'ordine per nome lo metterebbe dopo
-    expect(await sectionOrder(page, [alfa, beta])).toEqual([1, 0]);
-    await expect(barberSection(page, beta).getByText(s('booking.when.preferred'))).toBeVisible();
-    await expect(barberSection(page, alfa).getByText(s('booking.when.preferred'))).toHaveCount(0);
+    expect(await sectionOrder(page, [alfa, beta], day)).toEqual([1, 0]);
+    await expect(barberSection(page, beta, day).getByText(s('booking.when.preferred'))).toBeVisible();
+    await expect(barberSection(page, alfa, day).getByText(s('booking.when.preferred'))).toHaveCount(0);
 
     // Bio: né la prima riga né le altre compaiono nella colonna
     await expect(main(page).getByText(bioFirstLine)).toHaveCount(0);
@@ -508,7 +510,7 @@ ${bioHidden}` });
 
     await page.goto(`/prenota/orario?servizio=${service.id}&barbiere=any&giorno=${day}`);
     await expectWhenUrl(page, { servizio: service.id, barbiere: null, giorno: day });
-    expect(await sectionOrder(page, [alfa, beta])).toEqual([0, 1]);
+    expect(await sectionOrder(page, [alfa, beta], day)).toEqual([0, 1]);
 
     // Senza servizio valido si torna al listino
     await page.goto('/prenota/orario?barbiere=any');
@@ -545,7 +547,7 @@ test('accesso: anonimo su "Quando?" va al login e poi torna lì; il cliente bloc
     await page.locator('main form').getByRole('button', { name: s('auth.confirmLink.submit') }).click();
     await expectPath(page, WHEN_PATH);
     expect(searchParam(page, 'servizio')).toBe(service.id);
-    await expect(barberSection(page, name)).toBeVisible();
+    await expect(barberSection(page, name, await selectedDate(page))).toBeVisible();
 
     // L'admin blocca il cliente: "Quando?" mostra l'avviso e nessun orario
     const [profile] = await api.get<Array<{ id: string }>>(

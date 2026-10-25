@@ -1,3 +1,4 @@
+// modificato in fetta 8f con l'approvazione dell'utente (2026-10-25)
 // Rifiniture della fetta 8e dopo la review (migliorie approvate dall'utente il 2026-10-16; SPEC §5.2,
 // ADR 012). A 390×844 come booking-when.spec.ts.
 //   - ultimo appuntamento: la sezione del barbiere dell'ultimo appuntamento già iniziato è la prima,
@@ -8,6 +9,9 @@
 //   - dopo "prossimo: …" il focus va sull'intestazione del barbiere e una regione aria-live annuncia
 //     il giorno (it.booking.when.dayAnnounce);
 //   - giorno "senza posti": bordo tratteggiato e data con contrasto ≥ 4,5:1.
+// Fetta 8f: una colonna per barbiere e per giorno nella fila continua (./when-row-helpers.ts): l'ordine
+// si legge sulle colonne del giorno selezionato, "prossimo" nella colonna del giorno di partenza e il
+// focus va sull'intestazione della colonna del giorno di arrivo.
 // Dati creati tramite l'admin demo (RLS attiva) e rimossi alla fine; clienti nuovi con email univoche.
 
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
@@ -27,6 +31,7 @@ import {
   type AdminApi,
 } from './admin-helpers';
 import { confirmHref, newestEmailId, waitForNewEmail } from './mailpit';
+import { selectedDate, whenColumn } from './when-row-helpers';
 
 test.use({ viewport: { width: 390, height: 844 } });
 
@@ -102,9 +107,10 @@ const isoWeekday = (date: string): number => ((new Date(`${date}T12:00:00Z`).get
 const at = (date: string, time: string): string => fromZonedTime(`${date}T${time}:00`, TZ).toISOString();
 
 const main = (page: Page): Locator => page.locator('main');
-const sectionOrder = (page: Page, names: string[]): Promise<number[]> =>
+/** Ordine dei barbieri (indici in `names`) nelle colonne del giorno selezionato. */
+const sectionOrder = async (page: Page, names: string[]): Promise<number[]> =>
   main(page)
-    .locator('section')
+    .locator(`section[data-day="${await selectedDate(page)}"]`)
     .evaluateAll(
       (sections, list) =>
         sections
@@ -267,11 +273,10 @@ test('"prossimo: …" porta il focus sull\'intestazione del barbiere e annuncia 
     await signUpCustomer(page, api, 'focus');
 
     await page.goto(`/prenota/quando?servizio=${service.id}&giorno=${day}`);
-    const alfaSection = main(page).locator('section').filter({ has: page.getByRole('heading', { name: alfa }) });
-    await alfaSection.getByRole('link', { name: /^prossimo: / }).click();
+    await whenColumn(page, alfa, day).getByRole('link', { name: /^prossimo: / }).click();
 
     await expect(page.locator('main [aria-current="date"]')).toHaveAttribute('href', new RegExp(`giorno=${next}`));
-    await expect(alfaSection.getByRole('heading', { name: alfa })).toBeFocused();
+    await expect(whenColumn(page, alfa, next).getByRole('heading', { name: alfa })).toBeFocused();
     const live = main(page).locator('[aria-live="polite"]');
     await expect(live).toHaveText(new RegExp(sf('booking.when.dayAnnounce', { day: '.+' })));
 

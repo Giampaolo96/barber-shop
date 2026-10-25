@@ -18,6 +18,7 @@
 | 8c | completata | 2026-10-12 | Vedi "Fetta 8c" sotto; manca la prova del tocco su iPhone |
 | 8d | completata | 2026-10-16 | Vedi "Fetta 8d" sotto; manca la prova di caricamento da iPhone |
 | 8e | completata | 2026-10-16 | Vedi "Fetta 8e" sotto; manca la prova su iPhone e una decisione su "oggi chiuso" |
+| 8f | completata | 2026-10-25 | Vedi "Fetta 8f" sotto; manca la prova su iPhone |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
 | 9b | da fare | | Privacy e account prima del go-live (SPEC §11) |
 
@@ -1260,3 +1261,75 @@ In dev (stessa misura su "Primo libero", contenuto vero): `4a86085` 283 in seque
 **Note per i prossimi giri e2e**
 - **Causa nota dei fallimenti solo in dev**: errore del dev server di Next che legge a metà i propri manifest mentre li riscrive durante una compilazione al volo. Sintomo: `SyntaxError: Unexpected end of JSON input at JSON.parse (<anonymous>)` nel log del server su una POST di server action, schermata di errore generica nel browser ("An unexpected response was received from the server"). Se compare solo col dev server e non sulla build di produzione, non è un difetto dell'app.
 - **Da tenere d'occhio**: `offline.spec.ts` (solo build di produzione) è fallito una volta in un giro completo; da solo passa.
+
+## Fetta 8f – "Quando?" a fila continua di giorni e caselle arrotondate
+
+**Stato**: completata il 2026-10-25 sul branch `fetta-8f` (da `origin/main` `63411f6`, test di accettazione in `8bf863b`). Review senza bloccanti; manca la prova su iPhone.
+
+**Decisioni (approvate dall'utente il 2026-10-25)**
+- La fila parte dal primo giorno non chiuso ("senza posti" compresi); all'apertura senza `giorno` si va comunque al primo giorno con orari.
+- "Visibile" esclude i 16 px di margine sinistro (scroll-padding).
+- Giorno selezionato calcolato da `scrollLeft` una volta per frame (equivalente di IntersectionObserver, funzione pura `dayAtScroll`).
+- Striscia a ogni frame; `replaceState` e annuncio aria-live solo a fila ferma (`scrollend`, ripiego 150 ms dove manca).
+- Scorrimento comandato bloccato sul giorno di arrivo, sbloccato da `pointerdown`/`wheel`/`keydown`.
+- Script inline di apertura statico che legge `data-initial-day` (validato dal server); nota sul nonce in ADR 013.
+- Pulsanti "Giorno precedente/successivo" solo da 1024 px, fuori dalla fila; ←/→ con il focus nella fila.
+- Colonne come gruppi "Orari di <nome>, <giorno>"; errore di caricamento solo nelle colonne del giorno; su desktop 4 colonne nella larghezza della fila.
+- `--ink-control-rest` usato solo dalle caselle: schiarito direttamente (`#9AA1AB`), senza token dedicato. `--surface-control` in Mosca = `--surface`. Bordo ≥ 3:1 sia contro la casella sia contro lo sfondo con la luce d'ambiente.
+- Coda pura delle richieste (`when-queue.ts`) con test approvato; `when-state.ts` diventa cache per giorno con id di richiesta (test 8e adattati, non rimossi).
+
+**Fatto**
+- `src/lib/booking/when-row.ts` (geometria pura), `when-queue.ts` (coda), `when-state.ts` (cache per giorno).
+- `WhenPicker` riscritto:
+  - fila continua con segnaposto, finestra disegnata e testata con la data;
+  - spazio con linea fra i giorni, aggancio morbido;
+  - striscia che segue, URL e annuncio a fila ferma;
+  - apertura senza salto (script nell'HTML del server, `useLayoutEffect` sul client);
+  - ridimensionamento con `rescaleScroll`, pulsanti e frecce su desktop.
+- Token `--radius-control`, `--surface-control`, `--control-gap`, `--day-gap`, `--day-divider` (Mosca invariato a vista). `LinkPending` segue gli angoli del link.
+- `StepHeader compact`: titolo e sottotitolo su una riga, sottotitolo troncato.
+- Documenti: SPEC §5.2 e §11, ADR 013 (e nota in ADR 012), DESIGN.md.
+- Precaricamento ridotto ai giorni visibili ±1. Le server action di Next partono una alla volta: con tutta la finestra in coda, la conferma del riepilogo aspettava dietro le richieste dei giorni e nella suite completa scadeva. All'apertura ora partono 3 richieste di circa 70 ms (misura in dev).
+- Errore trovato con gli e2e e corretto: la fila scorsa prima dell'idratazione scriveva nell'URL il giorno di apertura invece di quello visibile.
+
+**Secondo giro (2026-10-25, decisioni dell'utente)**
+- Test modificati con approvazione:
+  - `booking-when-row.spec.ts`: conta solo le `replaceState` senza `__NA` (Next ne fa una sua dopo ogni chiamata della pagina); `beforeAll` rimuove i servizi "E2E Fila …" rimasti da giri interrotti, con barbieri e prenotazioni. Solo quelli più vecchi di 10 minuti (età letta dal tag di `uniqueName`), così non tocca i test in corso negli altri worker.
+  - `booking.spec.ts:214`: intestazioni cercate nel giorno selezionato.
+  - `booking-when-queue.test.ts`: casi del nuovo tentativo attraverso la coda.
+- Applicate tutte e sei le migliorie della review:
+  - il focus dopo "prossimo: …" va sempre sull'intestazione del barbiere del link nel giorno di arrivo (regola SPEC §5.2 della 8e), anche se la finestra disegnata non cambia;
+  - il nuovo tentativo dopo un errore passa dalla coda (azione `retry`);
+  - il ResizeObserver osserva la fila e il primo giorno (solo testo ingrandito);
+  - `rounded-control` è una `@utility` invece di una voce di `@theme` che rimandava a se stessa;
+  - `data-day` anche sul gruppo disegnato;
+  - i giorni da caricare si calcolano sulla larghezza utile, senza il margine destro.
+- In più:
+  - il giorno scelto in fondo alla fila resta selezionato anche dopo `update()` (`chosenRef`);
+  - i giorni vicini si chiedono solo dopo 600 ms a fila ferma, e una richiesta alla volta (sotto il limite di 3 della SPEC). Next esegue le server action in fila (`app-router-instance.js`): più richieste insieme non vanno più veloci, e toccando un orario la conferma del riepilogo passava dopo di loro. Nella suite completa `booking-polish.spec.ts:224` scadeva in 3 giri su 4; dopo, 2 giri completi verdi e suite da circa 6 a 3,2 minuti.
+- Review veloce di questo giro:
+  - un bloccante, corretto: in fondo alla fila la regola del giorno scelto controllava solo il bordo destro e poteva riselezionare un giorno uscito a sinistra. Ora è `settledDay` pura in `when-row.ts`, con test unitario in `src/lib/booking/when-row.test.ts`;
+  - applicate anche la 2 (focus solo se lo scorrimento parte davvero, `scrollToDay` restituisce un booleano) e la 5 (commento spostato).
+
+**Esiti**
+- lint e typecheck verdi.
+- Vitest verde 3 volte di seguito: 53 file, 2029 test; dopo le ultime correzioni 54 file, 2032 test.
+  - Nel primo dei tre giri era fallito `theme.test.ts` ("Mosca" non compare in src/ fuori da src/themes/) per un mio commento in `tokens.css`, corretto.
+  - Il fallimento del primo giro del 2026-10-25 (prima versione) non si è ripetuto e non ne ho il nome.
+- e2e, intera suite in primo piano: 156/156 in due giri di fila sul codice finale.
+- In un giro intermedio, sotto carico, due test Vitest fuori dalla fetta sono falliti per attese scadute (`barber-photo.test.ts`, "carica una WebP quadrata…", e `customers.test.ts`, "barber: i risultati portano blocked…"); da soli passano, 123/123.
+- Screenshot in `.playwright-mcp/quando-8f/`:
+  - neon a 390×844 e 1280×800: apertura su oggi, fila a metà fra due giorni, giorno senza posti, 5 barbieri, primo piano delle caselle;
+  - Mosca prima e dopo (`mosca-prima-*`, `mosca-dopo-*`): caselle identiche (angoli vivi, bordo nero, gap 6 px). Cambiano solo la data in testata e la larghezza delle colonne.
+- Misura in dev: all'apertura 1 richiesta per il giorno selezionato se non è già nella pagina, poi i vicini (circa 70 ms l'una) dopo 600 ms a fila ferma.
+
+**Test instabili noti**
+- `admin-calendar-week.spec.ts:217` ("l'admin crea una manuale da uno slot della settimana di Luca…"): fallito una volta dentro la suite completa con `expect.poll` scaduto dopo 5000 ms ("Expected: 1, Received: 0"); da solo passa 3 su 3 (`--repeat-each=3`). In un altro giro era fallito per barbieri rimasti da e2e interrotti (orari anche domenica e lunedì), poi rimossi.
+- Dati rimasti da e2e interrotti per timeout possono falsare la vista settimana dell'admin: controllare i barbieri `E2E …` attivi se tornano 7 colonne.
+
+**Problemi aperti**
+- Migliorie della seconda review non applicate:
+  - il nuovo tentativo dopo un errore parte solo quando il giorno torna selezionato (non c'è un pulsante "Riprova");
+  - un commento in `tests/e2e/admin-helpers.ts` (`randomTag`) che ricordi che la pulizia di `booking-when-row.spec.ts` legge l'età dal prefisso del tag.
+- Da provare a mano su iPhone (Safari e PWA): blocco dell'asse fra fila e colonne, aggancio, ripiego senza `scrollend`, apertura con `?giorno=` senza salto, "Indietro" e gesto indietro, rotazione.
+

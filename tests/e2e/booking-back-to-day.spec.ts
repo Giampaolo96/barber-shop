@@ -1,9 +1,12 @@
+// modificato in fetta 8f con l'approvazione dell'utente (2026-10-25)
 // "Indietro" dal riepilogo riapre "Quando?" sul giorno da cui si è scelto l'orario (correzione del
 // 2026-10-19, segnalata da iPhone): scelto un giorno diverso da quello iniziale e toccato un orario,
 // il ritorno non deve riaprire il primo giorno disponibile. Due modi di tornare:
 //   (a) il link "Indietro" della testata del riepilogo;
 //   (b) page.goBack(), come il gesto indietro di iPhone e la freccia del browser.
 // Da un orario di colonna e da "Primo libero", con e senza barbiere preferito; il preferito resta.
+// Fetta 8f: dopo il ritorno (link e cronologia) la fila ha la prima colonna di quel giorno al bordo
+// sinistro (x = 16 a 390 px); colonne per barbiere e per giorno come in ./when-row-helpers.ts.
 // A 390×844 come booking-when-columns.spec.ts. Dati creati tramite l'admin demo e rimossi alla fine.
 
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
@@ -17,11 +20,11 @@ import {
   expectPath,
   plusDays,
   s,
-  sf,
   uniqueEmail,
   uniqueName,
 } from './admin-helpers';
 import { confirmHref, newestEmailId, waitForNewEmail } from './mailpit';
+import { dayColumns, expectAtEdge, whenColumn } from './when-row-helpers';
 
 test.use({ viewport: { width: 390, height: 844 } });
 
@@ -58,8 +61,6 @@ const signUpCustomer = async (page: Page, label: string): Promise<void> => {
 
 const main = (page: Page): Locator => page.locator('main');
 const dayStrip = (page: Page): Locator => page.getByRole('navigation', { name: s('booking.time.daysLabel'), exact: true });
-const column = (page: Page, name: string): Locator =>
-  main(page).getByRole('region', { name: sf('booking.when.columnLabel', { name }), exact: true });
 const firstFreeLink = (page: Page): Locator => main(page).getByRole('link', { name: /^Primo libero:/ });
 const today = (): string => formatInTimeZone(new Date(), TZ, 'yyyy-MM-dd');
 /** Giorno locale dell'orario nell'href di un link al riepilogo. */
@@ -73,6 +74,8 @@ const expectWhenOn = async (page: Page, day: string, preferredId: string | undef
   await expect.poll(async () => dayOfHref(await firstFreeLink(page).getAttribute('href'))).toBe(day);
   await expect.poll(() => new URL(page.url()).searchParams.get('giorno'), "giorno nell'URL").toBe(day);
   expect(new URL(page.url()).searchParams.get('barbiere'), "preferito nell'URL").toBe(preferredId ?? null);
+  // Fetta 8f: la fila mostra quel giorno dalla sua prima colonna, al bordo sinistro
+  await expectAtEdge(dayColumns(page, day).first(), 16, `prima colonna del ${day} al bordo sinistro`);
 };
 
 const ways = ['link', 'history'] as const;
@@ -120,7 +123,7 @@ for (const preferred of [false, true]) {
             const target =
               source === 'firstFree'
                 ? firstFreeLink(page)
-                : column(page, barbers[1]?.name ?? '').getByRole('link').nth(2);
+                : whenColumn(page, barbers[1]?.name ?? '', day).getByRole('link').nth(2);
             expect(dayOfHref(await target.getAttribute('href')), 'orario del giorno scelto').toBe(day);
             await target.click();
             await expectPath(page, '/prenota/riepilogo');

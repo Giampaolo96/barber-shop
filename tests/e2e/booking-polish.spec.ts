@@ -1,3 +1,4 @@
+// modificato in fetta 8f con l'approvazione dell'utente (2026-10-25)
 // Test di accettazione e2e – FETTA 8b (rifinitura estetica). La fetta non è ancora in docs/SPEC.md:
 // le regole vengono dalle decisioni approvate dall'utente ("8b: ...") e da SPEC §5.1 (home e prossima
 // prenotazione), §5.2 (flusso di prenotazione), §5.3 (Le mie prenotazioni), §9 (tap target ≥ 44px,
@@ -42,6 +43,7 @@ import {
   type AdminApi,
 } from './admin-helpers';
 import { confirmHref, newestEmailId, waitForNewEmail } from './mailpit';
+import { selectedDate } from './when-row-helpers';
 
 const TZ = 'Europe/Rome';
 /** Orario di "Quando?" (fetta 8e): "9:30 con <barbiere>". */
@@ -264,8 +266,12 @@ test('flusso 8b: stato vuoto, listino, "Quando?", pagina di conferma con .ics, L
     // 8e, SPEC §5.2: "Quando?" con una colonna per barbiere, senza bio
     await expectPath(page, '/prenota/quando');
     await expect(page.getByRole('heading', { level: 1, name: s('booking.when.title') })).toBeVisible();
+    // Fetta 8f: una colonna per barbiere e per giorno; si guardano quelle del giorno selezionato
+    const shownDay = await selectedDate(page);
     const sectionOf = (name: string): Locator =>
-      main(page).locator('section').filter({ has: page.getByRole('heading', { name, exact: true }) });
+      main(page)
+        .locator(`section[data-day="${shownDay}"]`)
+        .filter({ has: page.getByRole('heading', { name, exact: true }) });
     for (const name of barberNames) await expect(sectionOf(name)).toBeVisible();
     const chosen = sectionOf(barberNames[0] ?? '');
     await expect(main(page).getByText(bioFirstLine)).toHaveCount(0);

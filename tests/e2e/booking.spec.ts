@@ -1,3 +1,4 @@
+// modificato in fetta 8f con l'approvazione dell'utente (2026-10-25): intestazioni dei barbieri cercate nel giorno selezionato.
 // Test di accettazione e2e – FETTA 5 (SPEC §11: "Prenotazione e cancellazione end-to-end con Playwright").
 // Flussi principali del cliente: SPEC §5.1 (home con "Prenota" e prossima prenotazione), §5.2 (flusso
 // in max 4 schermate), §5.3 (Le mie prenotazioni, cancellazione fino al limite, "Chiama il negozio"),
@@ -45,6 +46,7 @@ import {
   type AdminApi,
 } from './admin-helpers';
 import { confirmHref, newestEmailId, waitForNewEmail } from './mailpit';
+import { selectedDate } from './when-row-helpers';
 
 const TZ = 'Europe/Rome';
 /** Orario di "Quando?" (fetta 8e): "9:30 con <barbiere>". */
@@ -233,8 +235,10 @@ test('il cliente demo prenota con un barbiere scelto: la prenotazione è in "Le 
     // Fetta 8e: dal servizio a "Quando?", con una sezione per ogni barbiere
     await tap(choice(page, service.name));
     await expectPath(page, '/prenota/quando');
+    // Fetta 8f: fila continua di giorni, un'intestazione per barbiere in ogni giorno disegnato
+    const day = await selectedDate(page);
     for (const name of barberNames) {
-      await expect(main(page).getByRole('heading', { name, exact: true })).toBeVisible();
+      await expect(main(page).locator(`section[data-day="${day}"]`).getByRole('heading', { name, exact: true })).toBeVisible();
     }
 
     const note = `Nota ${uniqueName('e2e')}`;

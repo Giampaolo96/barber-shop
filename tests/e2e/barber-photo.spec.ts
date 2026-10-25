@@ -1,3 +1,4 @@
+// modificato in fetta 8f con l'approvazione dell'utente (2026-10-25)
 // Test di accettazione e2e – FETTA 8d (ritratti dei barbieri). La fetta non è ancora in
 // docs/SPEC.md: le regole vengono dalle decisioni approvate dall'utente ("8d dec. N") e da SPEC §3.3
 // (barbieri: "foto") e §5.2 passo 2 (scelta del barbiere con foto).
@@ -13,7 +14,9 @@
 // - /prenota/quando?servizio=<id> (fetta 8e, prima /prenota/barbiere): nella sezione di ogni barbiere
 //   con ritratto un'immagine con
 //   alt = it.booking.barber.portraitAlt ("Ritratto di {name}"), src = URL pubblico del bucket
-//   barber-photos, loading="lazy", decoding="async"; senza ritratto l'iniziale del nome.
+//   barber-photos, loading="lazy", decoding="async"; senza ritratto l'iniziale del nome. Fetta 8f: una
+//   colonna per barbiere e per giorno disegnato, quindi un ritratto per colonna; si controlla quello
+//   della colonna del giorno selezionato.
 //
 // Prerequisiti: Supabase locale con il seed e Mailpit. Il file JPEG si genera al volo con sharp.
 // Dati creati tramite l'admin demo (RLS attiva) e rimossi alla fine, file del bucket compresi.
@@ -39,11 +42,11 @@ import {
   type AdminApi,
 } from './admin-helpers';
 import { confirmHref, newestEmailId, waitForNewEmail } from './mailpit';
+import { selectedDate, whenColumn } from './when-row-helpers';
 
 const BUCKET = 'barber-photos';
 const PATH_FORMAT = (barberId: string): RegExp => new RegExp(`^${barberId}/[0-9a-f]{32}\\.webp$`);
 const publicUrl = (path: string): string => `${supabaseUrl()}/storage/v1/object/public/${BUCKET}/${path}`;
-const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // ---------------------------------------------------------------------------
 // Cliente nuovo con profilo completo (magic link via Mailpit), come in booking-polish.spec.ts
@@ -168,7 +171,10 @@ test.describe('Ritratti dei barbieri (fetta 8d)', () => {
       await customerPage.goto(`/prenota/quando?servizio=${serviceId}`);
       await expectPath(customerPage, '/prenota/quando');
       const main = customerPage.locator('main');
-      const portrait = main.getByRole('img', { name: alt, exact: true });
+      // Fetta 8f: un ritratto nella colonna del barbiere nel giorno selezionato
+      const shownDay = await selectedDate(customerPage);
+      const barberLink = whenColumn(customerPage, name, shownDay);
+      const portrait = barberLink.getByRole('img', { name: alt, exact: true });
       await expect(portrait).toHaveCount(1);
       await portrait.scrollIntoViewIfNeeded();
       await expect(portrait).toBeVisible();
@@ -179,11 +185,7 @@ test.describe('Ritratti dei barbieri (fetta 8d)', () => {
       await expect
         .poll(() => portrait.evaluate((img) => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth))
         .toBe(512);
-      // Il ritratto sta nella sezione del barbiere; l'altro barbiere resta con l'iniziale
-      const barberLink = main
-        .locator('section')
-        .filter({ has: customerPage.getByRole('heading', { name: new RegExp(escapeRegExp(name)) }) });
-      await expect(barberLink.getByRole('img', { name: alt, exact: true })).toHaveCount(1);
+      // L'altro barbiere resta con l'iniziale
       expect(otherId).not.toBe('');
       expect(await photoPathOf(api, otherId)).toBeNull();
 

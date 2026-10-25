@@ -1,13 +1,17 @@
+// modificato in fetta 8f con l'approvazione dell'utente (2026-10-25)
 // "Quando?" a colonne per barbiere (modifica alla fetta 8e approvata dall'utente il 2026-10-18;
 // SPEC §5.2, ADR 012). A 390×844 come booking-when.spec.ts.
-//   - 4 barbieri: colonne affiancate di larghezza uguale, senza overflow della pagina; ogni colonna
-//     scorre da sola (overscroll-behavior-y "contain", che su iPhone ferma lo scorrimento della
-//     pagina): scorrerne una non sposta le altre né la pagina; il tocco su un orario apre il
-//     riepilogo con barbiere e ora giusti;
-//   - 5 barbieri: l'area delle colonne scorre di lato, la quinta colonna sporge dal bordo
-//     all'apertura e la pagina non ha overflow orizzontale;
-//   - cambio di giorno: le colonne scrollate tornano tutte in cima (aggiunto con l'approvazione
-//     dell'utente del 2026-10-19).
+// Fetta 8f: le colonne stanno in una fila orizzontale continua (regione it.booking.when.rowLabel), un
+// gruppo per barbiere e per giorno ("Orari di <nome>, <giorno>"); contratto in ./when-row-helpers.ts.
+//   - 4 barbieri: le 4 colonne del giorno affiancate di larghezza uguale dentro il viewport, senza
+//     overflow della pagina; ogni colonna scorre da sola (overscroll-behavior-y "contain", che su iPhone
+//     ferma lo scorrimento della pagina): scorrerne una non sposta le altre né la pagina; il tocco su
+//     un orario apre il riepilogo con barbiere e ora giusti;
+//   - 5 barbieri: le 5 colonne del giorno sono contigue nella fila e larghe come con 4 barbieri (4
+//     visibili nella larghezza utile), scorrendo si arriva alla quinta e poi alla prima del giorno dopo,
+//     dopo uno spazio-giorno più largo; la fila è l'unico elemento che scorre di lato.
+//   (Il caso "cambio di giorno: colonne in cima" è passato in booking-when-row.spec.ts, tocco sulla
+//   striscia.)
 // Dati creati tramite l'admin demo (RLS attiva) e rimossi alla fine; clienti nuovi con email univoche.
 
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
@@ -21,12 +25,12 @@ import {
   expectPath,
   plusDays,
   s,
-  sf,
   uniqueEmail,
   uniqueName,
   type AdminApi,
 } from './admin-helpers';
 import { confirmHref, newestEmailId, waitForNewEmail } from './mailpit';
+import { columnScroller as scroller, expectAtEdge, leftOf, selectedDate, whenColumn, whenRow } from './when-row-helpers';
 
 test.use({ viewport: { width: 390, height: 844 } });
 
@@ -86,21 +90,6 @@ const serviceWithBarbers = async (
 
 const today = (): string => formatInTimeZone(new Date(), TZ, 'yyyy-MM-dd');
 const main = (page: Page): Locator => page.locator('main');
-const column = (page: Page, name: string): Locator =>
-  main(page).getByRole('region', { name: sf('booking.when.columnLabel', { name }), exact: true });
-const columnsArea = (page: Page): Locator => main(page).getByRole('group', { name: s('booking.when.barbersLabel'), exact: true });
-
-/** Stato di scorrimento della lista di orari di una colonna (l'elemento che scorre in verticale). */
-const scroller = (col: Locator) =>
-  col.evaluate((section) => {
-    const list = [...section.querySelectorAll<HTMLElement>('*')].find((el) => getComputedStyle(el).overflowY === 'auto');
-    if (!list) return null;
-    return {
-      scrollTop: list.scrollTop,
-      scrollable: list.scrollHeight > list.clientHeight,
-      overscrollY: getComputedStyle(list).overscrollBehaviorY,
-    };
-  });
 
 const pageMetrics = (page: Page) =>
   page.evaluate(() => ({
@@ -122,11 +111,14 @@ test('4 barbieri a 390 px: colonne affiancate senza overflow; una colonna scorre
     await signUpCustomer(page, 'colonne');
     const day = plusDays(today(), 1);
     await page.goto(`${WHEN_PATH}?servizio=${serviceId}&giorno=${day}`);
+    const column = (name: string): Locator => whenColumn(page, name, day);
+    // La fila si apre sul giorno dell'URL: la sua prima colonna al bordo sinistro (x = 16)
+    await expectAtEdge(column(barbers[0]?.name ?? ''), 16, 'prima colonna del giorno al bordo');
 
     // Quattro colonne affiancate: stessa riga, stessa larghezza, tutte dentro il viewport
     const boxes = [];
     for (const barber of barbers) {
-      const col = column(page, barber.name);
+      const col = column(barber.name);
       await expect(col).toBeVisible();
       boxes.push(await col.boundingBox());
     }
@@ -149,7 +141,7 @@ test('4 barbieri a 390 px: colonne affiancate senza overflow; una colonna scorre
 
     // Ogni colonna scorre da sola con overscroll-behavior-y "contain"
     for (const barber of barbers) {
-      const state = await scroller(column(page, barber.name));
+      const state = await scroller(column(barber.name));
       expect(state, `lista di orari che scorre in ${barber.name}`).not.toBeNull();
       expect(state?.scrollable, `${barber.name}: più orari di quanti ne stanno`).toBe(true);
       expect(state?.overscrollY, `${barber.name}: overscroll-behavior-y`).toBe('contain');
@@ -158,15 +150,15 @@ test('4 barbieri a 390 px: colonne affiancate senza overflow; una colonna scorre
     // Scorrere la seconda colonna non sposta le altre, né la pagina, né la striscia e "Primo libero"
     const target = barbers[1] ?? { id: '', name: '' };
     const nav = page.getByRole('navigation', { name: s('booking.time.daysLabel'), exact: true });
-    const firstOtherSlot = column(page, barbers[0]?.name ?? '').getByRole('link').first();
+    const firstOtherSlot = column(barbers[0]?.name ?? '').getByRole('link').first();
     const navBefore = await nav.boundingBox();
     const otherSlotBefore = await firstOtherSlot.boundingBox();
-    const targetBox = await column(page, target.name).boundingBox();
+    const targetBox = await column(target.name).boundingBox();
     await page.mouse.move((targetBox?.x ?? 0) + (targetBox?.width ?? 0) / 2, (targetBox?.y ?? 0) + (targetBox?.height ?? 0) - 100);
     await page.mouse.wheel(0, 600);
-    await expect.poll(async () => (await scroller(column(page, target.name)))?.scrollTop ?? 0).toBeGreaterThan(0);
+    await expect.poll(async () => (await scroller(column(target.name)))?.scrollTop ?? 0).toBeGreaterThan(0);
     for (const barber of barbers.filter((b) => b.id !== target.id)) {
-      expect((await scroller(column(page, barber.name)))?.scrollTop, `${barber.name} resta in cima`).toBe(0);
+      expect((await scroller(column(barber.name)))?.scrollTop, `${barber.name} resta in cima`).toBe(0);
     }
     // Anche scorrendo oltre la fine della colonna la pagina resta ferma
     await page.mouse.wheel(0, 20_000);
@@ -175,7 +167,7 @@ test('4 barbieri a 390 px: colonne affiancate senza overflow; una colonna scorre
     expect(await firstOtherSlot.boundingBox(), 'orari delle altre colonne fermi').toEqual(otherSlotBefore);
 
     // Tocco su un orario visibile della colonna scrollata → riepilogo con quel barbiere e quell'ora
-    const slots = column(page, target.name).getByRole('link', { name: new RegExp(` con ${target.name}$`) });
+    const slots = column(target.name).getByRole('link', { name: new RegExp(` con ${target.name}$`) });
     const label = await slots.evaluateAll((links) => {
       const visible = links.find((link) => {
         const box = link.getBoundingClientRect();
@@ -186,7 +178,7 @@ test('4 barbieri a 390 px: colonne affiancate senza overflow; una colonna scorre
     });
     expect(label, 'un orario visibile dopo lo scorrimento').not.toBeNull();
     const time = (label ?? '').split(' ')[0] ?? '';
-    await column(page, target.name).getByRole('link', { name: label ?? '', exact: true }).click();
+    await column(target.name).getByRole('link', { name: label ?? '', exact: true }).click();
     await expectPath(page, '/prenota/riepilogo');
     const params = new URL(page.url()).searchParams;
     expect(params.get('servizio')).toBe(serviceId);
@@ -199,41 +191,7 @@ test('4 barbieri a 390 px: colonne affiancate senza overflow; una colonna scorre
   }
 });
 
-test('cambio di giorno: le colonne scrollate tornano tutte in cima', async ({ page, request }) => {
-  const api = await adminApi(request);
-  const data: Created = { services: [], barbers: [], bookings: [] };
-  try {
-    const { serviceId, barbers } = await serviceWithBarbers(api, data, 2);
-    await signUpCustomer(page, 'cima');
-    await page.goto(`${WHEN_PATH}?servizio=${serviceId}&giorno=${plusDays(today(), 1)}`);
-
-    // Entrambe le colonne scrollate verso il basso
-    for (const barber of barbers) {
-      const col = column(page, barber.name);
-      await expect(col.getByRole('link').first()).toBeVisible();
-      await col.evaluate((section) => {
-        const list = [...section.querySelectorAll<HTMLElement>('*')].find((el) => getComputedStyle(el).overflowY === 'auto');
-        list?.scrollTo({ top: 400 });
-      });
-      await expect.poll(async () => (await scroller(col))?.scrollTop ?? 0, `${barber.name} scrollata`).toBeGreaterThan(0);
-    }
-
-    // Giorno dopo dalla striscia: quando arriva, tutte le colonne sono in cima
-    const next = plusDays(today(), 2);
-    const nav = page.getByRole('navigation', { name: s('booking.time.daysLabel'), exact: true });
-    await nav.locator(`a[data-day="${next}"]`).click();
-    await expect(nav.locator(`a[data-day="${next}"]`)).toHaveAttribute('aria-current', 'date');
-    for (const barber of barbers) {
-      const col = column(page, barber.name);
-      await expect(col.getByRole('link').first()).toBeVisible();
-      await expect.poll(async () => (await scroller(col))?.scrollTop, `${barber.name} torna in cima`).toBe(0);
-    }
-  } finally {
-    await cleanup(api, data);
-  }
-});
-
-test('5 barbieri a 390 px: l\'area delle colonne scorre di lato, la quinta sporge dal bordo, la pagina non ha overflow orizzontale', async ({
+test("5 barbieri a 390 px: colonne del giorno contigue e larghe come con 4, poi il giorno dopo oltre uno spazio più largo; la fila è l'unico elemento che scorre di lato", async ({
   page,
   request,
 }) => {
@@ -242,34 +200,58 @@ test('5 barbieri a 390 px: l\'area delle colonne scorre di lato, la quinta sporg
   try {
     const { serviceId, barbers } = await serviceWithBarbers(api, data, 5);
     await signUpCustomer(page, 'cinque');
-    await page.goto(`${WHEN_PATH}?servizio=${serviceId}&giorno=${plusDays(today(), 1)}`);
-    for (const barber of barbers) await expect(column(page, barber.name)).toHaveCount(1);
+    const day = plusDays(today(), 1);
+    const next = plusDays(day, 1);
+    await page.goto(`${WHEN_PATH}?servizio=${serviceId}&giorno=${day}`);
+    const columns = barbers.map((barber) => whenColumn(page, barber.name, day));
+    for (const col of columns) await expect(col).toHaveCount(1);
+    await expectAtEdge(columns[0] as Locator, 16, 'prima colonna del giorno al bordo');
 
-    // All'apertura la quinta colonna sporge dal bordo destro (si capisce che l'area scorre)
-    const fifth = column(page, barbers[4]?.name ?? '');
-    const fifthBox = await fifth.boundingBox();
-    expect(fifthBox, 'quinta colonna').not.toBeNull();
-    expect(fifthBox?.x ?? 1000, 'la quinta colonna inizia dentro il viewport').toBeLessThanOrEqual(390 - 16);
-    expect((fifthBox?.x ?? 0) + (fifthBox?.width ?? 0), 'la quinta colonna esce dal bordo').toBeGreaterThan(390);
+    // Le 5 colonne del giorno: larghe uguali, separate dallo stesso gap, la quinta subito dopo la quarta
+    const boxes = await Promise.all(columns.map((col) => col.evaluate((el) => el.getBoundingClientRect().toJSON() as DOMRect)));
+    const width = boxes[0]?.width ?? 0;
+    const gap = (boxes[1]?.left ?? 0) - (boxes[0]?.right ?? 0);
+    expect(gap, 'gap fra le colonne').toBeGreaterThanOrEqual(0);
+    for (let i = 1; i < boxes.length; i++) {
+      expect(Math.abs((boxes[i]?.width ?? 0) - width), `colonna ${i + 1} larga come la prima`).toBeLessThanOrEqual(1);
+      expect(Math.abs((boxes[i]?.left ?? 0) - (boxes[i - 1]?.right ?? 0) - gap), `colonna ${i + 1} subito dopo la precedente`).toBeLessThanOrEqual(1);
+    }
+    // Larghe come con 4 barbieri: 4 colonne e 3 gap riempiono la larghezza utile (390 − 2·16 = 358)
+    expect(Math.abs(width - (358 - 3 * gap) / 4), `larghezza ${width} con gap ${gap}`).toBeLessThanOrEqual(1);
+    expect(boxes[3]?.right ?? 1000, 'la quarta colonna è dentro il viewport').toBeLessThanOrEqual(390);
+    expect(boxes[4]?.right ?? 0, 'la quinta colonna esce dal bordo').toBeGreaterThan(390);
 
-    // La pagina non ha overflow orizzontale: scorre solo l'area delle colonne
+    // Nessun overflow orizzontale della pagina: fuori dalla striscia scorre di lato solo la fila
     const metrics = await pageMetrics(page);
     expect(metrics.scrollWidth, 'nessun overflow orizzontale della pagina').toBeLessThanOrEqual(metrics.clientWidth);
-    const area = columnsArea(page);
-    const areaScroll = await area.evaluate((el) => ({
-      overflowX: getComputedStyle(el).overflowX,
-      scrollable: el.scrollWidth > el.clientWidth,
-    }));
-    expect(areaScroll).toEqual({ overflowX: 'auto', scrollable: true });
+    const row = whenRow(page);
+    expect(await row.evaluate((el) => ({ overflowX: getComputedStyle(el).overflowX, scrollable: el.scrollWidth > el.clientWidth }))).toEqual({
+      overflowX: 'auto',
+      scrollable: true,
+    });
+    const sideScrollers = await main(page).evaluate((root) =>
+      [...root.querySelectorAll<HTMLElement>('*')]
+        .filter((el) => !el.closest('nav'))
+        .filter((el) => ['auto', 'scroll'].includes(getComputedStyle(el).overflowX) && el.scrollWidth > el.clientWidth + 1)
+        .map((el) => (el.hasAttribute('data-when-columns') ? 'fila' : `${el.tagName} ${el.className}`)),
+    );
+    expect(sideScrollers, 'elementi che scorrono di lato (striscia esclusa)').toEqual(['fila']);
 
-    // Scorrendo di lato la quinta colonna entra tutta nel viewport, la pagina resta ferma
-    await area.evaluate((el) => el.scrollTo({ left: el.scrollWidth }));
-    await expect
-      .poll(async () => {
-        const box = await fifth.boundingBox();
-        return (box?.x ?? 0) + (box?.width ?? 1000);
-      })
-      .toBeLessThanOrEqual(390);
+    // Scorrendo di lato si arriva alla quinta colonna, ancora del giorno scelto…
+    const fifth = columns[4] as Locator;
+    await row.evaluate((el, by) => el.scrollBy({ left: by, behavior: 'instant' }), (boxes[4]?.left ?? 0) - 16);
+    await expectAtEdge(fifth, 16, 'quinta colonna al bordo');
+    expect(await selectedDate(page), 'con la quinta colonna visibile il giorno resta quello').toBe(day);
+
+    // …e subito dopo alla prima colonna del giorno dopo, oltre uno spazio più largo del gap normale
+    const firstNext = whenColumn(page, barbers[0]?.name ?? '', next);
+    await expect(firstNext).toHaveCount(1);
+    const fifthRight = await fifth.evaluate((el) => el.getBoundingClientRect().right);
+    const dayGap = (await leftOf(firstNext)) - fifthRight;
+    expect(dayGap, 'spazio fra due giorni più largo del gap').toBeGreaterThan(gap + 2);
+    await row.evaluate((el, by) => el.scrollBy({ left: by, behavior: 'instant' }), (await leftOf(firstNext)) - 16);
+    await expectAtEdge(firstNext, 16, 'prima colonna del giorno dopo al bordo');
+    await expect.poll(() => selectedDate(page), 'giorno selezionato').toBe(next);
     expect(await page.evaluate(() => window.scrollX), 'la pagina non scorre di lato').toBe(0);
   } finally {
     await cleanup(api, data);

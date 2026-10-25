@@ -20,8 +20,18 @@
   --danger: #f28b8b;
   --radius: 0rem;
   --ring-on-ink: var(--ink);
-  /* Bordo a riposo di orari e giorni: grigio freddo, 5,1:1 sul fondo, 3,3:1 al centro della luce più forte. */
-  --ink-control-rest: #7c838e;
+  /*
+   * Bordo a riposo di orari e giorni: grigio freddo, 6,9:1 sul fondo; al centro della luce più forte
+   * 4,9:1 contro il fondo e 4,2:1 contro la casella rialzata (fetta 8f).
+   */
+  --ink-control-rest: #9aa1ab;
+  /* Caselle di orari e giorni di "Quando?": angoli arrotondati, orari su un fondo appena rialzato (testo 9,9:1 nel caso peggiore). */
+  --radius-control: 0.625rem;
+  --surface-control: #ffffff0d;
+  --control-gap: 0.625rem;
+  /* Fila continua di "Quando?": spazio e linea fra un giorno e il successivo. */
+  --day-gap: 1.5rem;
+  --day-divider: var(--line);
   /* Velo dietro i dialoghi: scurisce, mai schiarisce. */
   --scrim: #000000a6;
   color-scheme: dark;

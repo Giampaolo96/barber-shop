@@ -1,6 +1,6 @@
 # ADR 012 – Passo "Quando?" della prenotazione
 
-Data: 2026-10-16 · Stato: accettata · Fetta 8e · Aggiorna il flusso di SPEC §5.2 (da 4 a 3 schermate)
+Data: 2026-10-16 · Stato: accettata · Fetta 8e · Aggiorna il flusso di SPEC §5.2 (da 4 a 3 schermate) · Disposizione a colonne e cambio di giorno superati da ADR 013 (fetta 8f, fila continua di giorni)
 
 ## Contesto
 

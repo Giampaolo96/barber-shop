@@ -12,7 +12,7 @@ I principi qui sotto sono scritti per Mosca (nero su bianco); in Mosca neon i ru
 - **Numeri come tipografia**: date e orari grandi in Bodoni sono l'elemento visivo della scelta, non etichette.
 - **Un solo momento memorabile per schermata.** In home è la testata in marmo con la mosca (il biglietto della prossima prenotazione è il secondo elemento forte, mai un terzo); dopo la prenotazione è la schermata di conferma in marmo; tutto il resto è disciplinato.
 - **Doppio filetto** (`border-double`, 3 px, colore `--ink`) solo come separatore principale: sotto i titoli di sezione della home, sopra e sotto il listino, sul pulsante "Prenota". Altrove bastano i bordi da 1 px.
-- **Allineamento a sinistra**, griglia a 16 px su mobile, colonna di lettura `max-w-xl`. Eccezione: "Quando?" usa `max-w-3xl` (una colonna di orari per barbiere) e un'intestazione compatta (`StepHeader compact`, senza il segno del tema). Nelle colonne di "Quando?" la testata (ritratto e nome) è centrata, l'unico testo non allineato a sinistra della schermata: con colonne strette fino a 5 rem il nome centrato sopra gli orari si legge meglio.
+- **Allineamento a sinistra**, griglia a 16 px su mobile, colonna di lettura `max-w-xl`. Eccezione: "Quando?" usa `max-w-3xl` (una fila continua di colonne, giorno × barbiere, ADR 013) e un'intestazione compatta (`StepHeader compact`, senza il segno del tema, su una riga sola con il sottotitolo troncato). Nelle colonne di "Quando?" la testata (data piccola, ritratto e nome) è centrata, l'unico testo non allineato a sinistra della schermata: con colonne strette fino a 5 rem il nome centrato sopra gli orari si legge meglio.
 - Mobile first per il cliente (tap target ≥ 44 px), desktop first per lo staff.
 
 ## Token
@@ -32,8 +32,12 @@ I nomi semantici sono in `src/styles/tokens.css`, che li mappa su shadcn (`--bac
 | `--danger` | solo errori e azioni distruttive | `#A4161A` | `#F28B8B` (8,3:1) |
 | `--scrim` | velo dietro i dialoghi | nero al 40% | nero al 65% |
 | `--ring-on-ink` | focus sui fondi scuri (`.on-ink`) | `--surface` | `--ink` |
-| `--ink-control-rest` | bordo a riposo degli orari e dei giorni non selezionati di "Quando?" (`border-control-rest`); bianco su passaggio, focus e pressione | `--ink` | `#7C838E` (5,1:1; 3,3:1 al centro della luce più forte) |
+| `--ink-control-rest` | bordo a riposo degli orari e dei giorni non selezionati di "Quando?" (`border-control-rest`); bianco su passaggio, focus e pressione | `--ink` | `#9AA1AB` (6,9:1; al centro della luce più forte 4,9:1 sul fondo e 4,2:1 sulla casella) |
 | `--radius` | angoli | `0` | `0` |
+| `--radius-control` | caselle di orari e giorni di "Quando?" (`rounded-control`; anche "Giorno precedente/successivo") | `0` | `10px` |
+| `--surface-control` | fondo a riposo degli orari di "Quando?" (`bg-surface-control`) | `--surface` | bianco al 5% (testo 9,9:1 nel caso peggiore) |
+| `--control-gap` | spazio fra orari e fra colonne (`gap-control`) | `6px` | `10px` |
+| `--day-gap` / `--day-divider` | spazio e linea fra due giorni della fila di "Quando?" (`ml-day`, `bg-day-divider`) | `16px` / `--line` | `24px` / `--line` |
 | `--theme-font-display` | titoli, nome del negozio, date e orari grandi | Bodoni Moda | Bodoni Moda |
 | `--theme-font-body` | tutto il resto; cifre tabellari negli orari | Hanken Grotesk | Hanken Grotesk |
 
@@ -100,7 +104,7 @@ Il nero profondo richiama il negozio di sera: neon bianchi (al massimo con una l
 - Niente gradienti decorativi. L'unico motivo a righe è il tratteggio informativo di assenze e chiusure nel calendario (`bg-hatch`). L'unica sfumatura ammessa è funzionale: in fondo a una colonna di "Quando?" che ha altri orari sotto (`from-surface`). Eccezione del tema neon: i gradienti radiali delle luci d'ambiente, solo nel loro livello.
 - Niente ombre morbide, né sulle card né sui pulsanti. Eccezione: i bagliori del tema, solo attraverso le classi e i token di "Luce e vetro" (mai un'ombra scritta in un componente).
 - Niente maiuscoletto né tutto maiuscolo sulle etichette.
-- Niente card tutte uguali con angoli arrotondati: angoli vivi, bordi da 1 px.
+- Niente card tutte uguali con angoli arrotondati: angoli vivi, bordi da 1 px. Unica eccezione, solo nel tema neon: le caselle di orari e giorni di "Quando?" (`--radius-control`); pannelli, biglietto, "Primo libero" e pulsanti grandi restano ad angoli vivi.
 - Niente separatori "·" tra metadati, niente "→" aggiunte ai pulsanti.
 - Niente colori della palette Tailwind (`emerald-*`, `amber-*`…) né opacità per il testo secondario: si usano i token.
 - Il nome del negozio non si scrive nel codice: viene da `shop_settings` (in testata la prima parola in grande, il resto sotto, `splitShopName`).
