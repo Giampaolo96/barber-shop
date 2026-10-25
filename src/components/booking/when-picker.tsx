@@ -33,13 +33,15 @@ import {
   splitByPeriod,
 } from "@/lib/booking/when";
 import {
+  captureAnchor,
   firstColumnOffset,
   initialWindow,
   renderWindow,
-  rescaleScroll,
+  restoreAnchor,
   rowDays,
   rowLayout,
   settledDay,
+  type RowAnchor,
   type RowLayout,
 } from "@/lib/booking/when-row";
 import { dayCacheReducer, type DayCache, type DayEntry } from "@/lib/booking/when-state";
@@ -49,6 +51,10 @@ export type WhenBarber = { id: string; name: string; photoUrl: string | null };
 
 /** Ripiego di scrollend (Safari): la fila è ferma dopo questo tempo senza eventi di scorrimento. */
 const SETTLE_MS = 150;
+/** Ridimensionamento finito (rotazione): layout stabile dopo questo tempo senza ridimensionamenti. */
+const RESIZE_SETTLE_MS = 150;
+/** Schermi alti: ogni colonna scorre da sola (variante `tall` di globals.css). */
+const TALL_QUERY = "(min-height: 37.5rem)";
 /** Pagina tornata visibile con orari più vecchi di così: si ricaricano in background (ADR 014). */
 const STALE_MS = 2 * 60_000;
 /** Ricarica di tutti i giorni: GET e non una server action, così non fa aspettare la conferma (ADR 014). */
@@ -87,6 +93,16 @@ const dayOfRow = (el: HTMLElement, layout: RowLayout, chosen: string | null): st
   );
 
 const sameDays = (a: string[], b: string[]): boolean => a.length === b.length && a.every((d, i) => d === b[i]);
+
+/** Chiave della lista di orari di una colonna (giorno e barbiere), per ricordarne lo scorrimento verticale. */
+const listKeyOf = (date: string, barberId: string): string => `${date}:${barberId}`;
+
+/**
+ * Posizione verticale da conservare durante un ridimensionamento (rotazione): lo scrollTop di ogni
+ * colonna sugli schermi alti e window.scrollY sotto i 600 px. Si aggiorna solo fuori dai
+ * ridimensionamenti, quando lo scorrimento viene da chi usa la pagina.
+ */
+type VerticalMemory = { resizing: boolean; tops: Map<string, number>; pageY: number };
 
 /**
  * "Quando?" (SPEC §5.2, fette 8e, 8f e 8g): striscia dei giorni in alto e una fila continua di colonne,
@@ -150,7 +166,15 @@ export function WhenPicker({
   const committedRef = useRef<string | null>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const frame = useRef(0);
-  const lastScrollLeft = useRef(0);
+  /** Colonna più a sinistra a fila ferma: dopo un ridimensionamento torna al bordo con la stessa frazione. */
+  const anchorRef = useRef<RowAnchor | null>(null);
+  // Oggetto stabile, cambiato solo negli eventi: non serve al disegno (non è uno stato da rendere).
+  const [vertical] = useState<VerticalMemory>(() => ({ resizing: false, tops: new Map(), pageY: 0 }));
+  const resizeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Larghezza della fila all'ultima misura: se è cambiata, il layout misurato è vecchio. */
+  const measuredWidth = useRef(0);
+  /** Inizio (o prosecuzione) di un ridimensionamento: impostato dall'effetto del ResizeObserver. */
+  const startResize = useRef<() => void>(() => {});
   const requestSeq = useRef(0);
   const cacheRef = useRef(cache);
   useEffect(() => {
@@ -227,6 +251,7 @@ export function WhenPicker({
     const gap = count > 1 ? (firstBox.width - count * columnWidth) / (count - 1) : 0;
     const second = groups[1]?.getBoundingClientRect();
     const dayGap = second ? second.left - firstBox.right : 0;
+    measuredWidth.current = el.clientWidth;
     return rowLayout({ days: row, barberCount: count, columnWidth, gap, dayGap });
   }, [row, barbers.length]);
 
@@ -255,12 +280,19 @@ export function WhenPicker({
     const el = rowRef.current;
     const layout = layoutRef.current;
     if (!el || !layout) return;
+    // Durante un ridimensionamento la fila si muove da sola (WebKit riscala scrollLeft e manda scroll e
+    // scrollend prima del ResizeObserver): non cambiano giorno, URL né ancora.
+    if (vertical.resizing || el.clientWidth !== measuredWidth.current) {
+      startResize.current();
+      return;
+    }
     const day = dayOfRow(el, layout, lockRef.current ?? chosenRef.current);
     lockRef.current = null;
     chosenRef.current = day;
+    anchorRef.current = captureAnchor(layout, el.scrollLeft);
     setSelected(day);
     commit(day);
-  }, [commit]);
+  }, [commit, vertical]);
 
   /** Per ogni frame di scorrimento: giorno selezionato (se non c'è uno scorrimento comandato) e finestra. */
   const update = useCallback(() => {
@@ -269,7 +301,6 @@ export function WhenPicker({
     const layout = layoutRef.current;
     if (!el || !layout) return;
     const left = el.scrollLeft;
-    lastScrollLeft.current = left;
     const current = lockRef.current ?? dayOfRow(el, layout, chosenRef.current);
     if (!lockRef.current) setSelected(current);
     const around = renderWindow(layout, left, el.clientWidth);
@@ -284,6 +315,7 @@ export function WhenPicker({
       const layout = layoutRef.current;
       if (!el || !layout || !row.includes(date)) return false;
       lockRef.current = date;
+      anchorRef.current = { day: date, barberIndex: 0, fraction: 0 };
       setSelected(date);
       setDrawn((previous) => (previous.includes(date) ? previous : [...previous, date].sort()));
       // Le colonne del giorno di arrivo partono dall'inizio.
@@ -313,11 +345,11 @@ export function WhenPicker({
     // Idratazione: lo script dell'HTML ha già portato la fila sul giorno e l'utente può averla già
     // mossa, quindi non si tocca. Rendering sul client (ritorno con la cronologia): si posiziona qui.
     if (!hydrated.current) el.scrollLeft = firstColumnOffset(layout, openDay);
-    lastScrollLeft.current = el.scrollLeft;
     update();
     // Il giorno visibile ora: la fila può essere già stata scorsa prima dell'idratazione.
     const day = dayOfRow(el, layout, openDay);
     chosenRef.current = day;
+    anchorRef.current = captureAnchor(layout, el.scrollLeft);
     setSelected(day);
     commit(day);
     // Solo all'apertura: dopo, la fila la muovono lo scorrimento e scrollToDay.
@@ -331,6 +363,11 @@ export function WhenPicker({
     const el = rowRef.current;
     if (!el) return;
     const onScroll = () => {
+      // Durante un ridimensionamento gli scorrimenti vengono dal cambio di layout, non da chi usa la pagina.
+      if (vertical.resizing || el.clientWidth !== measuredWidth.current) {
+        startResize.current();
+        return;
+      }
       if (!frame.current) frame.current = requestAnimationFrame(update);
       // Con scrollend la fine la segna il browser (anche dopo uno scorrimento comandato già partito).
       if (hasScrollEnd()) {
@@ -358,31 +395,89 @@ export function WhenPicker({
       if (frame.current) cancelAnimationFrame(frame.current);
       if (settleTimer.current) clearTimeout(settleTimer.current);
     };
-  }, [update, settle]);
+  }, [update, settle, vertical]);
 
-  // Larghezza cambiata (rotazione, finestra, testo ingrandito): resta la stessa colonna a sinistra.
+  // Sotto i 600 px scorre la pagina: la sua posizione si ricorda solo fuori dai ridimensionamenti.
+  useEffect(() => {
+    const onScroll = () => {
+      if (!vertical.resizing && !window.matchMedia(TALL_QUERY).matches) vertical.pageY = window.scrollY;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [vertical]);
+
+  // Larghezza cambiata (rotazione, finestra, testo ingrandito): resta la stessa colonna a sinistra, con la
+  // stessa frazione, e il giorno non cambia. Mentre il layout cambia (anche più volte, con larghezze di
+  // passaggio) la fila si riallinea all'ancora a ogni misura; a layout stabile (RESIZE_SETTLE_MS senza
+  // ridimensionamenti, poi due frame) l'ultimo riallineamento e la posizione verticale.
   useEffect(() => {
     const el = rowRef.current;
     if (!el) return;
+    const align = (layout: RowLayout) => {
+      const anchor = anchorRef.current;
+      const max = el.scrollWidth - el.clientWidth;
+      if (lockRef.current) el.scrollLeft = Math.min(firstColumnOffset(layout, lockRef.current), max);
+      else if (anchor) el.scrollLeft = restoreAnchor(layout, anchor, max);
+    };
+    const finish = () => {
+      resizeTimer.current = null;
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          const layout = measure();
+          if (layout) {
+            layoutRef.current = layout;
+            align(layout);
+          }
+          if (window.matchMedia(TALL_QUERY).matches) {
+            for (const list of el.querySelectorAll<HTMLElement>("[data-slots][data-list-key]")) {
+              const top = vertical.tops.get(list.dataset.listKey ?? "");
+              if (top !== undefined) list.scrollTop = top;
+            }
+          } else {
+            window.scrollTo({ top: vertical.pageY, behavior: "instant" });
+          }
+          // Gli eventi di scroll dei riallineamenti arrivano prima del prossimo frame: ignorati anche loro.
+          requestAnimationFrame(() => {
+            vertical.resizing = false;
+            update();
+          });
+        }),
+      );
+    };
+    const start = () => {
+      vertical.resizing = true;
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+      settleTimer.current = null;
+      if (resizeTimer.current) clearTimeout(resizeTimer.current);
+      resizeTimer.current = setTimeout(finish, RESIZE_SETTLE_MS);
+    };
+    startResize.current = start;
     const observer = new ResizeObserver(() => {
       const before = layoutRef.current;
       const after = measure();
       if (!after) return;
       layoutRef.current = after;
-      if (before && (before.columns[0]?.end !== after.columns[0]?.end || before.width !== after.width)) {
-        el.scrollLeft = lockRef.current
-          ? firstColumnOffset(after, lockRef.current)
-          : rescaleScroll(before, after, lastScrollLeft.current);
+      const changed = !before || before.columns[0]?.end !== after.columns[0]?.end || before.width !== after.width;
+      if (!changed && !vertical.resizing) {
+        update();
+        return;
       }
-      update();
+      start();
+      align(after);
     });
+    // L'evento della finestra arriva prima degli scroll provocati dal cambio di layout.
+    window.addEventListener("resize", start);
     // La fila (rotazione, finestra) e il primo giorno, sempre presente: con il solo testo ingrandito
     // la fila resta larga uguale ma cambiano colonne e spazi.
     observer.observe(el);
     const firstDay = el.querySelector("[data-row-day]");
     if (firstDay) observer.observe(firstDay);
-    return () => observer.disconnect();
-  }, [measure, update]);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", start);
+      if (resizeTimer.current) clearTimeout(resizeTimer.current);
+    };
+  }, [measure, update, vertical]);
 
   // Dopo "prossimo: …" il focus va sull'intestazione del barbiere nel giorno di arrivo (sempre: la
   // colonna è disegnata da scrollToDay), senza interrompere lo scorrimento della fila.
@@ -453,6 +548,7 @@ export function WhenPicker({
                     appear={date === openDay}
                     preferred={barber.id === preferredId}
                     preferredId={preferredId}
+                    vertical={vertical}
                     dayUrl={dayUrl}
                     onSelectDay={(next) => {
                       // Il focus si sposta solo se la fila parte davvero verso quel giorno.
@@ -619,6 +715,7 @@ function BarberColumn({
   appear,
   preferred,
   preferredId,
+  vertical,
   dayUrl,
   onSelectDay,
 }: {
@@ -633,11 +730,14 @@ function BarberColumn({
   preferred: boolean;
   /** Preferito dall'URL, portato al riepilogo per "Indietro" e "Cambia orario". */
   preferredId: string | null;
+  /** Scorrimento verticale da conservare durante una rotazione (WhenPicker). */
+  vertical: VerticalMemory;
   dayUrl: (date: string) => string;
   onSelectDay: (date: string) => void;
 }) {
   const t = it.booking.when;
   const listRef = useRef<HTMLDivElement>(null);
+  const listKey = listKeyOf(date, barber.id);
   const [moreBelow, setMoreBelow] = useState(false);
   const loaded = entry?.status === "loaded";
   // Assente nei dati: il barbiere non ha righe nel periodo (nessun orario di lavoro).
@@ -650,6 +750,16 @@ function BarberColumn({
     const list = listRef.current;
     if (list) setMoreBelow(list.scrollTop + list.clientHeight < list.scrollHeight - 1);
   }, []);
+
+  const onListScroll = () => {
+    updateMoreBelow();
+    // Il cambio di disposizione (sotto i 600 px la colonna non scorre) azzera scrollTop: non si ricorda.
+    const list = listRef.current;
+    if (list && !vertical.resizing) vertical.tops.set(listKey, list.scrollTop);
+  };
+
+  // Una colonna tolta dalla finestra disegnata riparte dall'inizio quando torna: niente memoria.
+  useEffect(() => () => void vertical.tops.delete(listKey), [vertical, listKey]);
 
   // La sfumatura dipende dal contenuto e dall'altezza disponibile (rotazione, barra del browser).
   useEffect(() => {
@@ -709,7 +819,8 @@ function BarberColumn({
         <div
           ref={listRef}
           data-slots=""
-          onScroll={updateMoreBelow}
+          data-list-key={listKey}
+          onScroll={onListScroll}
           // relative: anche i testi sr-only (assoluti) restano dentro la colonna che scorre.
           // scroll-pb-10: un orario raggiunto da tastiera non finisce sotto la sfumatura in fondo.
           // overflow-x-hidden: di lato scorre solo la fila; overscroll contain: il gesto verticale
