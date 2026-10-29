@@ -25,3 +25,12 @@ skillspector scan .claude/skills/ --recursive --no-llm
 ```
 
 Aggiornamento: `uv tool update skillspector`.
+
+### ponytail (plugin)
+
+`.claude/settings.json` abilita per questo progetto il plugin [ponytail](https://github.com/DietrichGebert/ponytail): regole per la modifica più piccola che risolve il task (riusa ciò che c'è, niente astrazioni non richieste, mai tagliare validazione, sicurezza e test). In caso di conflitto valgono `CLAUDE.md` e `docs/SPEC.md`.
+
+- Fissato al tag `v5.3.3` (`extraKnownMarketplaces`), rivisto e scansionato con SkillSpector prima dell'installazione: i finding critici erano in `benchmarks/` e `tests/`, che il plugin non esegue. Prima di alzare il tag, ripeti la revisione degli hook.
+- Al primo `claude` nel repo viene chiesto di installare il marketplace e il plugin; serve Node nel PATH per gli hook.
+- Le regole non vengono iniettate nel subagent `spec-qa` (`PONYTAIL_SUBAGENT_MATCHER` in `.claude/settings.json`), che scrive i test di accettazione.
+- Livelli: `/ponytail lite|full|ultra|off`. Il plugin scrive solo in locale (flag in `~/.claude`, tabella dei task in `~/.config/ponytail/band/`); il webhook è vuoto di default e va lasciato così.
