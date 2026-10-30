@@ -87,7 +87,7 @@ confirmed ──► completed
 
 ## 4. Calcolo della disponibilità
 
-Input: servizio, data, barbiere (oppure "qualsiasi").
+Input: servizio e periodo di giorni locali (per "Quando?" da oggi, o dal giorno richiesto, all'ultimo giorno prenotabile). Il calcolo vale per tutti i barbieri del servizio e il risultato è diviso per giorno e barbiere.
 
 Per ogni barbiere candidato (abilitato al servizio e attivo):
 1. Prendi le fasce di lavoro del giorno della settimana, convertite in timestamp reali nella timezone del negozio (attenzione ai cambi di ora legale).
@@ -96,7 +96,7 @@ Per ogni barbiere candidato (abilitato al servizio e attivo):
 4. Negli intervalli liberi rimasti genera gli orari di inizio sulla griglia dell'orologio locale (multipli di `slot_granularity_min` dalla mezzanotte), tenendo solo quelli per cui `inizio + durata servizio` sta dentro l'intervallo e `inizio + durata + buffer_min` non tocca la prenotazione successiva (nessuna pausa richiesta prima di fine fascia, assenze o chiusure).
 5. Scarta gli orari prima di `now + min_advance_min` (bordo incluso) e quelli che iniziano dopo la fine del giorno locale di oggi + `max_horizon_days`.
 
-Con "qualsiasi barbiere": unione degli orari; alla conferma viene assegnato, tra i barbieri liberi in quello slot, quello con meno prenotazioni non cancellate quel giorno; a parità decide un criterio deterministico che ruota con la data. Dettagli in `docs/adr/004-motore-disponibilita.md`.
+"Quando?" mostra gli orari barbiere per barbiere, quindi il cliente sceglie sempre un orario con un barbiere preciso. Se la conferma arriva senza barbiere (vecchi link con "qualsiasi"), il database assegna, tra i barbieri liberi in quello slot, quello con meno prenotazioni non cancellate quel giorno; a parità decide un criterio deterministico che ruota con la data. Dettagli in `docs/adr/004-motore-disponibilita.md` e `docs/adr/005-prenotazione-online.md`.
 
 Il calcolo avviene lato server (funzione Postgres `security definer` o server action) e restituisce **solo orari**, mai dati di altre prenotazioni. L'inserimento finale è comunque protetto dal vincolo di esclusione: se due clienti prendono lo stesso slot in contemporanea, il secondo riceve un errore gestito ("Orario appena occupato, scegline un altro").
 

@@ -1402,10 +1402,13 @@ Report completo in `docs/audit/2026-10-30-ponytail.md`.
 - **Punto 1 (Next.js, Zod): in corso**, PR `fix-dipendenze` da `main`, stessi commit portati sulla 8g.
 - **Punto 6: chiuso il 2026-10-30, dentro la 8g.** Il nuovo tentativo su un giorno usa la GET `/prenota/quando/orari` con da = a, quindi anche al cliente bloccato risponde 403 (nuovo e2e). Eliminati `availability-actions.ts`, `getWhenDay`, `getAvailableSlots`, `getAvailableDays`, `availableDays`, `computeSlots`, `nextSlotByBarber`, `pickBarber` (con `assign.ts`) e il parametro barbiere di `loadInput`. Test: casi del motore spostati su `slotsByDay`; `availability-db` su `getWhenDays`; coerenza di `booking-db` su `slotsByDay` con la lettura del solo giorno; barbiere atteso scritto nel test (a parità lo ricava un FNV-1a del test, perché la data cambia a ogni esecuzione).
   - Riprodotto il punto 3: con `max_horizon_days` = 365 `getWhenDays` supera le 1000 righe, perde le prenotazioni e propone orari occupati. Resta nella fetta 8h.
-  - Da decidere: con tutti i giorni nella pagina il nuovo tentativo oggi non parte quasi mai (i giorni della fila e quelli con orari coincidono), l'e2e deve togliere due giorni dal payload per provarlo; `computeSlotsByBarber` resta usata solo dai test.
+  - Deciso il 2026-10-30: il nuovo tentativo resta. Costa poco e copre il caso in cui la pagina non porti tutti i giorni; oggi parte di rado, per questo l'e2e toglie due giorni dal payload.
 - **Fetta 8h, sicurezza dati, prima del go-live:**
   - punto 2: privilegi staff solo con sessione da password. Il claim `amr` è un array di oggetti, quindi il controllo è `auth.jwt() -> 'amr' @> '[{"method":"password"}]'`, in `is_admin`, `is_staff` e `current_barber_id`. Da pensare il flusso di reimpostazione password (dopo un recupero si rientra con la password) e da aggiornare i claim nei test pgTAP;
   - punto 3: `availability_inputs` restituisce un solo `jsonb`, con un test oltre le 1000 righe.
+  - da verificare: se la route degli orari applica anche il blocco per soglia di no-show (oggi il test copre solo `is_blocked`).
+  - da valutare nella pulizia dei punti 7 e 10: `computeSlotsByBarber`, usata solo dai test.
+  - da proporre: un `testTimeout` più alto solo per i file `*-db`, perché i test Vitest su database vanno in timeout a 5 s sotto carico e l'hook `Stop` segnala falsi errori.
 - **Fetta 9b:** aggiunto il punto 4 (modifica di nome e telefono e revoca del marketing da `/profilo`).
 - **Fetta 8i, correzioni admin:** punti 5, 8 e 9, ognuno con il suo test.
 - **Pulizia a bassa priorità:** punti 7 e 10.
