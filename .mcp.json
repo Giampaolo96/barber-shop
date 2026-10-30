@@ -9,6 +9,14 @@
         "@playwright/mcp@0.0.83"
       ],
       "env": {}
+    },
+    "skillspector": {
+      "type": "stdio",
+      "command": "${USERPROFILE}/.local/bin/skillspector.exe",
+      "args": ["mcp"],
+      "env": {
+        "SKILLSPECTOR_PROVIDER": "claude_cli"
+      }
     }
   }
 }

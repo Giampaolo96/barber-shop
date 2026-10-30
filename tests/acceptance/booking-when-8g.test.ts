@@ -1,3 +1,4 @@
+// modificato in fetta 8g con l'approvazione dell'utente (2026-10-30, audit punto 6): il confronto non usa più nextSlotByBarber (tolto).
 // Test di accettazione – FETTA 8g ("Quando?": rifiniture della fila continua; decisioni approvate
 // dall'utente il 2026-10-25). SPEC §5.2 (fila continua, ridimensionamento, annuncio per lo screen
 // reader, orari dal motore di §4 senza regole nuove), §4, §12 (cambio d'ora, assenza parziale, buffer),
@@ -13,7 +14,7 @@
 //     - per ogni giorno un elemento per ogni barbiere dell'input, nell'ordine dell'input;
 //     - slots = computeSlotsByBarber(input, giorno)[barberId];
 //     - next = primo orario del barbiere nei giorni dopo quel giorno fino a `to` incluso, SOLO se quel
-//       giorno il barbiere non ha orari (come nextSlotByBarber); altrimenti null.
+//       giorno il barbiere non ha orari; altrimenti null.
 //   src/lib/booking/when-row.ts (funzioni pure, posizioni come rowLayout: scrollLeft 0 = prima
 //   colonna al bordo dopo i 16 px di scroll-padding, quindi il margine non conta mai come visibile):
 //     type RowAnchor = { day: string; barberIndex: number; fraction: number }
@@ -33,7 +34,7 @@
 //     { status: 'loading' } con requestId MAGGIORE di action.requestId (richiesta singola più recente in
 //     corso: vince la sua risposta). Voci 'loaded', 'error' e 'loading' più vecchie si sovrascrivono.
 //     I giorni non presenti in `days` restano come sono (una ricarica non fa sparire nulla). Pura.
-//     requestId della stessa sequenza delle richieste singole (fetchWhenDay).
+//     requestId della stessa sequenza delle richieste singole (nuovo tentativo).
 //   src/i18n/it.ts: it.booking.when.dayAnnounceEmpty = "{day}, nessun orario libero"; spariscono
 //     it.booking.when.firstFree e it.booking.when.noSlots ("Primo libero" tolto).
 //   Tolti: firstFree (motore), firstFreeAmong (when.ts), src/lib/booking/when-queue.ts.
@@ -46,7 +47,6 @@ import { describe, expect, test } from 'vitest';
 
 import {
   computeSlotsByBarber,
-  nextSlotByBarber,
   slotsByDay,
   type AvailabilityInput,
   type BarberAvailabilityInput,
@@ -118,7 +118,7 @@ const springInput = (): AvailabilityInput => ({
   ],
 });
 
-/** Confronto giorno per giorno con computeSlotsByBarber e nextSlotByBarber. */
+/** Confronto giorno per giorno con computeSlotsByBarber; `next` = primo orario dei giorni dopo, fino a `to`. */
 const expectSameAsEngine = (input: AvailabilityInput, from: string, to: string, period: string[]): void => {
   const result = slotsByDay(input, from, to);
   expect(Object.keys(result), 'un giorno per ogni data del periodo, chiusi compresi, in ordine').toEqual(period);
@@ -128,20 +128,21 @@ const expectSameAsEngine = (input: AvailabilityInput, from: string, to: string, 
       input.barbers.map((b) => b.barberId),
     );
     const bySlots = computeSlotsByBarber(input, date);
-    const next = nextSlotByBarber(input, date, to);
     for (const entry of entries) {
       expect(Object.keys(entry).sort(), `${date}: chiavi`).toEqual(['barberId', 'next', 'slots']);
       const expected = iso(bySlots[entry.barberId]);
       expect(iso(entry.slots), `${date} ${entry.barberId}: orari come computeSlotsByBarber`).toEqual(expected);
       expect(isoOrNull(entry.next), `${date} ${entry.barberId}: next solo se il giorno è vuoto per lui`).toBe(
-        expected.length === 0 ? isoOrNull(next[entry.barberId]) : null,
+        expected.length === 0
+          ? isoOrNull(period.filter((d) => d > date).flatMap((d) => computeSlotsByBarber(input, d)[entry.barberId])[0] ?? null)
+          : null,
       );
     }
   }
 };
 
 describe('slotsByDay – orari dell\'intervallo divisi per giorno e barbiere (SPEC §5.2, §4; fetta 8g)', () => {
-  test('coincide giorno per giorno con computeSlotsByBarber / nextSlotByBarber (chiusura, assenza parziale, buffer, ora legale)', () => {
+  test('coincide giorno per giorno con computeSlotsByBarber (chiusura, assenza parziale, buffer, ora legale)', () => {
     expectSameAsEngine(springInput(), FROM, TO, PERIOD);
   });
 

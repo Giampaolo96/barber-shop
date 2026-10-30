@@ -1,3 +1,4 @@
+// modificato in fetta 8g con l'approvazione dell'utente (2026-10-30, audit punto 6): aggiunto il nuovo tentativo.
 // Test di accettazione e2e – FETTA 8g ("Quando?": orari di tutti i giorni già nella pagina, ricarica in
 // background, route handler degli orari, annuncio del giorno; decisioni approvate dall'utente il
 // 2026-10-25). SPEC §5.2, CLAUDE.md regola 6 e Sicurezza. A 390×844 (Chromium mobile).
@@ -67,7 +68,7 @@ const latestConfirmLink = async (request: APIRequestContext, to: string, previou
   return `${url.pathname}${url.search}`;
 };
 
-const signUpCustomer = async (page: Page, label: string): Promise<void> => {
+const signUpCustomer = async (page: Page, label: string): Promise<string> => {
   const email = uniqueEmail(label);
   await page.goto('/accedi');
   const before = await newestEmailId(page.request, email);
@@ -77,11 +78,13 @@ const signUpCustomer = async (page: Page, label: string): Promise<void> => {
   await page.goto(await latestConfirmLink(page.request, email, before));
   await page.locator('main form').getByRole('button', { name: s('auth.confirmLink.submit') }).click();
   await expectPath(page, '/profilo/completa');
-  await page.getByLabel(s('auth.completeProfile.fullNameLabel')).fill(uniqueName('Cliente'));
+  const fullName = uniqueName('Cliente');
+  await page.getByLabel(s('auth.completeProfile.fullNameLabel')).fill(fullName);
   await page.getByLabel(s('auth.completeProfile.phoneLabel')).fill(`+39 333 ${Math.floor(1_000_000 + Math.random() * 8_999_999)}`);
   await page.getByLabel(s('auth.completeProfile.privacyConsentLabel')).check();
   await page.getByRole('button', { name: s('auth.completeProfile.submit') }).click();
   await expectPath(page, '/');
+  return fullName;
 };
 
 // ---------------------------------------------------------------------------
@@ -439,6 +442,79 @@ test('aria-live dopo un tocco sulla striscia: giorno "senza posti" → "{day}, n
     await daysStrip(page).locator(`a[data-day="${open}"]`).click();
     await expectAtEdge(whenColumn(page, barbers[0]?.name ?? '', open), EDGE, 'giorno con orari al bordo');
     await expect(live).toHaveText(sf('booking.when.dayAnnounce', { day: dayLabel(open) }));
+  } finally {
+    await cleanup(api, data);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 5. Nuovo tentativo su un giorno: stessa GET, stessi controlli (audit punto 6)
+// ---------------------------------------------------------------------------
+test('nuovo tentativo su un giorno senza orari in pagina: cliente attivo li riceve dalla GET, cliente bloccato riceve 403 e nessun orario', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const api = await adminApi(request);
+  const data: Created = { services: [], barbers: [], bookings: [] };
+  try {
+    await horizonDays(api);
+    const { serviceId, barbers } = await serviceWith(api, data, 2, { start: '09:00', end: '12:00' });
+    const alfa = barbers[0] as Barber;
+    const active = plusDays(today(), 12);
+    const blocked = plusDays(today(), 13);
+    const fullName = await signUpCustomer(page, 'riprova');
+
+    // Due giorni lontani (non disegnati all'apertura) arrivano senza orari: solo così parte il nuovo tentativo.
+    // Si tocca il payload di React nel browser: una pagina servita da route.fulfill non si idrata (Chromium
+    // blocca le richieste verso localhost) e l'HTML dei giorni non disegnati non contiene orari.
+    await page.addInitScript((days) => {
+      type Chunk = [number, string?];
+      const flight: Chunk[] = [];
+      (window as unknown as { __next_f: Chunk[] }).__next_f = flight;
+      let push = Array.prototype.push.bind(flight) as (chunk: Chunk) => number;
+      Object.defineProperty(flight, 'push', {
+        get: () => (chunk: Chunk) => {
+          for (const day of days) chunk[1] = chunk[1]?.replaceAll(`"date":"${day}","barbers"`, `"date":"tolto-${day}","barbers"`);
+          return push(chunk);
+        },
+        set: (next: (chunk: Chunk) => number) => {
+          push = next;
+        },
+      });
+    }, [active, blocked]);
+    await page.goto(whenUrl(serviceId));
+    // Idratata: il giorno di apertura è stato scritto nell'URL a fila ferma. Prima un tocco ricaricherebbe la pagina
+    await expect.poll(() => urlDay(page), "giorno di apertura nell'URL").not.toBeNull();
+    await settle(page);
+
+    const retried = (day: string) =>
+      page.waitForResponse((response) => response.url().includes(SLOTS_PATH) && response.url().includes(`da=${day}&a=${day}`));
+
+    // Cliente attivo: gli orari arrivano
+    let retry = retried(active);
+    await daysStrip(page).locator(`a[data-day="${active}"]`).click();
+    expect((await retry).status()).toBe(200);
+    await expect(slot(whenColumn(page, alfa.name, active), '9:00', alfa.name)).toBeVisible();
+
+    // L'admin blocca il cliente a pagina aperta: il nuovo tentativo non riceve orari
+    const [profile] = await api.get<Array<{ id: string }>>(
+      `/rest/v1/profiles?select=id&full_name=eq.${encodeURIComponent(fullName)}`,
+    );
+    expect(profile, 'profilo del cliente').toBeDefined();
+    await api.patch(`/rest/v1/profiles?id=eq.${profile?.id}`, { is_blocked: true });
+
+    retry = retried(blocked);
+    await daysStrip(page).locator(`a[data-day="${blocked}"]`).click();
+    const response = await retry;
+    expect(response.status()).toBe(403);
+    // Il corpo si legge da una seconda richiesta: quello della risposta del browser non arriva mai a Playwright
+    const replay = await page.request.get(response.url());
+    expect(replay.status()).toBe(403);
+    expect(await replay.json()).toEqual({ error: 'blocked' });
+    const column = whenColumn(page, alfa.name, blocked);
+    await expect(column.getByText(s('booking.when.dayError'))).toBeVisible();
+    await expect(slot(column, '9:00', alfa.name)).toHaveCount(0);
   } finally {
     await cleanup(api, data);
   }

@@ -22,7 +22,6 @@ import { it } from "@/i18n/it";
 import { fillText } from "@/lib/admin/text";
 import type { DayStatus } from "@/lib/availability";
 import type { WhenBarberDay, WhenDay } from "@/lib/booking/availability";
-import { fetchWhenDay } from "@/lib/booking/availability-actions";
 import { dayParts, formatDayLabel } from "@/lib/booking/format";
 import { summaryStepUrl, whenStepUrl } from "@/lib/booking/paths";
 import {
@@ -57,7 +56,7 @@ const RESIZE_SETTLE_MS = 150;
 const TALL_QUERY = "(min-height: 37.5rem)";
 /** Pagina tornata visibile con orari più vecchi di così: si ricaricano in background (ADR 014). */
 const STALE_MS = 2 * 60_000;
-/** Ricarica di tutti i giorni: GET e non una server action, così non fa aspettare la conferma (ADR 014). */
+/** Ricarica e nuovo tentativo: GET e non una server action, così non fa aspettare la conferma (ADR 014). */
 const DAYS_PATH = "/prenota/quando/orari";
 
 /** id del nome in testa alla colonna di un barbiere in un giorno (anche destinazione del focus). */
@@ -194,14 +193,14 @@ export function WhenPicker({
     (date: string) => {
       const requestId = ++requestSeq.current;
       dispatch({ type: "request", date, requestId });
-      fetchWhenDay({ serviceId, date })
-        .then((result) =>
-          dispatch(
-            result.ok
-              ? { type: "loaded", date, requestId, day: { date: result.date, barbers: result.barbers } }
-              : { type: "failed", date, requestId },
-          ),
-        )
+      const params = new URLSearchParams({ servizio: serviceId, da: date, a: date });
+      fetch(`${DAYS_PATH}?${params}`, { cache: "no-store" })
+        .then(async (response) => {
+          if (!response.ok) throw new Error(`orari: ${response.status}`);
+          const body = (await response.json()) as { days: WhenDay[] };
+          // Un giorno chiuso nel frattempo non è nella risposta: resta senza orari.
+          dispatch({ type: "loaded", date, requestId, day: body.days[0] ?? { date, barbers: [] } });
+        })
         .catch(() => dispatch({ type: "failed", date, requestId }));
     },
     [serviceId],

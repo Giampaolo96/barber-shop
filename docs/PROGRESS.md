@@ -19,9 +19,13 @@
 | 8d | completata | 2026-10-16 | Vedi "Fetta 8d" sotto; manca la prova di caricamento da iPhone |
 | 8e | completata | 2026-10-16 | Vedi "Fetta 8e" sotto; manca la prova su iPhone e una decisione su "oggi chiuso" |
 | 8f | completata | 2026-10-25 | Vedi "Fetta 8f" sotto; manca la prova su iPhone |
-| 8g | completata | 2026-10-25 | Vedi "Fetta 8g" sotto; scorrimento invariato (deciso su iPhone) |
+| 8g | completata | 2026-10-30 | Vedi "Fetta 8g" sotto; scorrimento invariato (deciso su iPhone); punto 6 dell'audit chiuso il 2026-10-30 |
+| 8h | da fare | | Sicurezza dati prima del go-live: punti 2 e 3 dell'audit |
+| 8i | da fare | | Correzioni admin: punti 5, 8 e 9 dell'audit |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
-| 9b | da fare | | Privacy e account prima del go-live (SPEC §11) |
+| 9b | da fare | | Privacy e account prima del go-live (SPEC §11), con il punto 4 dell'audit |
+
+Audit del 30 ottobre: vedi "Audit del 30 ottobre: pianificazione" in fondo.
 
 Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli account): checklist in `docs/GO-LIVE.md`, da completare con il titolare del negozio.
 
@@ -1390,4 +1394,25 @@ In dev (stessa misura su "Primo libero", contenuto vero): `4a86085` 283 in seque
 **Problemi aperti**
 - Da provare a mano su iPhone: rotazione (giorno lontano, a metà fra due giorni, colonna scorsa), pagina in orizzontale con la barra di Safari, nessuna attesa scorrendo fino all'ultimo giorno, ricarica tornando all'app dopo più di 2 minuti.
 - Migliorie della review non applicate: elenco sopra.
+
+## Audit del 30 ottobre: pianificazione
+
+Report completo in `docs/audit/2026-10-30-ponytail.md`.
+
+- **Punto 1 (Next.js, Zod): in corso**, PR `fix-dipendenze` da `main`, stessi commit portati sulla 8g.
+- **Punto 6: chiuso il 2026-10-30, dentro la 8g.** Il nuovo tentativo su un giorno usa la GET `/prenota/quando/orari` con da = a, quindi anche al cliente bloccato risponde 403 (nuovo e2e). Eliminati `availability-actions.ts`, `getWhenDay`, `getAvailableSlots`, `getAvailableDays`, `availableDays`, `computeSlots`, `nextSlotByBarber`, `pickBarber` (con `assign.ts`) e il parametro barbiere di `loadInput`. Test: casi del motore spostati su `slotsByDay`; `availability-db` su `getWhenDays`; coerenza di `booking-db` su `slotsByDay` con la lettura del solo giorno; barbiere atteso scritto nel test (a parità lo ricava un FNV-1a del test, perché la data cambia a ogni esecuzione).
+  - Riprodotto il punto 3: con `max_horizon_days` = 365 `getWhenDays` supera le 1000 righe, perde le prenotazioni e propone orari occupati. Resta nella fetta 8h.
+  - Deciso il 2026-10-30: il nuovo tentativo resta. Costa poco e copre il caso in cui la pagina non porti tutti i giorni; oggi parte di rado, per questo l'e2e toglie due giorni dal payload.
+- **Fetta 8h, sicurezza dati, prima del go-live:**
+  - punto 2: privilegi staff solo con sessione da password. Il claim `amr` è un array di oggetti, quindi il controllo è `auth.jwt() -> 'amr' @> '[{"method":"password"}]'`, in `is_admin`, `is_staff` e `current_barber_id`. Da pensare il flusso di reimpostazione password (dopo un recupero si rientra con la password) e da aggiornare i claim nei test pgTAP;
+  - punto 3: `availability_inputs` restituisce un solo `jsonb`, con un test oltre le 1000 righe.
+  - da verificare: se la route degli orari applica anche il blocco per soglia di no-show (oggi il test copre solo `is_blocked`).
+  - da valutare nella pulizia dei punti 7 e 10: `computeSlotsByBarber`, usata solo dai test.
+  - da proporre: un `testTimeout` più alto solo per i file `*-db`, perché i test Vitest su database vanno in timeout a 5 s sotto carico e l'hook `Stop` segnala falsi errori.
+- **Fetta 9b:** aggiunto il punto 4 (modifica di nome e telefono e revoca del marketing da `/profilo`).
+- **Fetta 8i, correzioni admin:** punti 5, 8 e 9, ognuno con il suo test.
+- **Pulizia a bassa priorità:** punti 7 e 10.
+- **Domanda per il titolare** (SPEC §13.9): verifica in due passaggi per l'account admin. Senza, chi controlla l'email del negozio può reimpostare la password.
+
+**Eccezione nota su `npm audit`**: restano aperti 3 avvisi low, tutti solo di sviluppo: `deepmerge` (GHSA-gcqx-w48m-w2h4), `@shadcn/registry` e `shadcn`, che dipendono da `deepmerge`. Si chiudono solo riportando `shadcn` alla 1.0 con `npm audit fix --force`, quindi restano aperti. `shadcn` non si toglie: `src/app/globals.css:3` lo importa. In produzione (`npm audit --omit=dev`) gli avvisi sono 0.
 

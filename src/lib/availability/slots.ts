@@ -115,32 +115,10 @@ function barberSlots(p: Prepared, barber: PreparedBarber, date: string, firstOnl
   return slots;
 }
 
-function unionOf(lists: Date[][]): Date[] {
-  const times = new Set<number>();
-  for (const list of lists) for (const d of list) times.add(d.getTime());
-  return [...times].sort((a, b) => a - b).map((t) => new Date(t));
-}
-
 /** Slot di ogni barbiere nel giorno locale `date`: una chiave per ogni barbiere in input. */
 export function computeSlotsByBarber(input: AvailabilityInput, date: string): Record<string, Date[]> {
   const p = prepare(input);
   return Object.fromEntries(p.barbers.map((b) => [b.barberId, barberSlots(p, b, date)]));
-}
-
-/** Unione degli slot di tutti i barbieri ("qualsiasi"), ordinata e senza duplicati. */
-export function computeSlots(input: AvailabilityInput, date: string): Date[] {
-  const p = prepare(input);
-  return unionOf(p.barbers.map((b) => barberSlots(p, b, date)));
-}
-
-/** Giorni locali in [from, to] (inclusi) con almeno uno slot. */
-export function availableDays(input: AvailabilityInput, from: string, to: string): string[] {
-  const p = prepare(input);
-  const days: string[] = [];
-  for (let date = from; date <= to; date = addDays(date, 1)) {
-    if (p.barbers.some((b) => barberSlots(p, b, date, true).length > 0)) days.push(date);
-  }
-  return days;
 }
 
 /** Stato di un giorno nella striscia di "Quando?" (SPEC §5.2, fetta 8e). */
@@ -171,27 +149,6 @@ export function dayStatuses(input: AvailabilityInput, from: string, to: string):
   return days;
 }
 
-/**
- * Primo slot di ogni barbiere nei giorni locali dopo `afterDate` fino a `to` incluso ("prossimo
- * orario libero" di "Quando?"); null se non ce n'è. Una chiave per ogni barbiere in input.
- */
-export function nextSlotByBarber(
-  input: AvailabilityInput,
-  afterDate: string,
-  to: string,
-): Record<string, Date | null> {
-  const p = prepare(input);
-  return Object.fromEntries(
-    p.barbers.map((b) => {
-      for (let date = addDays(afterDate, 1); date <= to; date = addDays(date, 1)) {
-        const [first] = barberSlots(p, b, date, true);
-        if (first) return [b.barberId, first];
-      }
-      return [b.barberId, null];
-    }),
-  );
-}
-
 /** Orari di un barbiere in un giorno di slotsByDay; `next` solo se quel giorno non ne ha. */
 export type BarberDaySlots = { barberId: string; slots: Date[]; next: Date | null };
 
@@ -199,7 +156,7 @@ export type BarberDaySlots = { barberId: string; slots: Date[]; next: Date | nul
  * Orari di ogni barbiere in ogni giorno locale di [from, to] (inclusi, anche i giorni chiusi, vuoti),
  * da una sola preparazione dell'input ("Quando?", fetta 8g). Per ogni giorno un elemento per barbiere,
  * nell'ordine dell'input. `next` = primo orario nei giorni dopo fino a `to` incluso, solo per i barbieri
- * senza orari quel giorno (come nextSlotByBarber).
+ * senza orari quel giorno.
  */
 export function slotsByDay(input: AvailabilityInput, from: string, to: string): Record<string, BarberDaySlots[]> {
   const p = prepare(input);

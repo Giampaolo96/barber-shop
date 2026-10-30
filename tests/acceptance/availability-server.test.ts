@@ -1,6 +1,8 @@
+// modificato in fetta 8g con l'approvazione dell'utente (2026-10-30, audit punto 6): tolti i test di getAvailableSlots e
+// getAvailableDays; resta l'errore del DB, su getWhenDays.
 // Test di accettazione – FETTA 4 (SPEC §11: "Motore disponibilità"), lato server.
-// src/lib/booking/availability.ts: getAvailableSlots / getAvailableDays con il client Supabase
-// della richiesta (src/lib/db/server.ts), un'unica RPC availability_inputs per periodo.
+// src/lib/booking/availability.ts: getWhenDays con il client Supabase della richiesta
+// (src/lib/db/server.ts).
 // Sezioni: SPEC §4 (calcolo lato server, solo orari), §8, CLAUDE.md – regole 5 e 6, Sicurezza
 // (Zod, service_role mai nel percorso di disponibilità) + decisioni approvate per la fetta 4.
 //
@@ -17,13 +19,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 // ---------------------------------------------------------------------------
 // Interfacce attese
 // ---------------------------------------------------------------------------
-type SlotsResult = { ok: true; slots: string[] } | { ok: false; error: 'invalid' | 'error' };
-type DaysResult = { ok: true; days: string[] } | { ok: false; error: 'invalid' | 'error' };
 type BookingAvailabilityModule = {
-  /** date: giorno locale del negozio YYYY-MM-DD; barberId: uuid oppure "any". */
-  getAvailableSlots: (args: { serviceId: string; barberId: string; date: string }) => Promise<SlotsResult>;
-  /** from / to: giorni locali YYYY-MM-DD, inclusi. */
-  getAvailableDays: (args: { serviceId: string; barberId: string; from: string; to: string }) => Promise<DaysResult>;
+  getWhenDays: (args: { serviceId: string; from: string; to: string }) => Promise<{ ok: boolean; error?: string }>;
 };
 
 const load = async <T>(specifier: string): Promise<T> =>
@@ -96,8 +93,6 @@ vi.mock('@/lib/db/admin', () => ({
 // Dati
 // ---------------------------------------------------------------------------
 const SERVICE = '54000000-0000-4000-8000-000000000001';
-const B1 = 'b4000000-0000-4000-8000-000000000001';
-const B2 = 'b4000000-0000-4000-8000-000000000002';
 
 const SETTINGS: Row = {
   id: true,
@@ -121,10 +116,6 @@ const SERVICE_ROW: Row = {
   sort_order: 1,
 };
 
-// Ora solare (+01:00): 09:00 locali = 08:00Z
-const work = (barberId: string, start: string, end: string): Row => ({ kind: 'work', barber_id: barberId, starts_at: start, ends_at: end });
-const busy = (barberId: string, start: string, end: string): Row => ({ kind: 'busy', barber_id: barberId, starts_at: start, ends_at: end });
-
 beforeEach(() => {
   fake.fromCalls = [];
   fake.rpcCalls = [];
@@ -138,126 +129,11 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
-
-// ---------------------------------------------------------------------------
-// getAvailableSlots
-// ---------------------------------------------------------------------------
-describe('getAvailableSlots – SPEC §4: solo orari, un\'unica RPC', () => {
-  test('"qualsiasi": p_barber_id null, periodo che copre il giorno locale, unione ordinata di istanti ISO UTC', async () => {
-    fake.rpcRows = [
-      work(B1, '2027-03-02T08:00:00Z', '2027-03-02T09:00:00Z'), // 09:00–10:00
-      work(B2, '2027-03-02T08:30:00Z', '2027-03-02T09:30:00Z'), // 09:30–10:30
-    ];
-    const { getAvailableSlots } = await load<BookingAvailabilityModule>(MODULE);
-    const result = await getAvailableSlots({ serviceId: SERVICE, barberId: 'any', date: '2027-03-02' });
-
-    expect(result).toEqual({
-      ok: true,
-      slots: [
-        '2027-03-02T08:00:00.000Z',
-        '2027-03-02T08:15:00.000Z',
-        '2027-03-02T08:30:00.000Z',
-        '2027-03-02T08:45:00.000Z',
-        '2027-03-02T09:00:00.000Z',
-      ],
-    });
-    expect(fake.rpcCalls).toHaveLength(1);
-    const [call] = fake.rpcCalls;
-    expect(call.name).toBe('availability_inputs');
-    expect(call.args.p_service_id).toBe(SERVICE);
-    expect(call.args.p_barber_id).toBeNull();
-    // giorno locale 02/03 = [2027-03-01T23:00Z, 2027-03-02T23:00Z)
-    expect(new Date(String(call.args.p_from)).getTime()).toBeLessThanOrEqual(Date.parse('2027-03-01T23:00:00Z'));
-    expect(new Date(String(call.args.p_to)).getTime()).toBeGreaterThanOrEqual(Date.parse('2027-03-02T23:00:00Z'));
-    expect(fake.adminClientCreated).toBe(false);
-  });
-
-  test('barbiere scelto: p_barber_id = uuid, le prenotazioni (busy) tolgono gli slot', async () => {
-    fake.rpcRows = [
-      work(B1, '2027-03-02T08:00:00Z', '2027-03-02T09:00:00Z'),
-      busy(B1, '2027-03-02T08:00:00Z', '2027-03-02T08:30:00Z'),
-    ];
-    const { getAvailableSlots } = await load<BookingAvailabilityModule>(MODULE);
-    const result = await getAvailableSlots({ serviceId: SERVICE, barberId: B1, date: '2027-03-02' });
-
-    expect(result).toEqual({ ok: true, slots: ['2027-03-02T08:30:00.000Z'] });
-    expect(fake.rpcCalls.map((c) => c.args.p_barber_id)).toEqual([B1]);
-  });
-
-  test('il risultato contiene solo istanti ISO UTC (nessun dato di prenotazioni o barbieri)', async () => {
-    fake.rpcRows = [
-      work(B1, '2027-03-02T08:00:00Z', '2027-03-02T12:00:00Z'),
-      busy(B1, '2027-03-02T09:00:00Z', '2027-03-02T09:45:00Z'),
-    ];
-    const { getAvailableSlots } = await load<BookingAvailabilityModule>(MODULE);
-    const result = await getAvailableSlots({ serviceId: SERVICE, barberId: 'any', date: '2027-03-02' });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(Object.keys(result).sort()).toEqual(['ok', 'slots']);
-    expect(result.slots.length).toBeGreaterThan(0);
-    for (const s of result.slots) expect(s).toMatch(ISO_UTC);
-    expect(new Set(result.slots).size).toBe(result.slots.length);
-    expect([...result.slots].sort()).toEqual(result.slots);
-    expect(JSON.stringify(result)).not.toContain(B1);
-  });
-
-  test.each([
-    ['serviceId non uuid', { serviceId: 'taglio', barberId: 'any', date: '2027-03-02' }],
-    ['barberId né uuid né "any"', { serviceId: SERVICE, barberId: 'tutti', date: '2027-03-02' }],
-    ['data inesistente', { serviceId: SERVICE, barberId: 'any', date: '2027-02-30' }],
-    ['data in un altro formato', { serviceId: SERVICE, barberId: 'any', date: '02/03/2027' }],
-    ['data con orario', { serviceId: SERVICE, barberId: 'any', date: '2027-03-02T09:00:00Z' }],
-  ])('CLAUDE.md – Zod: %s → { ok: false, error: "invalid" } senza chiamare il DB', async (_name, args) => {
-    const { getAvailableSlots } = await load<BookingAvailabilityModule>(MODULE);
-    expect(await getAvailableSlots(args)).toEqual({ ok: false, error: 'invalid' });
-    expect(fake.rpcCalls).toEqual([]);
-  });
-
+describe('getWhenDays – errore del DB', () => {
   test('errore del DB → risultato gestito (ok: false), nessuna eccezione', async () => {
     fake.rpcError = { code: 'XX000', message: 'boom' };
-    const { getAvailableSlots } = await load<BookingAvailabilityModule>(MODULE);
-    const result = await getAvailableSlots({ serviceId: SERVICE, barberId: 'any', date: '2027-03-02' });
-    expect(result.ok).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// getAvailableDays
-// ---------------------------------------------------------------------------
-describe('getAvailableDays – un solo caricamento dei dati per tutto il periodo', () => {
-  test('giorni locali con almeno uno slot; una sola RPC e una lettura di impostazioni e servizio', async () => {
-    fake.rpcRows = [
-      work(B1, '2027-03-02T08:00:00Z', '2027-03-02T09:00:00Z'),
-      work(B1, '2027-03-03T08:00:00Z', '2027-03-03T08:30:00Z'),
-      busy(B1, '2027-03-03T08:00:00Z', '2027-03-03T08:30:00Z'),
-      work(B1, '2027-03-04T08:00:00Z', '2027-03-04T09:00:00Z'),
-    ];
-    const { getAvailableDays } = await load<BookingAvailabilityModule>(MODULE);
-    const result = await getAvailableDays({ serviceId: SERVICE, barberId: B1, from: '2027-03-01', to: '2027-03-05' });
-
-    expect(result).toEqual({ ok: true, days: ['2027-03-02', '2027-03-04'] });
-    expect(fake.rpcCalls).toHaveLength(1);
-    const [call] = fake.rpcCalls;
-    expect(call.name).toBe('availability_inputs');
-    expect(call.args.p_barber_id).toBe(B1);
-    // dal 01/03 00:00 locale (2027-02-28T23:00Z) al 06/03 00:00 locale (2027-03-05T23:00Z)
-    expect(new Date(String(call.args.p_from)).getTime()).toBeLessThanOrEqual(Date.parse('2027-02-28T23:00:00Z'));
-    expect(new Date(String(call.args.p_to)).getTime()).toBeGreaterThanOrEqual(Date.parse('2027-03-05T23:00:00Z'));
-    expect(fake.fromCalls.filter((t) => t === 'shop_settings').length).toBeLessThanOrEqual(1);
-    expect(fake.fromCalls.filter((t) => t === 'services').length).toBeLessThanOrEqual(1);
-    expect(fake.adminClientCreated).toBe(false);
-  });
-
-  test.each([
-    ['from dopo to', { serviceId: SERVICE, barberId: 'any', from: '2027-03-05', to: '2027-03-01' }],
-    ['data non valida', { serviceId: SERVICE, barberId: 'any', from: '2027-03-01', to: '2027-13-01' }],
-    ['barberId non valido', { serviceId: SERVICE, barberId: '', from: '2027-03-01', to: '2027-03-05' }],
-  ])('CLAUDE.md – Zod: %s → { ok: false, error: "invalid" }', async (_name, args) => {
-    const { getAvailableDays } = await load<BookingAvailabilityModule>(MODULE);
-    expect(await getAvailableDays(args)).toEqual({ ok: false, error: 'invalid' });
-    expect(fake.rpcCalls).toEqual([]);
+    const { getWhenDays } = await load<BookingAvailabilityModule>(MODULE);
+    expect(await getWhenDays({ serviceId: SERVICE, from: '2027-03-02', to: '2027-03-02' })).toEqual({ ok: false, error: 'error' });
   });
 });
 
