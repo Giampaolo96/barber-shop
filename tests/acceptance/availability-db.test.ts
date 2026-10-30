@@ -1,5 +1,7 @@
+// modificato in fetta 8g con l'approvazione dell'utente (2026-10-30, audit punto 6): stesse verifiche su getWhenDays, al posto
+// di getAvailableSlots (la funzione è stata tolta).
 // Test di accettazione – FETTA 4 (SPEC §11: "Motore disponibilità"), integrazione minima con il
-// database locale (barbieri, servizi e orari del seed). getAvailableSlots gira con il client della
+// database locale (barbieri, servizi e orari del seed). getWhenDays gira con il client della
 // richiesta senza sessione (anon): SPEC §4 "restituisce solo orari", CLAUDE.md – regola 6.
 //
 // Richiede lo stack Supabase locale avviato. La chiave service_role serve solo al test, per creare
@@ -16,9 +18,11 @@ import { addDays } from 'date-fns';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
-type SlotsResult = { ok: true; slots: string[] } | { ok: false; error: 'invalid' | 'error' };
+type DaysResult =
+  | { ok: true; days: Array<{ date: string; barbers: Array<{ barberId: string; slots: string[]; next: string | null }> }> }
+  | { ok: false; error: 'invalid' | 'error' };
 type BookingAvailabilityModule = {
-  getAvailableSlots: (args: { serviceId: string; barberId: string; date: string }) => Promise<SlotsResult>;
+  getWhenDays: (args: { serviceId: string; from: string; to: string }) => Promise<DaysResult>;
 };
 
 const load = async <T>(specifier: string): Promise<T> =>
@@ -168,23 +172,29 @@ beforeEach(() => {
   if (setupError) throw setupError;
 });
 
-describe('SPEC §4 – getAvailableSlots sul DB locale (seed, anon)', () => {
-  test('solo istanti ISO UTC, ordinati, e nessuno slot sovrapposto alle prenotazioni confirmed di Luca', async () => {
-    const { getAvailableSlots } = await load<BookingAvailabilityModule>('@/lib/booking/availability');
-    const result = await getAvailableSlots({ serviceId: TAGLIO, barberId: LUCA, date: day });
+/** Orari del barbiere nel giorno del test, dalla lettura anon. */
+async function slotsOf(barberId: string): Promise<string[]> {
+  const { getWhenDays } = await load<BookingAvailabilityModule>('@/lib/booking/availability');
+  const result = await getWhenDays({ serviceId: TAGLIO, from: day, to: day });
+  if (!result.ok) throw new Error(`getWhenDays(${day}): ${result.error}`);
+  const entry = result.days[0]?.barbers.find((b) => b.barberId === barberId);
+  if (entry) expect(Object.keys(entry).sort()).toEqual(['barberId', 'next', 'slots']);
+  return entry?.slots ?? [];
+}
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(Object.keys(result).sort()).toEqual(['ok', 'slots']);
-    expect(result.slots.length).toBeGreaterThan(0);
-    for (const s of result.slots) {
+describe('SPEC §4 – orari sul DB locale (seed, anon)', () => {
+  test('solo istanti ISO UTC, ordinati, e nessuno slot sovrapposto alle prenotazioni confirmed di Luca', async () => {
+    const slots = await slotsOf(LUCA);
+
+    expect(slots.length).toBeGreaterThan(0);
+    for (const s of slots) {
       expect(typeof s).toBe('string');
       expect(s).toMatch(ISO_UTC);
       expect(formatInTimeZone(new Date(s), TZ, 'yyyy-MM-dd')).toBe(day);
     }
-    expect([...new Set(result.slots)].sort()).toEqual(result.slots);
+    expect([...new Set(slots)].sort()).toEqual(slots);
 
-    for (const s of result.slots) {
+    for (const s of slots) {
       const start = Date.parse(s);
       const end = start + 30 * 60_000;
       for (const b of busyThatDay) {
@@ -194,18 +204,13 @@ describe('SPEC §4 – getAvailableSlots sul DB locale (seed, anon)', () => {
     }
   });
 
-  test('"qualsiasi": l\'orario occupato da Luca resta disponibile con un altro barbiere', async () => {
-    const { getAvailableSlots } = await load<BookingAvailabilityModule>('@/lib/booking/availability');
-    const result = await getAvailableSlots({ serviceId: TAGLIO, barberId: 'any', date: day });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.slots).toContain(new Date(busyThatDay[0].starts_at).toISOString());
+  test('l\'orario occupato da Luca resta disponibile con un altro barbiere', async () => {
+    expect(await slotsOf(MARIO)).toContain(new Date(busyThatDay[0].starts_at).toISOString());
   });
 
   test('CLAUDE.md – Zod: input non valido rifiutato', async () => {
-    const { getAvailableSlots } = await load<BookingAvailabilityModule>('@/lib/booking/availability');
-    expect(await getAvailableSlots({ serviceId: TAGLIO, barberId: LUCA, date: 'domani' })).toEqual({
+    const { getWhenDays } = await load<BookingAvailabilityModule>('@/lib/booking/availability');
+    expect(await getWhenDays({ serviceId: TAGLIO, from: 'domani', to: 'domani' })).toEqual({
       ok: false,
       error: 'invalid',
     });

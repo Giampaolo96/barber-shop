@@ -1,5 +1,6 @@
 // modificato in fetta 8g con l'approvazione dell'utente (2026-10-25): tolto "Primo libero" (firstFree,
 // testi firstFree e noSlots) e i parametri barberId / recentBarberId di fetchWhenDay.
+// e ancora il 2026-10-30 (audit punto 6): via fetchWhenDay e pickBarber, prossimo orario su slotsByDay.
 // Test di accettazione – FETTA 8e (SPEC §11: "Prenotazione da telefono: servizio → quando → conferma").
 // Regole: SPEC §5.2 passo 2 ("Quando?": striscia dei giorni, giorni chiusi e senza posti, giorno
 // iniziale, sezioni per barbiere e loro ordine, Mattina/Pomeriggio, prossimo orario
@@ -13,9 +14,7 @@
 //     dayStatuses(input: AvailabilityInput, from: string, to: string): DayStatus[]
 //       un elemento per giorno locale in [from, to]; "closed" = nessun barbiere ha lavoro − chiusure −
 //       assenze quel giorno (indipendente da prenotazioni e da now); "open" = almeno uno slot
-//       (computeSlots); altrimenti "full".
-//     nextSlotByBarber(input, afterDate: string, to: string): Record<string, Date | null>
-//       per ogni barbiere dell'input il primo slot nei giorni locali dopo afterDate fino a `to` incluso.
+//       (slotsByDay); altrimenti "full".
 //   src/lib/booking/when.ts (puro, nessun I/O):
 //     orderBarbers<T extends { id: string; name: string }>(barbers: T[], opts: { preferredId?: string | null; recentId?: string | null }): T[]
 //     recentBarberId(bookings: Array<{ barberId: string | null; startsAt: string; status: string }>, now: Date): string | null
@@ -27,11 +26,6 @@
 //     BOOK_WHEN_PATH = "/prenota/quando"
 //     whenStepUrl(serviceId: string, opts?: { day?: string; barberId?: string }): string
 //     legacyWhenUrl(params: Record<string, string | undefined>): string   (vecchi /prenota/barbiere e /prenota/orario)
-//   src/lib/booking/availability-actions.ts ("use server"):
-//     fetchWhenDay({ serviceId, date }) →
-//       { ok: true; date: string; barbers: Array<{ barberId: string; slots: string[]; next: string | null }> }
-//       | { ok: false; error: "invalid" | "error" }
-//     input validato con Zod, una sola chiamata ad availability_inputs per richiesta.
 //   src/i18n/it.ts, it.booking.when: title, slotLabel, morning, afternoon, nextFree, preferred,
 //     dayClosed (valori sotto).
 //
@@ -40,7 +34,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fromZonedTime } from 'date-fns-tz';
-import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeAll, describe, expect, test } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Interfacce attese
@@ -59,9 +53,8 @@ type DayStatus = { date: string; status: 'closed' | 'full' | 'open' };
 
 type EngineModule = {
   computeSlotsByBarber: (input: AvailabilityInput, date: string) => Record<string, Date[]>;
-  pickBarber: (input: AvailabilityInput, start: Date, bookingCounts: Record<string, number>) => string | null;
   dayStatuses: (input: AvailabilityInput, from: string, to: string) => DayStatus[];
-  nextSlotByBarber: (input: AvailabilityInput, afterDate: string, to: string) => Record<string, Date | null>;
+  slotsByDay: (input: AvailabilityInput, from: string, to: string) => Record<string, Array<{ barberId: string; next: Date | null }>>;
 };
 
 type WhenModule = {
@@ -83,17 +76,6 @@ type PathsModule = {
   BOOK_WHEN_PATH: string;
   whenStepUrl: (serviceId: string, opts?: { day?: string; barberId?: string }) => string;
   legacyWhenUrl: (params: Record<string, string | undefined>) => string;
-};
-
-type WhenDayResult =
-  | {
-      ok: true;
-      date: string;
-      barbers: Array<{ barberId: string; slots: string[]; next: string | null }>;
-    }
-  | { ok: false; error: 'invalid' | 'error' };
-type ActionsModule = {
-  fetchWhenDay: (args: { serviceId: string; date: string }) => Promise<WhenDayResult>;
 };
 
 const load = async <T>(specifier: string): Promise<T> => (await import(/* @vite-ignore */ specifier)) as T;
@@ -248,15 +230,18 @@ describe('dayStatuses – SPEC §5.2: striscia dei giorni, "chiuso" e "senza pos
 });
 
 // ---------------------------------------------------------------------------
-// nextSlotByBarber – SPEC §5.2: "prossimo: mar 20, 9:30"
+// slotsByDay, `next` – SPEC §5.2: "prossimo: mar 20, 9:30"
 // ---------------------------------------------------------------------------
-describe('nextSlotByBarber – SPEC §5.2: prossimo orario libero nei giorni successivi', () => {
-  test('salta il giorno selezionato, trova il primo giorno successivo, null se nulla entro `to`; barbieri indipendenti', () => {
-    need('engine', 'nextSlotByBarber');
-    const result = engine.nextSlotByBarber(
+describe('slotsByDay – SPEC §5.2: prossimo orario libero nei giorni successivi', () => {
+  const nextOf = (result: Record<string, Array<{ barberId: string; next: Date | null }>>, date: string, id: string) =>
+    result[date]?.find((b) => b.barberId === id)?.next;
+
+  test('trova il primo giorno successivo, null se nulla entro `to`; barbieri indipendenti', () => {
+    need('engine', 'slotsByDay');
+    const result = engine.slotsByDay(
       input({
         barbers: [
-          // ha orari anche il 02/03 (giorno selezionato): non contano
+          // ha orari il 02/03: niente prossimo
           barber(B1, { work: [iv('2027-03-02', '09:00', '12:00'), iv('2027-03-04', '10:00', '12:00')] }),
           // il primo slot del 03/03 è preso: vale il secondo
           barber(B2, { work: [iv('2027-03-03', '09:00', '12:00')], busy: [iv('2027-03-03', '09:00', '09:30')] }),
@@ -267,20 +252,19 @@ describe('nextSlotByBarber – SPEC §5.2: prossimo orario libero nei giorni suc
       '2027-03-02',
       '2027-03-05',
     );
-    expect(Object.keys(result).sort()).toEqual([B1, B2, B3].sort());
-    expect(result[B1]?.toISOString()).toBe(at('2027-03-04', '10:00').toISOString());
-    expect(result[B2]?.toISOString()).toBe(at('2027-03-03', '09:30').toISOString());
-    expect(result[B3]).toBeNull();
+    expect(nextOf(result, '2027-03-02', B1)).toBeNull();
+    expect(nextOf(result, '2027-03-02', B2)?.toISOString()).toBe(at('2027-03-03', '09:30').toISOString());
+    expect(nextOf(result, '2027-03-02', B3)).toBeNull();
   });
 
   test('`to` è incluso', () => {
-    need('engine', 'nextSlotByBarber');
-    const result = engine.nextSlotByBarber(
+    need('engine', 'slotsByDay');
+    const result = engine.slotsByDay(
       input({ barbers: [barber(B1, { work: [iv('2027-03-05', '15:00', '16:00')] })] }),
       '2027-03-02',
       '2027-03-05',
     );
-    expect(result[B1]?.toISOString()).toBe(at('2027-03-05', '15:00').toISOString());
+    expect(nextOf(result, '2027-03-02', B1)?.toISOString()).toBe(at('2027-03-05', '15:00').toISOString());
   });
 });
 
@@ -616,201 +600,5 @@ describe('struttura – CLAUDE.md regola 5 e Sicurezza', () => {
   test('la pagina /prenota/quando esiste e passa dai controlli di accesso del flusso (requireRole)', () => {
     const code = sourceOf('src/app/(customer)/prenota/quando/page.tsx');
     expect(code).toMatch(/\b(?:loadBookingPageContext|requireRole)\s*\(/);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// fetchWhenDay – SPEC §5.2 ("una sola richiesta per giorno ... solo orari e id dei barbieri"),
-// §4, CLAUDE.md regola 6 e Sicurezza (Zod). Client Supabase finto come in availability-server.test.ts.
-// ---------------------------------------------------------------------------
-const fake = vi.hoisted(() => ({
-  fromCalls: [] as string[],
-  rpcCalls: [] as Array<{ name: string; args: Record<string, unknown> }>,
-  tables: {} as Record<string, Array<Record<string, unknown>>>,
-  rpcRows: [] as Array<Record<string, unknown>>,
-  adminClientCreated: false,
-}));
-const CUSTOMER = 'c8e00000-0000-4000-8000-000000000001';
-const OTHER_CUSTOMER = 'c8e00000-0000-4000-8000-000000000002';
-const BOOKING_ID = 'd8e00000-0000-4000-8000-000000000001';
-
-vi.mock('server-only', () => ({}));
-vi.mock('next/headers', () => ({
-  cookies: async () => ({ get: () => undefined, getAll: () => [], set: () => undefined, has: () => false }),
-  headers: async () => new Headers(),
-}));
-vi.mock('next/navigation', () => ({
-  redirect: (to: string) => {
-    throw new Error(`redirect ${to}`);
-  },
-  notFound: () => {
-    throw new Error('notFound');
-  },
-}));
-vi.mock('@/lib/auth/current-user', () => {
-  const user = {
-    id: 'c8e00000-0000-4000-8000-000000000001',
-    role: 'customer',
-    isBlocked: false,
-    fullName: 'Cliente',
-    profileComplete: true,
-  };
-  return {
-    getCurrentUser: async () => user,
-    requireRole: async () => user,
-    loadCurrentUser: async () => user,
-  };
-});
-
-function builder(result: () => { data: unknown; error: unknown }): unknown {
-  const target = {} as Record<string | symbol, unknown>;
-  const proxy: unknown = new Proxy(target, {
-    get(_t, prop) {
-      if (prop === 'then') {
-        return (resolveFn: (v: unknown) => unknown, reject: (e: unknown) => unknown) =>
-          Promise.resolve(result()).then(resolveFn, reject);
-      }
-      if (prop === 'single' || prop === 'maybeSingle') {
-        return () => {
-          const r = result();
-          const rows = Array.isArray(r.data) ? r.data : [];
-          return builder(() => ({ data: r.error ? null : (rows[0] ?? null), error: r.error }));
-        };
-      }
-      return () => proxy;
-    },
-  });
-  return proxy;
-}
-
-vi.mock('@/lib/db/server', () => ({
-  createClient: async () => ({
-    from: (table: string) => {
-      fake.fromCalls.push(table);
-      return builder(() => ({ data: fake.tables[table] ?? [], error: null }));
-    },
-    rpc: (name: string, args: Record<string, unknown>) => {
-      fake.rpcCalls.push({ name, args });
-      return builder(() => ({ data: name === 'availability_inputs' ? fake.rpcRows : [], error: null }));
-    },
-    auth: {
-      getUser: async () => ({ data: { user: { id: 'c8e00000-0000-4000-8000-000000000001' } }, error: null }),
-      getClaims: async () => ({
-        data: { claims: { sub: 'c8e00000-0000-4000-8000-000000000001', role: 'authenticated' } },
-        error: null,
-      }),
-    },
-  }),
-}));
-vi.mock('@/lib/db/admin', () => ({
-  createAdminClient: () => {
-    fake.adminClientCreated = true;
-    throw new Error('service_role non ammessa nel percorso di disponibilità');
-  },
-}));
-
-describe('fetchWhenDay – SPEC §5.2, §4, CLAUDE.md regola 6: solo orari e id dei barbieri', () => {
-  const DATE = '2027-03-02';
-  const row = (kind: string, barberId: string | null, start: string, end: string) => ({
-    kind,
-    barber_id: barberId,
-    starts_at: start,
-    ends_at: end,
-  });
-
-  beforeEach(() => {
-    fake.fromCalls = [];
-    fake.rpcCalls = [];
-    fake.adminClientCreated = false;
-    fake.tables = {
-      shop_settings: [
-        {
-          id: true,
-          name: 'Barber Shop',
-          timezone: TZ,
-          slot_granularity_min: 15,
-          min_advance_min: 60,
-          max_horizon_days: 30,
-          cancel_limit_min: 120,
-          buffer_min: 0,
-          no_show_block_threshold: 3,
-          privacy_policy_version: '1',
-        },
-      ],
-      services: [{ id: SERVICE, name: 'Taglio', description: null, duration_min: 30, price_cents: 2000, is_active: true, sort_order: 1 }],
-      // storico del cliente: non deve mai comparire nell'uscita
-      bookings: [
-        {
-          id: BOOKING_ID,
-          customer_id: CUSTOMER,
-          barber_id: B2,
-          starts_at: '2027-02-20T09:00:00Z',
-          status: 'completed',
-          guest_name: 'Ospite Riservato',
-        },
-      ],
-    };
-    fake.rpcRows = [
-      // 02/03 (ora solare): B1 09:00–10:00, B2 09:30–10:30 locali
-      row('work', B1, '2027-03-02T08:00:00Z', '2027-03-02T09:00:00Z'),
-      row('work', B2, '2027-03-02T08:30:00Z', '2027-03-02T09:30:00Z'),
-      // prenotazione di un altro cliente su B2 alle 10:00 locali
-      row('busy', B2, '2027-03-02T09:00:00Z', '2027-03-02T09:30:00Z'),
-      // B3 lavora solo il 04/03 09:00–10:00
-      row('work', B3, '2027-03-04T08:00:00Z', '2027-03-04T09:00:00Z'),
-    ];
-    vi.useFakeTimers({ now: new Date('2027-03-01T08:00:00Z'), toFake: ['Date'] });
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  test('input non valido (servizio non uuid, data inesistente) → invalid, nessuna lettura', async () => {
-    const { fetchWhenDay } = await load<ActionsModule>('@/lib/booking/availability-actions');
-    expect(fetchWhenDay, 'export mancante: fetchWhenDay').toBeTypeOf('function');
-    for (const args of [
-      { serviceId: 'taglio', date: DATE },
-      { serviceId: SERVICE, date: '2027-02-30' },
-      { serviceId: SERVICE, date: '02/03/2027' },
-    ]) {
-      expect(await fetchWhenDay(args), JSON.stringify(args)).toEqual({ ok: false, error: 'invalid' });
-    }
-    expect(fake.rpcCalls).toEqual([]);
-  });
-
-  test('una sola chiamata ad availability_inputs; orari per barbiere, prossimo orario; nessuna service_role', async () => {
-    const { fetchWhenDay } = await load<ActionsModule>('@/lib/booking/availability-actions');
-    expect(fetchWhenDay, 'export mancante: fetchWhenDay').toBeTypeOf('function');
-    const result = await fetchWhenDay({ serviceId: SERVICE, date: DATE });
-
-    expect(fake.rpcCalls.filter((c) => c.name === 'availability_inputs')).toHaveLength(1);
-    expect(fake.adminClientCreated).toBe(false);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.date).toBe(DATE);
-
-    const byId = Object.fromEntries(result.barbers.map((b) => [b.barberId, b]));
-    expect(byId[B1]?.slots).toEqual(['2027-03-02T08:00:00.000Z', '2027-03-02T08:15:00.000Z', '2027-03-02T08:30:00.000Z']);
-    expect(byId[B2]?.slots).toEqual(['2027-03-02T08:30:00.000Z']);
-    expect(byId[B3]?.slots).toEqual([]);
-    expect(byId[B3]?.next).toBe('2027-03-04T08:00:00.000Z');
-  });
-
-  test('l\'uscita contiene solo le chiavi previste: nessun dato di prenotazioni o clienti', async () => {
-    const { fetchWhenDay } = await load<ActionsModule>('@/lib/booking/availability-actions');
-    expect(fetchWhenDay, 'export mancante: fetchWhenDay').toBeTypeOf('function');
-    const result = await fetchWhenDay({ serviceId: SERVICE, date: DATE });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(Object.keys(result).sort()).toEqual(['barbers', 'date', 'ok']);
-    for (const entry of result.barbers) expect(Object.keys(entry).sort()).toEqual(['barberId', 'next', 'slots']);
-
-    const json = JSON.stringify(result);
-    for (const secret of [CUSTOMER, OTHER_CUSTOMER, BOOKING_ID, 'Ospite Riservato', 'completed', 'busy']) {
-      expect(json).not.toContain(secret);
-    }
-    // l'inizio della prenotazione altrui (10:00 locali) non è un orario libero
-    expect(json).not.toContain('2027-03-02T09:00:00.000Z');
   });
 });

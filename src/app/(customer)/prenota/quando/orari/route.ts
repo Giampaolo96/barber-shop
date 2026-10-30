@@ -1,5 +1,5 @@
 // Orari liberi dei giorni di "Quando?" (fetta 8g, ADR 014): ricarica in background quando la pagina
-// torna visibile. GET e non una server action: Next esegue le server action una alla volta e una
+// torna visibile e nuovo tentativo su un giorno (da = a). GET e non una server action: Next esegue le server action una alla volta e una
 // ricarica in corso farebbe aspettare la conferma del riepilogo. Solo orari e id dei barbieri
 // (CLAUDE.md regola 6), letti con l'utente della richiesta, mai la service_role.
 import { redirect } from "next/navigation";

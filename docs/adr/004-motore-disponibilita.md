@@ -32,14 +32,13 @@ intervalli di ogni barbiere.
 - **Anticipo e orizzonte:**
   - l'anticipo è soddisfatto con inizio ≥ `now + min_advance_min`, bordo incluso;
   - l'orizzonte vale per l'inizio dello slot, ammesso fino alla fine del giorno locale di oggi + `max_horizon_days`.
-- **"Qualsiasi":** gli slot sono l'unione senza duplicati di quelli dei barbieri. `pickBarber` sceglie solo tra i barbieri liberi in quello slot e vince chi ha meno prenotazioni non cancellate (`confirmed`, `completed`, `no_show`) nel giorno locale. A parità decide un hash FNV-1a di `data:barber_id`: il criterio è deterministico ma ruota da un giorno all'altro. I conteggi sono un input; la loro fonte arriva con la fetta 5.
+- **"Qualsiasi":** l'assegnazione (oggi solo in SQL, `create_online_booking`) sceglie solo tra i barbieri liberi in quello slot e vince chi ha meno prenotazioni non cancellate (`confirmed`, `completed`, `no_show`) nel giorno locale. A parità decide un hash FNV-1a di `data:barber_id`: il criterio è deterministico ma ruota da un giorno all'altro. I conteggi sono un input; la loro fonte arriva con la fetta 5.
 
-**Server** (`src/lib/booking/availability.ts`, `server-only`): `getAvailableSlots` e
-`getAvailableDays` validano l'input con Zod e usano il client della richiesta.
-- `getAvailableDays` copre al massimo 366 giorni.
+**Server** (`src/lib/booking/availability.ts`, `server-only`): oggi `getWhenOverview` e `getWhenDays`
+(ADR 014), con il client della richiesta. `getAvailableSlots`, `getAvailableDays`, `computeSlots`,
+`availableDays` e `pickBarber` sono stati tolti (audit del 30 ottobre, punto 6): l'assegnazione vive solo in SQL.
 - Ogni chiamata fa un solo caricamento: una lettura delle impostazioni, una del servizio e una RPC per tutto il periodo.
 - Restituiscono solo istanti ISO UTC o date locali.
-- Non sono ancora esposte come server action o route: lo farà la fetta 5, insieme al rate limiting.
 - I client Supabase usano `src/lib/db/database.ts`: i tipi generati, più le correzioni che il generatore non sa esprimere (`p_barber_id` e `barber_id` nullable in `availability_inputs`).
 - Le regole condivise con l'area admin stanno in `src/lib/domain/` (`local-time.ts` e `settings.ts`). Il motore non importa nulla da `src/lib/admin/`.
 

@@ -1,3 +1,5 @@
+// modificato in fetta 8g con l'approvazione dell'utente (2026-10-30, audit punto 6): casi portati su slotsByDay,
+// tolti i test di availableDays e pickBarber e di "qualsiasi" = unione.
 // Test di accettazione – FETTA 4 (SPEC §11: "Motore disponibilità").
 // Motore puro in src/lib/availability/ (CLAUDE.md, regola di dominio 5): nessun I/O, `now` in input.
 // Sezioni: SPEC §4 (passi 1–5, "qualsiasi barbiere", assegnazione), §3.1 (impostazioni),
@@ -37,16 +39,8 @@ type AvailabilityInput = {
 type AvailabilityModule = {
   /** Slot di ogni barbiere nel giorno locale `date` (YYYY-MM-DD): una chiave per ogni barbiere in input. */
   computeSlotsByBarber: (input: AvailabilityInput, date: string) => Record<string, Date[]>;
-  /** Unione degli slot di tutti i barbieri in input, ordinata e senza duplicati. */
-  computeSlots: (input: AvailabilityInput, date: string) => Date[];
-  /** Giorni locali in [from, to] (inclusi) con almeno uno slot. */
-  availableDays: (input: AvailabilityInput, from: string, to: string) => string[];
-  /**
-   * Barbiere da assegnare per "qualsiasi" allo slot `start`: solo tra i barbieri liberi in quello
-   * slot; meno prenotazioni nel giorno vince (conteggi mancanti = 0); a parità criterio
-   * deterministico rotante in base alla data locale. null se nessuno è libero.
-   */
-  pickBarber: (input: AvailabilityInput, start: Date, bookingCounts: Record<string, number>) => string | null;
+  /** Per ogni giorno locale in [from, to] (inclusi) un elemento per barbiere in input. */
+  slotsByDay: (input: AvailabilityInput, from: string, to: string) => Record<string, Array<{ barberId: string; slots: Date[] }>>;
 };
 
 const load = async <T>(specifier: string): Promise<T> =>
@@ -104,7 +98,15 @@ const barber = (b: Partial<BarberAvailabilityInput> = {}): BarberAvailabilityInp
   busy: [],
   ...b,
 });
-const slotsOf = (over: Overrides, date = DAY) => hhmm(engine.computeSlots(input(over), date));
+/** Orari del giorno di tutti i barbieri in input (con un barbiere: i suoi). */
+const slotsOn = (inp: AvailabilityInput, date: string): Date[] =>
+  (engine.slotsByDay(inp, date, date)[date] ?? []).flatMap((b) => b.slots);
+const slotsOf = (over: Overrides, date = DAY) => hhmm(slotsOn(input(over), date));
+/** Giorni locali in [from, to] con almeno un orario, in ordine. */
+const daysWithSlots = (inp: AvailabilityInput, from: string, to: string): string[] =>
+  Object.entries(engine.slotsByDay(inp, from, to))
+    .filter(([, barbers]) => barbers.some((b) => b.slots.length > 0))
+    .map(([date]) => date);
 
 // ---------------------------------------------------------------------------
 // Griglia (SPEC §4.4, regola 1)
@@ -300,7 +302,7 @@ describe('SPEC §12 – cambio ora legale e solare', () => {
         }),
       ],
     };
-    expect(iso(engine.computeSlots(input(over), '2027-03-28'))).toEqual([
+    expect(iso(slotsOn(input(over), '2027-03-28'))).toEqual([
       '2027-03-27T23:00:00.000Z', // 00:00
       '2027-03-28T00:00:00.000Z', // 01:00
       '2027-03-28T01:00:00.000Z', // 03:00
@@ -310,8 +312,8 @@ describe('SPEC §12 – cambio ora legale e solare', () => {
       '2027-03-28T09:00:00.000Z',
       '2027-03-28T10:00:00.000Z', // 12:00
     ]);
-    expect(iso(engine.computeSlots(input(over), '2027-03-29'))).toEqual(['2027-03-28T22:00:00.000Z']);
-    expect(iso(engine.computeSlots(input(over), '2027-03-27'))).toEqual([]);
+    expect(iso(slotsOn(input(over), '2027-03-29'))).toEqual(['2027-03-28T22:00:00.000Z']);
+    expect(iso(slotsOn(input(over), '2027-03-27'))).toEqual([]);
   });
 
   test('ora solare (31/10/2027, giorno di 25 ore): fascia notturna allungata, le 02:00 due volte', () => {
@@ -326,7 +328,7 @@ describe('SPEC §12 – cambio ora legale e solare', () => {
         }),
       ],
     };
-    expect(iso(engine.computeSlots(input(over), '2027-10-31'))).toEqual([
+    expect(iso(slotsOn(input(over), '2027-10-31'))).toEqual([
       '2027-10-30T22:00:00.000Z', // 00:00 (+02)
       '2027-10-30T23:00:00.000Z', // 01:00 (+02)
       '2027-10-31T00:00:00.000Z', // 02:00 (+02)
@@ -342,14 +344,14 @@ describe('SPEC §12 – cambio ora legale e solare', () => {
       // 31/10 23:00–23:45 locali (+01:00)
       barbers: [barber({ work: [{ start: utc('2027-10-31T22:00:00Z'), end: utc('2027-10-31T22:45:00Z') }] })],
     };
-    expect(iso(engine.computeSlots(input(over), '2027-10-31'))).toEqual([
+    expect(iso(slotsOn(input(over), '2027-10-31'))).toEqual([
       '2027-10-31T22:00:00.000Z',
       '2027-10-31T22:15:00.000Z',
     ]);
-    expect(iso(engine.computeSlots(input(over), '2027-11-01'))).toEqual([]);
+    expect(iso(slotsOn(input(over), '2027-11-01'))).toEqual([]);
   });
 
-  test('availableDays attraverso i cambi d\'ora usa i giorni locali', () => {
+  test('slotsByDay attraverso i cambi d\'ora usa i giorni locali', () => {
     const autumn = input({
       now: at('2027-10-25', '08:00'),
       barbers: [
@@ -358,13 +360,13 @@ describe('SPEC §12 – cambio ora legale e solare', () => {
         }),
       ],
     });
-    expect(engine.availableDays(autumn, '2027-10-29', '2027-11-01')).toEqual(['2027-10-30', '2027-10-31']);
+    expect(daysWithSlots(autumn, '2027-10-29', '2027-11-01')).toEqual(['2027-10-30', '2027-10-31']);
 
     const spring = input({
       now: at('2027-03-20', '08:00'),
       barbers: [barber({ work: [{ start: utc('2027-03-28T22:00:00Z'), end: utc('2027-03-28T23:00:00Z') }] })],
     });
-    expect(engine.availableDays(spring, '2027-03-27', '2027-03-29')).toEqual(['2027-03-29']);
+    expect(daysWithSlots(spring, '2027-03-27', '2027-03-29')).toEqual(['2027-03-29']);
   });
 });
 
@@ -387,18 +389,8 @@ describe('SPEC §4 – più barbieri e giorni disponibili', () => {
     expect(byBarber[B2]).toEqual([]);
   });
 
-  test('regola 6: "qualsiasi" = unione ordinata senza duplicati', () => {
-    const slots = slotsOf({
-      barbers: [
-        barber({ work: [iv(DAY, '09:00', '10:00')] }),
-        barber({ barberId: B2, work: [iv(DAY, '09:30', '10:30')] }),
-      ],
-    });
-    expect(slots).toEqual(['09:00', '09:15', '09:30', '09:45', '10:00']);
-  });
-
-  test('availableDays: date locali inclusive con almeno uno slot, in ordine', () => {
-    const days = engine.availableDays(
+  test('slotsByDay: date locali inclusive, solo i giorni con slot hanno orari, in ordine', () => {
+    const days = daysWithSlots(
       input({
         barbers: [
           barber({
@@ -415,56 +407,5 @@ describe('SPEC §4 – più barbieri e giorni disponibili', () => {
       '2027-03-05',
     );
     expect(days).toEqual(['2027-03-02', '2027-03-05']);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Assegnazione con "qualsiasi barbiere" (SPEC §4, regola 7)
-// ---------------------------------------------------------------------------
-describe('SPEC §4 – pickBarber: barbiere libero con meno prenotazioni quel giorno', () => {
-  const twoBarbers = (date: string, b1Busy: Interval[] = [], b2Busy: Interval[] = []) =>
-    input({
-      now: at('2027-02-28', '08:00'),
-      barbers: [
-        barber({ work: [iv(date, '09:00', '13:00')], busy: b1Busy }),
-        barber({ barberId: B2, work: [iv(date, '09:00', '13:00')], busy: b2Busy }),
-      ],
-    });
-
-  test('escluso il barbiere non libero anche se ha meno prenotazioni', () => {
-    const inp = twoBarbers(DAY, [iv(DAY, '10:00', '10:30')]);
-    expect(engine.pickBarber(inp, at(DAY, '10:00'), { [B1]: 0, [B2]: 5 })).toBe(B2);
-  });
-
-  test('vince chi ha meno prenotazioni nel giorno (conteggio mancante = 0)', () => {
-    const inp = twoBarbers(DAY);
-    expect(engine.pickBarber(inp, at(DAY, '09:00'), { [B1]: 1, [B2]: 2 })).toBe(B1);
-    expect(engine.pickBarber(inp, at(DAY, '09:00'), { [B1]: 3, [B2]: 2 })).toBe(B2);
-    expect(engine.pickBarber(inp, at(DAY, '09:00'), { [B1]: 1 })).toBe(B2);
-  });
-
-  test('nessun barbiere libero, slot fuori griglia o fuori fascia → null', () => {
-    const inp = twoBarbers(DAY, [iv(DAY, '10:00', '10:30')], [iv(DAY, '10:00', '10:30')]);
-    expect(engine.pickBarber(inp, at(DAY, '10:00'), {})).toBeNull();
-    expect(engine.pickBarber(inp, at(DAY, '09:07'), {})).toBeNull();
-    expect(engine.pickBarber(inp, at(DAY, '14:00'), {})).toBeNull();
-  });
-
-  test('parità: stabile per la stessa data, indipendente dall\'ordine, rotante tra date diverse', () => {
-    const winners = new Set<string | null>();
-    for (let day = 1; day <= 14; day++) {
-      const date = `2027-03-${String(day).padStart(2, '0')}`;
-      const inp = twoBarbers(date);
-      const reversed = { ...inp, barbers: [...inp.barbers].reverse() };
-      const counts = { [B1]: 1, [B2]: 1 };
-      const first = engine.pickBarber(inp, at(date, '09:00'), counts);
-      expect(first === B1 || first === B2).toBe(true);
-      expect(engine.pickBarber(inp, at(date, '09:00'), counts)).toBe(first);
-      expect(engine.pickBarber(reversed, at(date, '09:00'), counts)).toBe(first);
-      // stessa data, altro orario: il criterio dipende dalla data, non dall'ora
-      expect(engine.pickBarber(inp, at(date, '11:00'), counts)).toBe(first);
-      winners.add(first);
-    }
-    expect(winners).toEqual(new Set([B1, B2]));
   });
 });

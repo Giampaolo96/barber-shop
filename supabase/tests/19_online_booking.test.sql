@@ -2,7 +2,7 @@
 -- 19 – Prenotazione e cancellazione online nel database: online_slot_error, create_online_booking,
 -- cancel_own_booking, visibilità di servizi e barbieri disattivati collegati alle proprie prenotazioni.
 -- SPEC §3.6, §3.7 (regole 1–4), §4, §8 (rate limiting), §12; ADR 001 (scritture del cliente solo
--- tramite funzioni security definer), ADR 004 (griglia, anticipo, orizzonte, buffer, pickBarber).
+-- tramite funzioni security definer), ADR 004 (griglia, anticipo, orizzonte, buffer, assegnazione).
 --
 -- Interfaccia attesa (decisioni approvate per la fetta 5):
 --   public.online_slot_error(p_service_id uuid, p_barber_id uuid, p_starts_at timestamptz) returns text

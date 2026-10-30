@@ -74,13 +74,13 @@ parallele vere.
 **"Nessuna preferenza" nel database.** Con `p_barber_id` null si controllano prima le regole del
 negozio (`online_slot_shop_error`): l'errore rispecchia la causa reale (`too_soon`, `too_far`,
 `closed`...). Poi il barbiere si sceglie nella stessa transazione, fra quelli per cui
-`online_slot_error` è null, con il criterio di `pickBarber`; se nessuno è libero, `unavailable`:
+`online_slot_error` è null, con il criterio di ADR 004; se nessuno è libero, `unavailable`:
 1. vince chi ha meno prenotazioni non cancellate nel giorno locale;
 2. a parità, il minore FNV-1a a 32 bit di `YYYY-MM-DD:barber_id` (`fnv1a_32`, funzione interna
    senza grant);
 3. a ulteriore parità, l'id minore.
 
-Non c'è retry lato server. Il test di coerenza verifica che la scelta coincida con `pickBarber`.
+Non c'è retry lato server. Il test su DB (`booking-db.test.ts`) verifica il barbiere assegnato; `pickBarber`, la copia TypeScript della regola, è stata tolta (audit del 30 ottobre, punto 6).
 
 **Catalogo disattivato.** Il cliente legge servizi e barbieri delle proprie prenotazioni anche
 dopo la loro disattivazione (policy `*_select_own_bookings`), sempre con le sole colonne pubbliche.
@@ -88,9 +88,9 @@ dopo la loro disattivazione (policy `*_select_own_bookings`), sempre con le sole
 **App.**
 - Server action in `src/lib/booking/actions.ts`, con `requireRole(["customer"])` e Zod, che
   chiamano le RPC con il client della richiesta, mai la service role.
-- Gli orari sono esposti in `availability-actions.ts`, senza `requireRole`: la funzione dei dati
-  è eseguibile anche da anon (ADR 004), ma nell'app le pagine del flusso (`/prenota/**`)
-  richiedono il login, quindi in pratica le chiamano solo clienti autenticati.
+- Gli orari si leggono dalle pagine del flusso e da `GET /prenota/quando/orari` (ADR 014), con
+  `requireRole`: la funzione dei dati è eseguibile anche da anon (ADR 004), ma nell'app li ricevono
+  solo clienti autenticati e non bloccati.
 - Il flusso ha 4 schermate:
   - `/prenota`
   - `/prenota/barbiere`, che si salta se il servizio ha un solo barbiere abilitato

@@ -1,3 +1,4 @@
+// modificato in fetta 8g con l'approvazione dell'utente (2026-10-30, audit punto 6): tolto il test di availability-actions.ts.
 // Test di accettazione – FETTA 5 (SPEC §11: "Flusso prenotazione cliente + Le mie prenotazioni"),
 // logica pura e struttura delle server action.
 // Sezioni: SPEC §3.1 (cancel_limit_min, no_show_block_threshold), §3.6, §4 ("Orario appena occupato,
@@ -18,7 +19,6 @@
 //   src/lib/booking/errors.ts (puro)
 //     bookingErrorMessage(code: string): string   – testi da src/i18n/it.ts
 //   src/lib/booking/actions.ts ("use server"): createBooking(prev, formData), cancelBooking(prev, formData)
-//   src/lib/booking/availability-actions.ts ("use server"): fetchAvailableSlots, fetchAvailableDays
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -299,16 +299,6 @@ describe('server action della prenotazione (CLAUDE.md – Sicurezza)', () => {
 
   test('actions.ts: niente service_role (le regole le applica il database con l\'utente della richiesta)', () => {
     const code = readSource('src/lib/booking/actions.ts');
-    expect(code).not.toMatch(/@\/lib\/db\/admin|createAdminClient|SERVICE_ROLE/);
-  });
-
-  test('availability-actions.ts: "use server", delega a getAvailableSlots / getAvailableDays, senza requireRole', () => {
-    const code = readSource('src/lib/booking/availability-actions.ts');
-    expect(hasUseServer(code)).toBe(true);
-    const actions = exported(code);
-    expect(actions.get('fetchAvailableSlots')).toMatch(/\bgetAvailableSlots\s*\(/);
-    expect(actions.get('fetchAvailableDays')).toMatch(/\bgetAvailableDays\s*\(/);
-    expect(code).not.toMatch(/\brequireRole\s*\(/);
     expect(code).not.toMatch(/@\/lib\/db\/admin|createAdminClient|SERVICE_ROLE/);
   });
 });

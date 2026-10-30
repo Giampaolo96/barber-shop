@@ -19,7 +19,7 @@
 | 8d | completata | 2026-10-16 | Vedi "Fetta 8d" sotto; manca la prova di caricamento da iPhone |
 | 8e | completata | 2026-10-16 | Vedi "Fetta 8e" sotto; manca la prova su iPhone e una decisione su "oggi chiuso" |
 | 8f | completata | 2026-10-25 | Vedi "Fetta 8f" sotto; manca la prova su iPhone |
-| 8g | in corso | | Vedi "Fetta 8g" sotto; scorrimento invariato (deciso su iPhone); da chiudere con il punto 6 dell'audit |
+| 8g | completata | 2026-10-30 | Vedi "Fetta 8g" sotto; scorrimento invariato (deciso su iPhone); punto 6 dell'audit chiuso il 2026-10-30 |
 | 8h | da fare | | Sicurezza dati prima del go-live: punti 2 e 3 dell'audit |
 | 8i | da fare | | Correzioni admin: punti 5, 8 e 9 dell'audit |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
@@ -1400,7 +1400,9 @@ In dev (stessa misura su "Primo libero", contenuto vero): `4a86085` 283 in seque
 Report completo in `docs/audit/2026-10-30-ponytail.md`.
 
 - **Punto 1 (Next.js, Zod): in corso**, PR `fix-dipendenze` da `main`, stessi commit portati sulla 8g.
-- **Punto 6: dentro la 8g, prima di chiuderla.** Il nuovo tentativo dopo un errore usa la route GET (da = a) con i suoi controlli, compreso il cliente bloccato. Poi si eliminano `availability-actions.ts`, `getWhenDay` e le funzioni non usate elencate nell'audit, con i relativi test (rimozioni approvate). Il test SQL scrive il barbiere atteso invece di usare `pickBarber`.
+- **Punto 6: chiuso il 2026-10-30, dentro la 8g.** Il nuovo tentativo su un giorno usa la GET `/prenota/quando/orari` con da = a, quindi anche al cliente bloccato risponde 403 (nuovo e2e). Eliminati `availability-actions.ts`, `getWhenDay`, `getAvailableSlots`, `getAvailableDays`, `availableDays`, `computeSlots`, `nextSlotByBarber`, `pickBarber` (con `assign.ts`) e il parametro barbiere di `loadInput`. Test: casi del motore spostati su `slotsByDay`; `availability-db` su `getWhenDays`; coerenza di `booking-db` su `slotsByDay` con la lettura del solo giorno; barbiere atteso scritto nel test (a parità lo ricava un FNV-1a del test, perché la data cambia a ogni esecuzione).
+  - Riprodotto il punto 3: con `max_horizon_days` = 365 `getWhenDays` supera le 1000 righe, perde le prenotazioni e propone orari occupati. Resta nella fetta 8h.
+  - Da decidere: con tutti i giorni nella pagina il nuovo tentativo oggi non parte quasi mai (i giorni della fila e quelli con orari coincidono), l'e2e deve togliere due giorni dal payload per provarlo; `computeSlotsByBarber` resta usata solo dai test.
 - **Fetta 8h, sicurezza dati, prima del go-live:**
   - punto 2: privilegi staff solo con sessione da password. Il claim `amr` è un array di oggetti, quindi il controllo è `auth.jwt() -> 'amr' @> '[{"method":"password"}]'`, in `is_admin`, `is_staff` e `current_barber_id`. Da pensare il flusso di reimpostazione password (dopo un recupero si rientra con la password) e da aggiornare i claim nei test pgTAP;
   - punto 3: `availability_inputs` restituisce un solo `jsonb`, con un test oltre le 1000 righe.

@@ -1,9 +1,11 @@
+// modificato in fetta 8g con l'approvazione dell'utente (2026-10-30, audit punto 6): coerenza su slotsByDay al posto di
+// getAvailableSlots; barbiere atteso scritto nel test invece di calcolarlo con pickBarber (tolto).
 // Test di accettazione – FETTA 5 (SPEC §11: "Flusso prenotazione cliente + Le mie prenotazioni"),
 // integrazione con il database locale. Sezioni: SPEC §3.7.1–3, §4, §8 (rate limiting), §12 (ora
 // legale, pausa pranzo, oltre la chiusura, prenotazioni concorrenti); ADR 004 ("test di coerenza tra
-// motore e validazione SQL", pickBarber) + decisioni approvate per la fetta 5.
+// motore e validazione SQL") + decisioni approvate per la fetta 5.
 //
-// 1. Coerenza: ogni orario proposto da getAvailableSlots è accettato da online_slot_error (null) e
+// 1. Coerenza: ogni orario proposto dal motore è accettato da online_slot_error (null) e
 //    un campione di orari non proposti è rifiutato.
 //    Date: il giorno del cambio d'ora non è una data fissa come nei test della fetta 4 (2026-10-25,
 //    2027-03-28): online_slot_error usa now() reale, quindi una data fissa prima o poi finirebbe nel
@@ -14,8 +16,8 @@
 //    Gli slot di oggi troppo vicini all'anticipo minimo (entro 2 minuti) sono esclusi dal controllo:
 //    fra il calcolo e la verifica passa del tempo reale. Il bordo esatto è nei test del motore e nel
 //    pgTAP 19.
-// 2. "Nessuna preferenza": il barbiere scelto da create_online_booking(null) coincide con pickBarber
-//    calcolato sugli stessi dati (conteggi letti con la service role).
+// 2. "Nessuna preferenza": il barbiere scelto da create_online_booking(null) è quello atteso: chi ha
+//    meno prenotazioni nel giorno e, a parità, il primo per hash di data + id (ADR 005).
 // 3. Concorrenza reale (Promise.all con il client autenticato del cliente, richieste parallele a
 //    PostgREST, una transazione ciascuna): il limite delle 3 prenotazioni future e il controllo di
 //    sovrapposizione del cliente reggono alla gara. Il pgTAP 19 verifica solo la presa del lock.
@@ -27,24 +29,9 @@
 import { execSync } from 'node:child_process';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 
-import { pickBarber, type AvailabilityInput, type BarberAvailabilityInput } from '@/lib/availability';
-
-type SlotsResult = { ok: true; slots: string[] } | { ok: false; error: 'invalid' | 'error' };
-type BookingAvailabilityModule = {
-  getAvailableSlots: (args: { serviceId: string; barberId: string; date: string }) => Promise<SlotsResult>;
-};
-
-const load = async <T>(specifier: string): Promise<T> =>
-  (await import(/* @vite-ignore */ specifier)) as T;
-
-// getAvailableSlots gira con il client della richiesta senza sessione (anon)
-vi.mock('server-only', () => ({}));
-vi.mock('next/headers', () => ({
-  cookies: async () => ({ get: () => undefined, getAll: () => [], set: () => undefined, has: () => false }),
-  headers: async () => new Headers(),
-}));
+import { slotsByDay, type AvailabilityInput, type BarberAvailabilityInput } from '@/lib/availability';
 
 // ---------------------------------------------------------------------------
 // Ambiente (come availability-db.test.ts)
@@ -286,11 +273,50 @@ afterAll(async () => {
 // ---------------------------------------------------------------------------
 // Chiamate
 // ---------------------------------------------------------------------------
+/** Dati del solo giorno, letti da anon: con l'orizzonte a 365 tutto il periodo supera le 1000 righe di PostgREST. */
+async function engineInput(date: string): Promise<AvailabilityInput> {
+  const rows = must(
+    await ctx.anon.rpc('availability_inputs', {
+      p_service_id: ctx.serviceId,
+      p_barber_id: null,
+      p_from: startOfDay(date),
+      p_to: startOfDay(plusDays(date, 1)),
+    }),
+    'availability_inputs',
+  ) as Array<{ kind: string; barber_id: string | null; starts_at: string; ends_at: string }>;
+  const barbers = new Map<string, BarberAvailabilityInput>();
+  const closures: AvailabilityInput['closures'] = [];
+  for (const row of rows) {
+    const interval = { start: new Date(row.starts_at), end: new Date(row.ends_at) };
+    if (row.kind === 'closure') {
+      closures.push(interval);
+      continue;
+    }
+    if (!row.barber_id) continue;
+    const b = barbers.get(row.barber_id) ?? { barberId: row.barber_id, work: [], timeOff: [], busy: [] };
+    barbers.set(row.barber_id, b);
+    if (row.kind === 'work') b.work.push(interval);
+    else if (row.kind === 'time_off') b.timeOff.push(interval);
+    else if (row.kind === 'busy') b.busy.push(interval);
+  }
+  return {
+    timezone: TZ,
+    now: new Date(),
+    settings: {
+      slotGranularityMin: ctx.settings.slot_granularity_min,
+      minAdvanceMin: ctx.settings.min_advance_min,
+      maxHorizonDays: ctx.settings.max_horizon_days,
+      bufferMin: ctx.settings.buffer_min,
+    },
+    serviceDurationMin: 30,
+    closures,
+    barbers: [...barbers.values()],
+  };
+}
+
 async function slots(barberId: string, date: string): Promise<string[]> {
-  const { getAvailableSlots } = await load<BookingAvailabilityModule>('@/lib/booking/availability');
-  const result = await getAvailableSlots({ serviceId: ctx.serviceId, barberId, date });
-  if (!result.ok) throw new Error(`getAvailableSlots(${date}): ${result.error}`);
-  return result.slots;
+  const day = slotsByDay(await engineInput(date), date, date)[date] ?? [];
+  return (day.find((b) => b.barberId === barberId)?.slots ?? []).map((d) => d.toISOString());
 }
 
 async function slotError(barberId: string, startsAt: string): Promise<string | null> {
@@ -330,7 +356,7 @@ async function expectRejected(barberId: string, proposed: string[], startsAt: st
 // ---------------------------------------------------------------------------
 // 1. Coerenza motore ↔ online_slot_error (ADR 004)
 // ---------------------------------------------------------------------------
-describe('ADR 004 – coerenza fra getAvailableSlots e online_slot_error', () => {
+describe('ADR 004 – coerenza fra il motore e online_slot_error', () => {
   test('giorno normale (barbiere A): ogni slot proposto è accettato', async () => {
     const proposed = await slots(ctx.barberA, ctx.normalDay);
     expect(proposed.length).toBeGreaterThan(0);
@@ -393,74 +419,30 @@ describe('ADR 004 – coerenza fra getAvailableSlots e online_slot_error', () =>
 });
 
 // ---------------------------------------------------------------------------
-// 2. "Nessuna preferenza": create_online_booking(null) = pickBarber (SPEC §4, ADR 004)
+// 2. "Nessuna preferenza": il criterio di assegnazione del database (SPEC §4, ADR 004, ADR 005)
 // ---------------------------------------------------------------------------
-async function engineInput(date: string): Promise<AvailabilityInput> {
-  const rows = must(
-    await ctx.anon.rpc('availability_inputs', {
-      p_service_id: ctx.serviceId,
-      p_barber_id: null,
-      p_from: startOfDay(date),
-      p_to: startOfDay(plusDays(date, 1)),
-    }),
-    'availability_inputs',
-  ) as Array<{ kind: string; barber_id: string | null; starts_at: string; ends_at: string }>;
-  const barbers = new Map<string, BarberAvailabilityInput>();
-  const closures: AvailabilityInput['closures'] = [];
-  for (const row of rows) {
-    const interval = { start: new Date(row.starts_at), end: new Date(row.ends_at) };
-    if (row.kind === 'closure') {
-      closures.push(interval);
-      continue;
-    }
-    if (!row.barber_id) continue;
-    const b = barbers.get(row.barber_id) ?? { barberId: row.barber_id, work: [], timeOff: [], busy: [] };
-    barbers.set(row.barber_id, b);
-    if (row.kind === 'work') b.work.push(interval);
-    else if (row.kind === 'time_off') b.timeOff.push(interval);
-    else if (row.kind === 'busy') b.busy.push(interval);
-  }
-  return {
-    timezone: TZ,
-    now: new Date(),
-    settings: {
-      slotGranularityMin: ctx.settings.slot_granularity_min,
-      minAdvanceMin: ctx.settings.min_advance_min,
-      maxHorizonDays: ctx.settings.max_horizon_days,
-      bufferMin: ctx.settings.buffer_min,
-    },
-    serviceDurationMin: 30,
-    closures,
-    barbers: [...barbers.values()],
-  };
-}
+/** FNV-1a a 32 bit di `text` (ASCII), come public.fnv1a_32. */
+const fnv1a = (text: string): number => {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193);
+  return hash >>> 0;
+};
 
-/** Prenotazioni non cancellate (confirmed, completed, no_show) per barbiere nel giorno locale. */
-async function dayCounts(date: string): Promise<Record<string, number>> {
-  const rows = must(
-    await ctx.svc
-      .from('bookings')
-      .select('barber_id')
-      .in('barber_id', [ctx.barberA, ctx.barberB])
-      .in('status', ['confirmed', 'completed', 'no_show'])
-      .gte('starts_at', startOfDay(date))
-      .lt('starts_at', startOfDay(plusDays(date, 1))),
-    'conteggi',
-  ) as Array<{ barber_id: string }>;
-  const counts: Record<string, number> = {};
-  for (const r of rows) counts[r.barber_id] = (counts[r.barber_id] ?? 0) + 1;
-  return counts;
-}
+/** A parità di prenotazioni vince l'hash minore: la data del test cambia, quindi l'atteso si ricava da lei. */
+const tieWinner = (date: string): string =>
+  fnv1a(`${date}:${ctx.barberA}`) < fnv1a(`${date}:${ctx.barberB}`) ? ctx.barberA : ctx.barberB;
 
-describe('SPEC §4 – "Nessuna preferenza": il database sceglie come pickBarber', () => {
-  test('conteggi diversi e poi a parità: il barbiere assegnato coincide con pickBarber', async () => {
+describe('SPEC §4 – "Nessuna preferenza": il database sceglie chi ha meno prenotazioni, poi per hash', () => {
+  test('conteggi diversi e poi a parità: il barbiere assegnato è quello atteso', async () => {
+    expect(ctx.settings.buffer_min, 'alle 15:30 B deve essere libero').toBe(0);
     const client = ctx.customers[0]!;
-    for (const time of ['15:00', '15:30']) {
-      const start = rome(ctx.normalDay, time);
-      const expected = pickBarber(await engineInput(ctx.normalDay), new Date(start), await dayCounts(ctx.normalDay));
-      expect(expected, `nessun barbiere libero alle ${time} secondo il motore`).not.toBeNull();
-
-      const result = await create(client, null, start);
+    // Alle 15:00 A ha già la prenotazione delle 10:00 e B nessuna; dopo quella assegnata a B sono pari.
+    const attempts = [
+      { time: '15:00', expected: ctx.barberB },
+      { time: '15:30', expected: tieWinner(ctx.normalDay) },
+    ];
+    for (const { time, expected } of attempts) {
+      const result = await create(client, null, rome(ctx.normalDay, time));
       expect(result.code, `${time}: ${result.message}`).toBeNull();
       const row = must(
         await ctx.svc.from('bookings').select('barber_id').eq('id', result.id ?? '').single(),
@@ -468,6 +450,35 @@ describe('SPEC §4 – "Nessuna preferenza": il database sceglie come pickBarber
       ) as { barber_id: string };
       expect(row.barber_id, `barbiere assegnato alle ${time}`).toBe(expected);
     }
+  }, 60_000);
+
+  test('il barbiere con meno prenotazioni ma occupato in quello slot non viene scelto', async () => {
+    const day = ctx.normalDay;
+    const manual = (barberId: string, time: string) => ({
+      guest_name: 'VT5 Ospite',
+      guest_phone: '+390300005000',
+      barber_id: barberId,
+      service_id: ctx.serviceId,
+      starts_at: rome(day, time),
+      status: 'confirmed',
+      source: 'manual',
+    });
+    // A resta il più prenotato del giorno (almeno 4 contro al massimo 3), B è occupato alle 16:00.
+    must(
+      await ctx.svc
+        .from('bookings')
+        .insert([manual(ctx.barberA, '09:00'), manual(ctx.barberA, '09:30'), manual(ctx.barberA, '11:00'), manual(ctx.barberB, '16:00')])
+        .select('id'),
+      'prenotazioni del giorno',
+    );
+
+    const result = await create(ctx.customers[0]!, null, rome(day, '16:00'));
+    expect(result.code, result.message ?? '').toBeNull();
+    const row = must(
+      await ctx.svc.from('bookings').select('barber_id').eq('id', result.id ?? '').single(),
+      'prenotazione creata',
+    ) as { barber_id: string };
+    expect(row.barber_id).toBe(ctx.barberA);
   }, 60_000);
 });
 
