@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import { serviceWorkerVersion } from "./src/lib/pwa/sw-version";
 
 const nextConfig: NextConfig = {
+  // In sviluppo l'indicatore di Next sta in basso a sinistra, proprio sopra "Esci" dell'area staff.
+  devIndicators: false,
   // Versione della cache del service worker: una per deploy (ADR 009).
   env: { SW_VERSION: serviceWorkerVersion(process.env) },
   experimental: {

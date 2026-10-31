@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { it } from "@/i18n/it";
+import { cn } from "@/lib/utils";
 import { WARNING_TEXT } from "./messages";
 import type { MoveDialog, MoveNotice } from "./use-booking-move";
 
@@ -22,22 +23,42 @@ export function MoveFeedback({
   notice,
   dialog,
   busy,
+  dismiss,
 }: {
   notice: MoveNotice | null;
   dialog: MoveDialog | null;
   busy: boolean;
+  dismiss: () => void;
 }) {
   return (
     <>
-      <div className="flex min-h-11 flex-wrap items-center gap-3">
-        <p role="status" aria-live="polite" className="text-sm font-medium">
-          {notice?.text}
-        </p>
-        {notice?.undo && (
-          <Button type="button" variant="outline" disabled={busy} onClick={notice.undo}>
-            {t.move.undo}
-          </Button>
-        )}
+      {/*
+        Su telefono spazio riservato; su desktop nessuno spazio: l'avviso è un riquadro fisso, così la
+        griglia non si sposta, e lascia passare i clic. Il live region resta nel DOM.
+      */}
+      <div className="min-h-11 md:-mb-4 md:h-0 md:min-h-0">
+        <div
+          data-move-notice={notice ? "true" : undefined}
+          className={cn(
+            "flex flex-wrap items-center gap-3",
+            notice &&
+              "md:pointer-events-none md:fixed md:right-6 md:bottom-6 md:z-40 md:max-w-md md:border md:border-control-rest md:bg-surface md:px-4 md:py-2",
+          )}
+        >
+          <p role="status" aria-live="polite" className="text-sm font-medium">
+            {notice?.text}
+          </p>
+          {notice?.undo && (
+            <Button type="button" variant="outline" disabled={busy} onClick={notice.undo} className="pointer-events-auto">
+              {t.move.undo}
+            </Button>
+          )}
+          {notice?.tone === "error" && (
+            <Button type="button" variant="outline" onClick={dismiss} className="pointer-events-auto">
+              {t.move.close}
+            </Button>
+          )}
+        </div>
       </div>
       <AlertDialog open={dialog !== null} onOpenChange={(open) => !open && dialog?.cancel()}>
         <AlertDialogContent area="admin">

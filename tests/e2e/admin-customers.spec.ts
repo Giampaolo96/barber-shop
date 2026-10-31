@@ -21,6 +21,7 @@
 // .env.local). Gli account dei clienti si creano con l'API admin di Supabase Auth (service role, solo nel
 // test) e si eliminano alla fine; profili e prenotazioni si preparano con l'API dell'admin demo (RLS
 // attiva). Nomi ed email univoci per test: i file girano in parallelo.
+// Date da testDate() e pulizia prima di creare le prenotazioni: modificato con l'approvazione dell'utente.
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
@@ -36,12 +37,13 @@ import {
   itDate,
   loginAsAdmin,
   loginAsBarber,
-  randomWinterDate,
   romeWinter,
   s,
   sf,
   supabaseUrl,
   uniqueEmail,
+  testDate,
+  clearBookings,
   uniqueName,
   type AdminApi,
 } from './admin-helpers';
@@ -90,9 +92,8 @@ const pastBooking = async (
   return rows[0]?.id ?? '';
 };
 
-/** Giorno passato di gennaio/febbraio fra gli anni dati (stessa forma di randomWinterDate). */
-const pastDate = (fromYear = 2012, toYear = 2023): string =>
-  `${fromYear + Math.floor(Math.random() * (toYear - fromYear + 1))}${randomWinterDate().slice(4)}`;
+/** Giorno passato di gennaio/febbraio fra gli anni dati, tutto di questo test. */
+const pastDate = (fromYear = 2012, toYear = 2023): string => testDate({ fromYear, toYear });
 
 type ProfileRow = { is_blocked: boolean; no_show_count: number; no_show_reset_at: string | null; no_show_reset_by: string | null };
 const profileOf = async (api: AdminApi, id: string): Promise<ProfileRow | undefined> =>
@@ -127,6 +128,7 @@ test.describe('Clienti (SPEC §6.7)', () => {
       customers.push(customer);
       const first = pastDate(2012, 2017);
       const second = pastDate(2018, 2023);
+      await clearBookings(api, [SEED.luca], first, second);
       await pastBooking(api, customer.id, first, '10:00', 'completed');
       await pastBooking(api, customer.id, second, '11:00', 'completed');
 
@@ -180,6 +182,7 @@ test.describe('Clienti (SPEC §6.7)', () => {
       const customer = await createCustomer(page.request, api, uniqueName('Cliente no-show'));
       customers.push(customer);
       const date = pastDate();
+      await clearBookings(api, [SEED.luca], date);
       for (let i = 0; i < threshold; i += 1) {
         await pastBooking(api, customer.id, date, `${String(9 + i).padStart(2, '0')}:00`, 'no_show');
       }
@@ -221,7 +224,7 @@ test.describe('Clienti (SPEC §6.7)', () => {
         await expectPath(page, '/admin');
       }
 
-      await page.goto(`/admin/calendario/nuova?barbiere=${SEED.luca}&data=${randomWinterDate()}`);
+      await page.goto(`/admin/calendario/nuova?barbiere=${SEED.luca}&data=${testDate()}`);
       await page.getByRole('radio', { name: s('admin.calendar.form.registeredOption'), exact: true }).check();
       await page.getByLabel(s('admin.calendar.form.customerSearchLabel'), { exact: true }).fill(tag);
       const result = (name: string) => main(page).getByRole('listitem').filter({ hasText: name });

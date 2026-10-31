@@ -25,13 +25,15 @@ import {
   daySlots,
   hhmm,
   initialWeekColumn,
+  slotBackgrounds,
   type WeekGrid,
+  weekCardGeometry,
   weekDropTarget,
   weekNowLine,
 } from "@/lib/calendar/week-grid";
 import { localDateOf } from "@/lib/domain/local-time";
 import { cn } from "@/lib/utils";
-import { BookingCard, ColumnDropZone, DraggedCard, NowLine, placed, ROW_HEIGHT } from "./grid-parts";
+import { BookingCard, ColumnDropZone, DraggedCard, GRID_ROW_CLASS, NowLine, placed, ROW_HEIGHT } from "./grid-parts";
 import { MoveFeedback } from "./move-feedback";
 import { useBookingMove } from "./use-booking-move";
 import { AUTO_SCROLL, useCalendarDrag } from "./use-calendar-drag";
@@ -63,6 +65,7 @@ export function WeekGridView({
   barberActive,
   timezone,
   today,
+  weekStart,
   showCancelled,
   role,
   ownBarberId,
@@ -75,6 +78,8 @@ export function WeekGridView({
   timezone: string;
   /** Oggi nella timezone del negozio, dal server. */
   today: string;
+  /** Lunedì della settimana: identifica la vista anche quando i giorni disegnati cambiano. */
+  weekStart: string;
   showCancelled: boolean;
   role: StaffRole;
   ownBarberId: string | null;
@@ -82,7 +87,7 @@ export function WeekGridView({
   now: Date;
 }) {
   const time = (instant: Date) => formatInTimeZone(instant, timezone, "HH:mm");
-  const { positions, notice, dialog, busy, move, reject } = useBookingMove(days);
+  const { positions, notice, dialog, busy, move, reject, dismiss } = useBookingMove(days, `${weekStart}-${barberId}`);
   const scrollRef = useRef<HTMLDivElement>(null);
   const cornerRef = useRef<HTMLDivElement>(null);
   const dates = days.map((day) => day.date);
@@ -174,7 +179,7 @@ export function WeekGridView({
 
   return (
     <DndContext sensors={sensors} collisionDetection={visibleOnly} autoScroll={AUTO_SCROLL} {...handlers}>
-      <MoveFeedback notice={notice} dialog={dialog} busy={busy} />
+      <MoveFeedback notice={notice} dialog={dialog} busy={busy} dismiss={dismiss} />
       {!barberActive && <p className="text-sm text-muted-foreground">{t.inactiveBarberNoBooking}</p>}
       <div
         ref={scrollRef}
@@ -183,7 +188,7 @@ export function WeekGridView({
       >
         {/* Larghezza minima fissa (non max-content): il testo delle schede non allarga le colonne. */}
         <div
-          className="grid w-full"
+          className={cn("grid w-full", GRID_ROW_CLASS)}
           style={{
             minWidth: `calc(3.5rem + ${days.length} * 7rem)`,
             gridTemplateColumns: `3.5rem repeat(${days.length}, minmax(7rem, 1fr))`,
@@ -231,6 +236,14 @@ export function WeekGridView({
               now,
               barberActive,
             });
+            const backgrounds = slotBackgrounds({
+              date: day.date,
+              grid,
+              tz: timezone,
+              bands: day.bands,
+              timeOff: day.periods.filter((period) => period.kind === "timeOff"),
+              closures: day.periods.filter((period) => period.kind === "closure"),
+            });
             const placedBookings = dayBookings.flatMap((booking) => {
               const position = dayBlockPosition(grid, day.date, booking, timezone);
               return position ? [{ booking, position }] : [];
@@ -251,7 +264,7 @@ export function WeekGridView({
                 className={cn(
                   // Sui dispositivi touch il link occupa tutta l'intestazione, alta 44 px (riga di 20 px + py-3);
                   // su desktop resta compatta. Link block, non flex: ::first-letter (maiuscola) passa solo nei blocchi.
-                  "sticky top-0 z-20 border-b bg-surface px-1 pb-2 text-sm font-semibold first-letter:uppercase pointer-coarse:pb-0",
+                  "sticky top-0 z-20 border-b bg-surface px-1 pb-2 text-sm font-semibold first-letter:uppercase max-md:pb-0 pointer-coarse:pb-0",
                   isToday ? "border-ink" : "border-transparent",
                   day.closed && "text-muted-foreground",
                 )}
@@ -259,7 +272,7 @@ export function WeekGridView({
               >
                 <Link
                   href={calendarHref({ date: day.date, showCancelled })}
-                  className="hover:underline pointer-coarse:block pointer-coarse:py-3"
+                  className="hover:underline max-md:block max-md:py-3 pointer-coarse:block pointer-coarse:py-3"
                 >
                   {dayLabel}
                 </Link>
@@ -270,14 +283,14 @@ export function WeekGridView({
                 const cellClass = cn(
                   "border-t",
                   label.endsWith(":00") ? "border-ink/30" : "border-line/60",
-                  (slot.kind === "outside" || slot.kind === "nonexistent") && "bg-disabled",
-                  (slot.kind === "timeOff" || slot.kind === "closure") && "bg-hatch",
+                  (backgrounds[index] === "outside" || backgrounds[index] === "nonexistent") && "bg-disabled",
+                  (backgrounds[index] === "timeOff" || backgrounds[index] === "closure") && "bg-hatch",
                 );
                 if (!slot.clickable) {
                   return (
                     <div
                       key={`${day.date}-${minutes}`}
-                      className={cn(cellClass, slot.kind === "busy" && "bg-disabled")}
+                      className={cellClass}
                       title={slot.kind === "busy" ? t.bufferBlock : barberActive ? undefined : t.inactiveBarberNoBooking}
                       style={{ gridColumn, gridRow: index + 2 }}
                     />
@@ -333,6 +346,10 @@ export function WeekGridView({
                   draggable={draggableAt(booking, now)}
                   canGrab={() => draggableAt(booking, new Date())}
                   style={{ gridColumn, gridRow: `${position.row + 2} / span ${position.span}` }}
+                  box={{
+                    ...weekCardGeometry(grid, day.date, position.row, booking, timezone),
+                    granularityMin: grid.granularityMin,
+                  }}
                 />
               )),
             ];

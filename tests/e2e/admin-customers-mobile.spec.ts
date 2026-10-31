@@ -1,3 +1,4 @@
+// Date da testDate() e pulizia prima di creare le prenotazioni: modificato con l'approvazione dell'utente.
 // Sezione Clienti su telefono (390 px): elenco a righe invece della tabella a cinque colonne, che
 // schiacciava nome ed email (l'email andava a capo lettera per lettera). Ogni cliente è un link alto
 // almeno 44 px, l'email sta su una riga, la pagina non scorre in orizzontale. Lo stesso per lo
@@ -10,9 +11,10 @@ import {
   adminApi,
   env,
   loginAsAdmin,
-  randomWinterDate,
   romeWinter,
   supabaseUrl,
+  testDate,
+  clearBookings,
   uniqueName,
   type AdminApi,
 } from './admin-helpers';
@@ -71,7 +73,8 @@ test.describe('Clienti su telefono', () => {
       full_name: fullName,
       phone: `+39333${Math.floor(1_000_000 + Math.random() * 8_999_999)}`,
     });
-    const day = `${2012 + Math.floor(Math.random() * 10)}${randomWinterDate().slice(4)}`;
+    const day = testDate({ fromYear: 2012, toYear: 2021 });
+    await clearBookings(api, [SEED.luca], day);
     await api.post('/rest/v1/bookings?select=id', {
       customer_id: customerId,
       barber_id: SEED.luca,

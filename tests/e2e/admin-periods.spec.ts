@@ -15,6 +15,7 @@
 //   quelle di tutti i barbieri per le chiusure (decisione fetta 3, utente);
 // - elenco in tabella, una riga per periodo, con il motivo, le date gg/mm/aaaa e, per i periodi
 //   orari, le ore HH:MM in ora di Roma; azioni di riga it.admin.common.edit / delete.
+// Date da testDate() e pulizia prima di creare le prenotazioni: modificato con l'approvazione dell'utente.
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
 
 import { expect, test, type Page } from '@playwright/test';
@@ -37,12 +38,13 @@ import {
   loginAsAdmin,
   loginAsBarber,
   plusDays,
-  randomWinterDate,
   romeWinter,
   rowWith,
   s,
   saveButton,
   sf,
+  testDate,
+  clearBookings,
   uniqueName,
 } from './admin-helpers';
 
@@ -78,7 +80,8 @@ test.describe('Admin – assenze dei barbieri (SPEC §3.5, §6.5)', () => {
     const serviceId = await createService(api, { name: uniqueName('Servizio assenza'), durationMin: 20 });
     const barberId = await createBarber(api, uniqueName('Barbiere assenza'), [serviceId]);
     const otherBarber = await createBarber(api, uniqueName('Barbiere altro'), [serviceId]);
-    const date = randomWinterDate();
+    const date = testDate();
+    await clearBookings(api, [barberId, otherBarber], date);
     const bookings = [
       // 10:00–10:20: dentro l'assenza
       await createBooking(api, { barberId, serviceId, startsAt: romeWinter(date, '10:00') }),
@@ -139,7 +142,7 @@ test.describe('Admin – assenze dei barbieri (SPEC §3.5, §6.5)', () => {
     acceptDialogs(page);
     const api = await adminApi(page.request);
     const barberId = await createBarber(api, uniqueName('Barbiere ferie'));
-    const from = randomWinterDate();
+    const from = testDate();
     const to = plusDays(from, 4);
     const reason = uniqueName('Ferie');
 
@@ -176,7 +179,7 @@ test.describe('Admin – assenze dei barbieri (SPEC §3.5, §6.5)', () => {
   test('periodo con fine prima dell\'inizio: errore e nessuna assenza salvata', async ({ page }) => {
     const api = await adminApi(page.request);
     const barberId = await createBarber(api, uniqueName('Barbiere errore'));
-    const date = randomWinterDate();
+    const date = testDate();
     const reason = uniqueName('Errata');
 
     try {
@@ -267,7 +270,8 @@ test.describe('Admin – chiusure del negozio (SPEC §3.5, §6.6)', () => {
     const serviceId = await createService(api, { name: uniqueName('Servizio chiusura'), durationMin: 20 });
     const firstBarber = await createBarber(api, uniqueName('Barbiere chiusura A'), [serviceId]);
     const secondBarber = await createBarber(api, uniqueName('Barbiere chiusura B'), [serviceId]);
-    const date = randomWinterDate();
+    const date = testDate();
+    await clearBookings(api, [firstBarber, secondBarber], date);
     const bookings = [
       await createBooking(api, { barberId: firstBarber, serviceId, startsAt: romeWinter(date, '10:00') }),
       await createBooking(api, { barberId: secondBarber, serviceId, startsAt: romeWinter(date, '15:00') }),
@@ -306,7 +310,7 @@ test.describe('Admin – chiusure del negozio (SPEC §3.5, §6.6)', () => {
     page,
   }) => {
     const api = await adminApi(page.request);
-    const date = randomWinterDate();
+    const date = testDate();
     const mine = uniqueName('Assenza di Mario');
     const saraFuture = uniqueName('Assenza futura di Sara');
     const saraPast = uniqueName('Assenza passata di Sara');

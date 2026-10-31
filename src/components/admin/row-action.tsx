@@ -25,7 +25,7 @@ export function RowAction({
   label: string;
   confirmText?: string;
   messages?: Partial<Record<string, string>>;
-  variant?: "outline" | "destructive" | "ghost";
+  variant?: "outline" | "destructive" | "destructive-quiet" | "ghost";
   size?: "sm" | "default";
 }) {
   const [state, formAction, pending] = useActionState(action, { status: "idle" });

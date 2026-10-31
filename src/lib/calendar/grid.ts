@@ -79,6 +79,22 @@ export function blockPosition(grid: DayGrid, block: Interval): { row: number; sp
 }
 
 /**
+ * Geometria esatta di una scheda dentro la riga da cui parte, in minuti: `blockPosition` dà le righe
+ * (arrotondate) che servono a corsie e trascinamento, qui si misura quanto dura davvero il servizio e
+ * quanto la pausa che lo segue. Tutto ritagliato a [rowStartsAt, clipEndsAt].
+ */
+export function cardGeometry(
+  box: { rowStartsAt: Date; clipEndsAt: Date },
+  booking: Interval & { blockedUntil: Date },
+): { offsetMin: number; serviceMin: number; bufferMin: number } {
+  const origin = box.rowStartsAt.getTime();
+  const clip = (at: Date): number => (Math.min(Math.max(at.getTime(), origin), box.clipEndsAt.getTime()) - origin) / MINUTE;
+  const start = clip(booking.startsAt);
+  const end = clip(booking.endsAt);
+  return { offsetMin: start, serviceMin: end - start, bufferMin: Math.max(clip(booking.blockedUntil) - end, 0) };
+}
+
+/**
  * Righe occupate: quelle che iniziano dentro un intervallo. Per le prenotazioni si passa
  * `[starts_at, blocked_until)`, così anche le righe del buffer risultano occupate.
  */

@@ -135,7 +135,8 @@ test.describe('Statistiche (SPEC §6.9)', () => {
       await expect(statValue(page, 'cancellations')).toHaveText('2');
       await expect(statValue(page, 'to-close')).toHaveText('1');
 
-      // andamento per giorno: tutti i 7 giorni, anche quelli vuoti
+      // andamento per giorno: con vuoti=1 tutti i 7 giorni, anche quelli vuoti (fetta 8j)
+      await page.goto(statsUrl(monday, sunday, '&vuoti=1'));
       const trend = page.getByRole('table', { name: s('admin.stats.trendTitle') });
       await expect(trend).toBeVisible();
       for (let day = 0; day < 7; day += 1) {

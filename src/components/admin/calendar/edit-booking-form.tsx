@@ -81,7 +81,7 @@ export function EditBookingForm({
         </div>
       </div>
       <Button type="submit" disabled={pending} className="self-start">
-        {it.admin.common.save}
+        {it.admin.calendar.edit.saveChanges}
       </Button>
       <CalendarFormFeedback state={state} pending={pending} />
     </form>

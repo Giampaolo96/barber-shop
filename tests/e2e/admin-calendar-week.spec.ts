@@ -46,6 +46,7 @@
 // per test (nomi degli ospiti e settimane casuali d'inverno), creati e rimossi con l'API dell'admin demo.
 // Barbiere demo: barber@demo.local → scheda "Luca". Orari del seed: martedì–sabato 09:00–13:00 e
 // 15:00–19:30 (lunedì e domenica a riposo); passo della griglia 15 minuti, buffer 0.
+// Date da testDate() e pulizia prima di creare i dati: modificato con l'approvazione dell'utente.
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
 
 import { expect, test, type Locator, type Page } from '@playwright/test';
@@ -57,6 +58,8 @@ import {
   SEED,
   adminApi,
   cleanup,
+  clearBookings,
+  clearClosures,
   expectPath,
   field,
   instant,
@@ -67,6 +70,7 @@ import {
   s,
   saveButton,
   sf,
+  testMonday,
   uniqueName,
   type AdminApi,
 } from './admin-helpers';
@@ -75,15 +79,11 @@ import {
 // Utilità locali
 // ---------------------------------------------------------------------------
 const TZ = 'Europe/Rome';
-const pad = (value: number): string => String(value).padStart(2, '0');
-const randomInt = (min: number, max: number): number => min + Math.floor(Math.random() * (max - min + 1));
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** Settimana futura di gennaio/febbraio (ora solare): date da lunedì a domenica. */
+/** Settimana futura di gennaio/febbraio (ora solare) tutta di questo test: date da lunedì a domenica. */
 const futureWinterWeek = (): { mon: string; tue: string; wed: string; thu: string; fri: string; sat: string; sun: string; all: string[] } => {
-  const day = new Date(Date.UTC(randomInt(2032, 2049), randomInt(0, 1), randomInt(5, 22), 12));
-  day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7));
-  const mon = `${day.getUTCFullYear()}-${pad(day.getUTCMonth() + 1)}-${pad(day.getUTCDate())}`;
+  const mon = testMonday();
   const all = Array.from({ length: 7 }, (_, index) => plusDays(mon, index));
   const [, tue, wed, thu, fri, sat, sun] = all;
   return { mon, tue: tue ?? '', wed: wed ?? '', thu: thu ?? '', fri: fri ?? '', sat: sat ?? '', sun: sun ?? '', all };
@@ -217,6 +217,7 @@ test.describe('Vista settimana a griglia (SPEC §6.1, §6.3, fetta 8c)', () => {
   test('l\'admin crea una manuale da uno slot della settimana di Luca e la ritrova nel giorno e alla riga giusti', async ({ page }) => {
     const api = await adminApi(page.request);
     const week = futureWinterWeek();
+    await clearBookings(api, [SEED.luca, SEED.mario], ...week.all);
     const guestName = uniqueName('Ospite settimana');
 
     try {
@@ -280,6 +281,7 @@ test.describe('Vista settimana a griglia (SPEC §6.1, §6.3, fetta 8c)', () => {
   test('l\'admin trascina su un altro giorno: libero salva, occupato rifiuta, fuori orario chiede conferma', async ({ page }) => {
     const api = await adminApi(page.request);
     const week = futureWinterWeek();
+    await clearBookings(api, [SEED.luca, SEED.mario], ...week.all);
     const guestName = uniqueName('Ospite da spostare in settimana');
     const blockerName = uniqueName('Ospite che occupa');
     const id = await createGuestBooking(api, { barberId: SEED.luca, guestName, startsAt: romeWinter(week.wed, '10:30') });
@@ -348,6 +350,8 @@ test.describe('Vista settimana a griglia (SPEC §6.1, §6.3, fetta 8c)', () => {
   test('giorno di chiusura totale: colonna data-closed con l\'etichetta; chiusura parziale no', async ({ page }) => {
     const api = await adminApi(page.request);
     const week = futureWinterWeek();
+    await clearBookings(api, [SEED.luca, SEED.mario], ...week.all);
+    await clearClosures(api, ...week.all);
     const reason = uniqueName('Chiusura settimana');
     await api.post('/rest/v1/shop_closures?select=id', [
       { starts_at: romeWinter(week.thu, '00:00'), ends_at: romeWinter(week.fri, '00:00'), reason },
@@ -379,6 +383,7 @@ test.describe('Vista settimana a griglia (SPEC §6.1, §6.3, fetta 8c)', () => {
   }) => {
     const api = await adminApi(page.request);
     const week = futureWinterWeek();
+    await clearBookings(api, [SEED.luca, SEED.mario], ...week.all);
     const own = uniqueName('Ospite di Luca in settimana');
     const others = uniqueName('Ospite di Mario in settimana');
     const created = uniqueName('Ospite creato dal barbiere');
@@ -423,6 +428,7 @@ test.describe('Vista settimana a griglia (SPEC §6.1, §6.3, fetta 8c)', () => {
   test('"mostra cancellate": nascosta e contata, poi visibile in una corsia affiancata alla confermata', async ({ page }) => {
     const api = await adminApi(page.request);
     const week = futureWinterWeek();
+    await clearBookings(api, [SEED.luca, SEED.mario], ...week.all);
     const confirmedName = uniqueName('Confermata in settimana');
     const cancelledName = uniqueName('Cancellata in settimana');
     // Orario poco usato dagli altri spec; la cancellata prima, come nel caso reale (posto poi riassegnato)
@@ -577,6 +583,7 @@ test.describe('Vista settimana su telefono (390 px)', () => {
   }) => {
     const api = await adminApi(page.request);
     const week = futureWinterWeek();
+    await clearBookings(api, [SEED.luca, SEED.mario], ...week.all);
     const guestName = uniqueName('Ospite prima riga');
     // Prima riga dell'asse: le fasce di Luca partono alle 09:00
     const bookingId = await createGuestBooking(api, { barberId: SEED.luca, guestName, startsAt: romeWinter(week.thu, '09:00') });

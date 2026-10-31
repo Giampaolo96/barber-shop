@@ -71,10 +71,10 @@ Il nero profondo richiama il negozio di sera: neon bianchi (al massimo con una l
 | `text-glow` | titoli, nome del negozio, date e orari grandi; **mai sul testo lungo** | `--glow-text` |
 | `glow` | azione principale (pulsante pieno, "Prenota", "Aggiungi al calendario"); il bagliore cresce al passaggio e al focus | `--glow-box`, `--glow-primary-hover` |
 | `glow-hover` | pulsanti con bordo, orari, giorni, righe del listino: si illuminano al passaggio e al focus | `--glow-box-hover` |
-| `[aria-current]` | elemento selezionato (giorno, vista del calendario, barbiere della settimana): si accende senza classi | `--glow-box` |
+| `[aria-current]` | elemento selezionato (giorno, vista del calendario, barbiere della settimana): si accende senza classi. Eccezione: la voce attiva del menu admin non ha pieno né bagliore, il pieno resta per l'azione principale e per il segmentato; ha testo `--ink` (le altre voci `--ink-muted`) e un filetto di 2 px `--ink`, a sinistra su desktop e sotto su telefono | `--glow-box` |
 | `glass` | **solo** pannelli grandi: riepilogo e dettagli della conferma | `--glass-bg`, `--glass-border`, `--glass-filter`, `--glass-pad` |
 | `glass-ink` | biglietto della prossima prenotazione (blocco nero in Mosca, vetro nel neon) | `--glass-ink-*` |
-| `sticky-bar` | striscia dei giorni, unico elemento fisso: fondo pieno in Mosca; nel neon velato e sfocato solo sugli schermi bassi (dove la pagina scorre), trasparente su quelli alti | `--sticky-bar-bg`, `--sticky-bar-filter` |
+| `sticky-bar` | striscia dei giorni, unico elemento fisso dell'area clienti (nell'admin sono fissi anche la barra "Salva" di Impostazioni e, su desktop, l'avviso di spostamento del calendario, con fondo `bg-surface`): fondo pieno in Mosca; nel neon velato e sfocato solo sugli schermi bassi (dove la pagina scorre), trasparente su quelli alti | `--sticky-bar-bg`, `--sticky-bar-filter` |
 | `portrait` | ritratti dei barbieri | `--portrait-*` |
 | `mark-glow` | la mosca in volo e posata | `--glow-mark` |
 

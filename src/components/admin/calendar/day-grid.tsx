@@ -5,7 +5,7 @@ import { useRef } from "react";
 import { DndContext, type DragEndEvent, type DragMoveEvent, DragOverlay, pointerWithin } from "@dnd-kit/core";
 import { formatInTimeZone } from "date-fns-tz";
 import { it } from "@/i18n/it";
-import { blockPosition, busyRows, covers, type DayGrid } from "@/lib/calendar/grid";
+import { blockPosition, busyRows, cardGeometry, covers, type DayGrid } from "@/lib/calendar/grid";
 import { canDrag, dropTarget } from "@/lib/calendar/move";
 import { nowLineMinutes } from "@/lib/calendar/now-line";
 import { overlapLayout } from "@/lib/calendar/overlap-layout";
@@ -14,7 +14,7 @@ import type { DayColumn } from "@/lib/calendar/page-data";
 import type { CalendarBooking } from "@/lib/calendar/queries";
 import type { StaffRole } from "@/lib/calendar/transitions";
 import { cn } from "@/lib/utils";
-import { BookingCard, ColumnDropZone, DraggedCard, NowLine, placed, ROW_HEIGHT } from "./grid-parts";
+import { BookingCard, ColumnDropZone, DraggedCard, GRID_ROW_CLASS, NowLine, placed, ROW_HEIGHT } from "./grid-parts";
 import { MoveFeedback } from "./move-feedback";
 import { useBookingMove } from "./use-booking-move";
 import { AUTO_SCROLL, useCalendarDrag } from "./use-calendar-drag";
@@ -57,7 +57,7 @@ export function DayGridView({
   now: Date;
 }) {
   const time = (instant: Date) => formatInTimeZone(instant, timezone, "HH:mm");
-  const { positions, notice, dialog, busy, move, reject } = useBookingMove(columns);
+  const { positions, notice, dialog, busy, move, reject, dismiss } = useBookingMove(columns, date);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const bookings = columns.flatMap((column) => column.bookings).map((booking) => placed(booking, positions[booking.id]));
@@ -120,12 +120,12 @@ export function DayGridView({
       autoScroll={AUTO_SCROLL}
       {...handlers}
     >
-      <MoveFeedback notice={notice} dialog={dialog} busy={busy} />
+      <MoveFeedback notice={notice} dialog={dialog} busy={busy} dismiss={dismiss} />
       {bookings.length === 0 && <EmptyDay />}
       <div className="overflow-x-auto">
         <div
           ref={gridRef}
-          className="grid min-w-max gap-x-2"
+          className={cn("grid min-w-max gap-x-2", GRID_ROW_CLASS)}
           style={{
             gridTemplateColumns: `3.5rem repeat(${columns.length}, minmax(11rem, 1fr))`,
             gridTemplateRows: `auto repeat(${grid.rows.length}, ${ROW_HEIGHT})`,
@@ -206,7 +206,7 @@ export function DayGridView({
                   return (
                     <div
                       key={`${column.barberId}-${index}`}
-                      className={cn(cellClass, busyRow[index] && "bg-disabled")}
+                      className={cellClass}
                       title={busyRow[index] ? t.bufferBlock : t.inactiveBarberNoBooking}
                       style={{ gridColumn, gridRow: index + 2 }}
                     />
@@ -248,6 +248,10 @@ export function DayGridView({
                   draggable={draggableAt(booking, now)}
                   canGrab={() => draggableAt(booking, new Date())}
                   style={{ gridColumn, gridRow: `${position.row + 2} / span ${position.span}` }}
+                  box={{
+                    ...cardGeometry({ rowStartsAt: grid.rows[position.row], clipEndsAt: grid.endsAt }, booking),
+                    granularityMin: grid.granularityMin,
+                  }}
                 />
               )),
             ];

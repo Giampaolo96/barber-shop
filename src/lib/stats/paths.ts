@@ -16,6 +16,7 @@ function query(params: StatsParams, withView: boolean, keepGranularity = false):
   if (params.barberId) search.set("barbiere", params.barberId);
   if (params.excludeDemo) search.set("escludi_demo", "1");
   if (withView && params.chart !== "prenotazioni") search.set("grafico", params.chart);
+  if (withView && params.showEmpty) search.set("vuoti", "1");
   return search.toString();
 }
 

@@ -110,12 +110,15 @@ export default async function AdminCalendarPage({ searchParams }: { searchParams
           barbers={user.role === "admin" ? data.barbers.filter((barber) => barber.isActive) : []}
           weekBarberId={week.barberId}
           cancelledCount={week.cancelledCount}
+          action={
+            week.barberId && weekBarberActive ? (
+              <NewBookingLink barberId={week.barberId} date={dates.includes(today) ? today : dates[0]} />
+            ) : null
+          }
         />
-        {week.barberId && weekBarberActive && (
-          <NewBookingLink barberId={week.barberId} date={dates.includes(today) ? today : dates[0]} />
-        )}
         {week.barberId && week.grid ? (
           <WeekGridView
+            weekStart={dates[0]}
             grid={week.grid}
             days={week.days}
             barberId={week.barberId}
@@ -145,8 +148,8 @@ export default async function AdminCalendarPage({ searchParams }: { searchParams
         barbers={[]}
         weekBarberId={null}
         cancelledCount={day.cancelledCount}
+        action={firstBarber ? <NewBookingLink barberId={firstBarber} date={query.date} /> : null}
       />
-      {firstBarber && <NewBookingLink barberId={firstBarber} date={query.date} />}
       <DayGridView
         grid={day.grid}
         date={query.date}

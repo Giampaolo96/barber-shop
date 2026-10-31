@@ -4,6 +4,7 @@
 // fetta 3 (punti B ed E): nuova rotta /admin/assenze, voce di menu it.admin.nav.timeOff.
 // Il modulo e l'elenco seguono il contratto descritto in tests/e2e/admin-periods.spec.ts.
 // Utente: barber@demo.local (scheda "Luca" del seed). Ogni test usa motivi e date univoci.
+// Date da testDate() e pulizia prima di creare le prenotazioni: modificato con l'approvazione dell'utente.
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
 
 import { expect, test, type Page } from '@playwright/test';
@@ -20,12 +21,13 @@ import {
   instant,
   itDate,
   loginAsBarber,
-  randomWinterDate,
   romeWinter,
   rowWith,
   s,
+  clearBookings,
   saveButton,
   sf,
+  testDate,
   uniqueName,
 } from './admin-helpers';
 
@@ -49,7 +51,8 @@ test.describe('Barbiere – le proprie assenze (SPEC §2, §3.5)', () => {
   test('vede "Assenze" nel menu e crea, modifica ed elimina una propria assenza', async ({ page }) => {
     acceptDialogs(page);
     const api = await adminApi(page.request);
-    const date = randomWinterDate();
+    const date = testDate();
+    await clearBookings(api, [SEED.luca], date);
     const reason = uniqueName('Permesso barbiere');
     const renamed = `${reason} bis`;
     // Una propria prenotazione confermata dentro l'assenza: l'avviso vale anche per il barbiere
@@ -109,7 +112,7 @@ test.describe('Barbiere – le proprie assenze (SPEC §2, §3.5)', () => {
   // SPEC §2 / §3.7.4: solo le proprie assenze
   test('non vede le assenze degli altri barbieri e non può scegliere un altro barbiere', async ({ page }) => {
     const api = await adminApi(page.request);
-    const date = randomWinterDate();
+    const date = testDate();
     const othersReason = uniqueName('Ferie di Sara');
     await api.post('/rest/v1/time_off?select=id', {
       barber_id: SEED.sara,

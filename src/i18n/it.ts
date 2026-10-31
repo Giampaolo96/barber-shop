@@ -242,7 +242,6 @@ export const it = {
     comingSoon: "La gestione del profilo è in arrivo.",
   },
   admin: {
-    title: "Area staff",
     stats: {
       filtersLabel: "Filtri delle statistiche",
       fromLabel: "Dal",
@@ -278,10 +277,11 @@ export const it = {
       toCloseLink: "Vedi gli appuntamenti da aggiornare ({count})",
       chartLabel: "Mostra nel grafico",
       chart: { bookings: "Appuntamenti", revenue: "Incasso" },
-      chartTitle: "Andamento: {metric}",
       chartEmpty: "Nessun appuntamento nel periodo.",
       chartSummary: "Valore più alto: {max} ({bucket}). I valori di ogni periodo sono nella tabella «{table}».",
       trendTitle: "Andamento",
+      showEmptyPeriods: "Mostra i periodi vuoti",
+      hideEmptyPeriods: "Nascondi i periodi vuoti",
       byBarberTitle: "Per barbiere",
       byServiceTitle: "Per servizio",
       columns: {
@@ -474,6 +474,18 @@ export const it = {
     },
     settings: {
       intro: "Parametri del negozio e delle prenotazioni online.",
+      groups: { shop: "Negozio", bookings: "Prenotazioni", rules: "Regole" },
+      minutesEffect: {
+        before: "{time} prima",
+        pause: "{time} di pausa",
+        anytime: "Anche subito",
+        untilStart: "Fino all'inizio",
+        noPause: "Nessuna pausa",
+        and: "{first} e {second}",
+        day: { one: "{count} giorno", other: "{count} giorni" },
+        hour: { one: "{count} ora", other: "{count} ore" },
+        minute: { one: "{count} minuto", other: "{count} minuti" },
+      },
       nameLabel: "Nome del negozio",
       addressLabel: "Indirizzo",
       phoneLabel: "Telefono",
@@ -548,6 +560,7 @@ export const it = {
       noBarbers: "Nessun barbiere attivo.",
       timeColumn: "Ora",
       newBooking: "Nuova prenotazione",
+      newBookingShort: "+ Nuova",
       /** Nome accessibile di uno slot vuoto della griglia. */
       newAt: "Nuova prenotazione con {barber} alle {time}",
       week: {
@@ -601,13 +614,14 @@ export const it = {
       },
       edit: {
         title: "Modifica prenotazione",
+        saveChanges: "Salva modifiche",
         durationLabel: "Durata (minuti)",
         priceLabel: "Prezzo (€)",
         serviceChangeHint:
           "Cambiando servizio, durata e prezzo vengono ricopiati dal nuovo servizio.",
       },
       detail: {
-        title: "Prenotazione",
+        saveNote: "Salva nota",
         created: "Prenotazione creata.",
         backToCalendar: "Torna al calendario",
         when: "Quando",
@@ -651,6 +665,7 @@ export const it = {
       move: {
         saved: "Prenotazione spostata.",
         undo: "Annulla spostamento",
+        close: "Chiudi",
         undone: "Spostamento annullato.",
         saving: "Spostamento in corso…",
         dialogTitle: "Confermi lo spostamento?",

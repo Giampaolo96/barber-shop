@@ -16,7 +16,8 @@ export type Position = { barberId: string; startsAt: Date };
 type Move = { id: string; from: Position; to: Position; confirmedWarnings: WarningCode[] };
 type Kind = "move" | "undo";
 
-export type MoveNotice = { text: string; undo?: () => void };
+/** `success` sparisce da solo, `error` resta finché non si chiude, `progress` lo sostituisce l'esito. */
+export type MoveNotice = { text: string; tone: "progress" | "success" | "error"; undo?: () => void };
 export type MoveDialog = { warnings: WarningCode[]; confirm: () => void; cancel: () => void };
 
 /**
@@ -25,9 +26,11 @@ export type MoveDialog = { warnings: WarningCode[]; confirm: () => void; cancel:
  * spostamento" richiama il server all'indietro con gli avvisi della posizione di partenza già
  * confermati (se ne compare uno nuovo, si chiede di nuovo conferma).
  * Le posizioni ottimistiche valgono solo per i dati con cui sono nate (`base`): quando la pagina
- * si aggiorna con i dati salvati spariscono da sole.
+ * si aggiorna con i dati salvati spariscono da sole. `view` è la vista (giorno o settimana e barbiere):
+ * quando cambia l'avviso sparisce, ma le griglie restano montate, con il loro scorrimento e con
+ * l'esito di uno spostamento ancora in corso.
  */
-export function useBookingMove<T>(base: T) {
+export function useBookingMove<T>(base: T, view: string) {
   const router = useRouter();
   const [optimistic, setOptimistic] = useState<{ base: T; positions: Record<string, Position> }>({
     base,
@@ -36,19 +39,26 @@ export function useBookingMove<T>(base: T) {
   const [notice, setNotice] = useState<MoveNotice | null>(null);
   const [dialog, setDialog] = useState<MoveDialog | null>(null);
   const [busy, setBusy] = useState(false);
+  const [shownView, setShownView] = useState(view);
+  if (shownView !== view) {
+    setShownView(view);
+    setNotice(null);
+  }
   // Dati attuali anche per le azioni nate in un rendering precedente (es. l'annullamento).
   const latestBase = useRef(base);
   useEffect(() => {
     latestBase.current = base;
   }, [base]);
 
-  // "Annulla spostamento" scade: resta solo il messaggio.
-  const undoAvailable = notice?.undo !== undefined;
+  // "Annulla spostamento" scade: resta solo il messaggio, che dopo lo stesso tempo sparisce.
   useEffect(() => {
-    if (!undoAvailable) return;
-    const timer = setTimeout(() => setNotice((current) => (current ? { text: current.text } : null)), UNDO_MS);
+    if (notice?.tone !== "success") return;
+    const timer = setTimeout(
+      () => setNotice((current) => (current?.undo ? { text: current.text, tone: current.tone } : null)),
+      UNDO_MS,
+    );
     return () => clearTimeout(timer);
-  }, [undoAvailable]);
+  }, [notice]);
 
   const place = (id: string, position: Position | null) =>
     setOptimistic((current) => {
@@ -63,7 +73,7 @@ export function useBookingMove<T>(base: T) {
     setDialog(null);
     setBusy(true);
     place(move.id, move.to);
-    setNotice({ text: t.saving });
+    setNotice({ text: t.saving, tone: "progress" });
     try {
       const result = await moveBooking({
         id: move.id,
@@ -76,7 +86,9 @@ export function useBookingMove<T>(base: T) {
       if (result.status === "saved") {
         const back: Move = { id: move.id, from: move.to, to: move.from, confirmedWarnings: result.previousWarnings };
         setNotice(
-          kind === "move" ? { text: t.saved, undo: () => void run(back, "undo") } : { text: t.undone },
+          kind === "move"
+            ? { text: t.saved, tone: "success", undo: () => void run(back, "undo") }
+            : { text: t.undone, tone: "success" },
         );
         return;
       }
@@ -93,13 +105,13 @@ export function useBookingMove<T>(base: T) {
         return;
       }
       place(move.id, null);
-      setNotice({ text: CALENDAR_ERROR_TEXT[result.status] ?? t.error });
+      setNotice({ text: CALENDAR_ERROR_TEXT[result.status] ?? t.error, tone: "error" });
       // Dati cambiati nel frattempo: si ricarica il calendario.
       if (result.status === "stale") router.refresh();
     } catch (error) {
       console.error("moveBooking", error);
       place(move.id, null);
-      setNotice({ text: t.error });
+      setNotice({ text: t.error, tone: "error" });
     } finally {
       setBusy(false);
     }
@@ -112,6 +124,7 @@ export function useBookingMove<T>(base: T) {
     busy,
     move: (id: string, from: Position, to: Position) => void run({ id, from, to, confirmedWarnings: [] }, "move"),
     /** Spostamento rifiutato prima di chiamare il server (es. verso il passato). */
-    reject: (text: string) => setNotice({ text }),
+    reject: (text: string) => setNotice({ text, tone: "error" }),
+    dismiss: () => setNotice(null),
   };
 }

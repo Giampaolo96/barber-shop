@@ -22,6 +22,7 @@
 | 8g | completata | 2026-10-30 | Vedi "Fetta 8g" sotto; scorrimento invariato (deciso su iPhone); punto 6 dell'audit chiuso il 2026-10-30 |
 | 8h | da fare | | Sicurezza dati prima del go-live: punti 2 e 3 dell'audit |
 | 8i | da fare | | Correzioni admin: punti 5, 8 e 9 dell'audit |
+| 8j | completata | 2026-10-31 | Vedi "Fetta 8j" sotto; una decisione aperta sui test (punto 1 dei problemi aperti) |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
 | 9b | da fare | | Privacy e account prima del go-live (SPEC §11), con il punto 4 dell'audit |
 
@@ -1416,3 +1417,54 @@ Report completo in `docs/audit/2026-10-30-ponytail.md`.
 
 **Eccezione nota su `npm audit`**: restano aperti 3 avvisi low, tutti solo di sviluppo: `deepmerge` (GHSA-gcqx-w48m-w2h4), `@shadcn/registry` e `shadcn`, che dipendono da `deepmerge`. Si chiudono solo riportando `shadcn` alla 1.0 con `npm audit fix --force`, quindi restano aperti. `shadcn` non si toglie: `src/app/globals.css:3` lo importa. In produzione (`npm audit --omit=dev`) gli avvisi sono 0.
 
+## Fetta 8j – Rifiniture di stile dell'area admin
+
+**Stato**: completata il 2026-10-31 sul branch `fetta-8j` (da `origin/main` `5e1b4dd`, più i cherry-pick del plugin taste e del report; test di accettazione in `ee37141`). Nessuna migrazione. Fonte: `docs/audit/2026-10-31-taste.md`.
+
+**Fatto**
+- Menu con `aria-current="page"` anche nelle sottopagine (`activeSection`, componente client `AdminNav`), voci a capo su telefono, "Esci" con aspetto di link (resta un button in un form POST), in fondo alla barra su desktop. Nome del negozio al posto di "Area staff", senza mosca.
+- Calendario: barra su una riga su desktop, due su telefono (tre nella settimana, con i barbieri); schede alte quanto il servizio (`cardGeometry`, `blockPosition` invariata), coda della pausa solo per le `confirmed` con `blocked_until > ends_at`, una riga sotto i 15 minuti; righe 44 px su telefono e 36 su desktop.
+- Dettaglio su due colonne con titolo, `tel:`, "Salva nota" e "Salva modifiche". Servizi con "Elimina" fisso e neutro a riposo, lista su telefono. Clienti con badge solo per i bloccati nell'elenco e no-show "—" se zero. Statistiche con periodi vuoti nascosti (`vuoti=1`, SPEC §6.9), una sola etichetta del grafico, incasso più grande. Impostazioni a gruppi con "Salva" sticky ed effetto dei minuti.
+
+**Decisioni**
+- Causa dell'altezza delle schede: `blockPosition` arrotonda alle righe, non arriva a `blocked_until`; `buffer_min` è 0.
+- `showEmpty` facoltativo in `StatsParams`, presente solo con `vuoti=1`: così `stats.test.ts`, fuori dalla lista approvata, non cambia.
+- Tolto `bg-disabled` dalle celle occupate: il resto di riga sotto una scheda sembrava una coda.
+- Il link dei periodi vuoti compare solo se ce ne sono. Limite di cancellazione nel gruppo Prenotazioni. Con giorni, ore e minuti l'effetto mostra le due unità più grandi.
+
+**Verifiche**: lint, typecheck, Vitest 2114/2114, `test:db` PASS, e2e 186/186 su build di produzione. Screenshot in `.playwright-mcp/fetta-8j/` (`prima` con il seed appena reimpostato; `dopo` dopo gli e2e, che lasciano clienti di prova).
+
+| Schermata | Prima 1440 | Dopo 1440 | Prima 390 | Dopo 390 |
+|---|---|---|---|---|
+| Calendario giorno | 6,7 | 7,4 | 6,2 | 7,0 |
+| Calendario settimana | 6,5 | 7,0 | 5,8 | 6,5 |
+| Dettaglio prenotazione | 6,2 | 7,3 | 6,4 | 7,1 |
+| Clienti | 6,5 | 6,8 | 6,8 | 6,8 |
+| Servizi | 6,6 | 6,9 | 5,9 | 6,9 |
+| Statistiche | 6,5 | 7,2 | 6,0 | 6,4 |
+| Impostazioni | 6,3 | 6,9 | 6,5 | 6,9 |
+
+Critica sugli screenshot con `references/critique.md`: l'inspector non apre le pagine autenticate. Il tetto dei FAIL dovuti al neon resta non applicato, come nel report.
+
+**Correzioni dopo la review (2026-10-31, commit "fix: rifiniture della fetta 8j")**
+- L'utente ha approvato le due asserzioni con `?? false` di `admin-polish-8j.test.ts`. Da ora nessuna modifica ai test di accettazione senza il suo ok, anche a copertura invariata.
+- M1: `weekCardGeometry` e `dayBlockPosition` usano il tratto più lungo fra orologio e minuti reali (`axisSpan`), con test su 25/10/2026, 31/10/2027 e 28/03/2027. M2: `slotBackgrounds`, separata da `daySlots` perché `SlotState` è fissato dai test.
+- Voce attiva del menu con testo pieno e filetto. Spazio sopra la griglia tolto. Scheda da una riga su telefono: 42 px visibili, area di tocco 44 px con uno pseudo-elemento.
+- Avviso di spostamento: su telefono nello spazio riservato, su desktop riquadro fisso in basso a destra che lascia passare i clic. "Annulla" dura 8 s, il messaggio altri 8; gli errori restano fino a "Chiudi"; cambiando giorno o settimana sparisce, dentro `useBookingMove` e senza rimontare le griglie (scorrimento conservato, esito di uno spostamento in corso mostrato comunque). SPEC §6.3 aggiornata.
+- `admin-polish-8j.spec.ts`, con l'approvazione dell'utente: ora fissa alla riga dell'"Ospite da chiudere" e una data propria per ogni test che crea prenotazioni (la causa delle collisioni 23P01). `playwright.config.ts`: `trace: "retain-on-failure"` e `screenshot: "only-on-failure"`.
+- Verifiche: lint, typecheck, Vitest 2132/2132, e2e 193/193 su build di produzione. Dopo l'ultimo cambio di data in `admin-polish-8j.spec.ts` rilanciato solo quel file.
+
+**Problemi aperti**
+1. `tests/e2e/booking-when-columns.spec.ts:103` ("4 barbieri a 390 px…") fallisce ogni tanto, solo sotto il carico della suite intera: `Error: percorso atteso: /prenota/riepilogo`, `Expected: "/prenota/riepilogo"`, `Received: "/prenota/quando"`, `Timeout 5000ms exceeded while waiting on the predicate` (`tests/e2e/booking-when-columns.spec.ts:182`). Dopo il tocco su un orario la pagina non cambia entro 5 s. Log: `.playwright-mcp/fetta-8j/when-columns/gate-suite-intera.log`. Causa non trovata e nessuno screenshot: da ora Playwright conserva screenshot e trace dei fallimenti. Visto 2 volte su 4 nei primi giri del file, 1 su 5 nell'ultima serie di giri completi; 10 su 10 verdi con un dev server nuovo a ogni giro, e verde nell'ultimo giro completo. Non escluso un bug reale del tocco.
+2. Migliorie non applicate: M3 test della coda sugli stati non confermati; M4 effetto dei minuti dopo un salvataggio non valido; M5 ripiego se manca il nome; M6 Andamento senza righe in un periodo tutto vuoto; M7 36 px sui touch larghi, Barbieri e Orari fuori dal test dei 44 px; M8 terza unità omessa; M9 indentazione; area di tocco solo con servizio pari al passo; `weekGrid` calcola la fine dell'asse sull'orologio; `?? 0` di `axisSpan` col buco dell'ora legale; filtri duplicati in `week-grid.tsx`; commenti sugli anni riservati; mancano test per cambio barbiere, `undone` e `reject`.
+
+**Date degli e2e (2026-10-31, commit "test: date univoche e pulizia negli e2e")**
+- `testDate()` e `testMonday()` (`tests/e2e/admin-helpers.ts`, logica pura in `tests/e2e/test-date.ts`): ogni test ha un mercoledì d'inverno derivato da progetto, file, titolo e numero della chiamata. Il test fallisce con i due nomi se un altro ha già quella data (`claimDate`, azzerato da `global-setup.ts`). Al primo giro due test di `admin-fix-8j.spec.ts` hanno colliso, quindi il pool futuro va dal 2100 al 9999. Con `fromYear` e `toYear` le date passate restano negli anni che i test chiedevano.
+- Sostituite le 13 chiamate di `randomWinterDate()`, tolta dagli helper, e le date a numero di `admin-polish-8j.spec.ts` e `admin-fix-8j.spec.ts`. `clearBookings` cancella le prenotazioni rimaste solo su quelle date e solo per quei barbieri, prima di crearle. Nota in testa ai file di accettazione, approvata dall'utente; nessuna asserzione cambiata.
+- Restano con date casuali i test che usano i propri generatori (per esempio `futureWinterWeek` di `admin-calendar-week.spec.ts`).
+- `devIndicators: false` in `next.config.ts`: in sviluppo l'indicatore di Next copriva "Esci" in fondo alla barra e faceva fallire `auth.spec.ts`. `npm run dev` cancella anche la build di produzione: prima di `next start` serve un nuovo `next build`.
+
+**Date anche per settimane e giorni passati (2026-10-31, commit "test: date univoche anche per settimane e giorni passati")**
+- `futureWinterWeek` e `pastDay` passano da `testDate()`, con `clearBookings` e `clearClosures` prima di creare i dati. `randomWinterDate` non esiste più.
+- Indagine su `admin-calendar.spec.ts:271`: non è un difetto dell'app né delle policy. Il POST `next-action` su `/admin/calendario/682ac758-…` (2014-01-29, Luca) ha avuto 200 con esito `forbidden` da `if (!existing)` in `changeBookingStatus`, perché la prenotazione non esisteva più: anche l'API dell'admin non la trovava. L'aveva cancellata `clearBookings` di `admin-customers-mobile.spec.ts`, che ha 2014-01-29 come data fissa e gira in parallelo, mentre `pastDay` casuale era caduta sullo stesso giorno e barbiere. Regola: `clearBookings` solo su date di `testDate()`, mai su quelle casuali.
+- Generatori casuali rimasti, fuori da questo intervento: `futureDay` (`admin-calendar`, `admin-calendar-move`), le date di `admin-calendar-cancelled-overlap`, `admin-calendar-move-autoscroll`, `admin-calendar-week-closed-days`, `admin-settings`, `admin-stats*`, `futureWorkday` di `admin-polish-8j` (solo per navigare).

@@ -34,7 +34,7 @@ export default async function NewManualBookingPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <Link href={calendarHref({ date: query.date })} className="text-sm underline underline-offset-4">
+      <Link href={calendarHref({ date: query.date })} className="inline-flex min-h-11 w-fit items-center text-sm underline underline-offset-4">
         {it.admin.calendar.detail.backToCalendar}
       </Link>
       <h1 className="font-display text-4xl leading-tight">{t.form.title}</h1>

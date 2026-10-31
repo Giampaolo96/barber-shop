@@ -13,14 +13,20 @@
 import { expect, test } from '@playwright/test';
 import {
   DESKTOP,
+  SEED,
   adminApi,
+  cleanup,
   disableNativeValidation,
   expectPath,
   field,
   loginAsAdmin,
   loginAsBarber,
+  romeWinter,
   s,
   saveButton,
+  sf,
+  uniqueName,
+  type AdminApi,
 } from './admin-helpers';
 
 type Settings = {
@@ -173,5 +179,122 @@ test.describe('Admin – impostazioni (SPEC §3.1, §6.8)', () => {
     await page.goto('/admin/impostazioni');
     await expectPath(page, '/admin');
     await expect(page.getByLabel(s('admin.settings.privacyPolicyVersionLabel'), { exact: true })).toHaveCount(0);
+  });
+});
+
+// FETTA 8j (intervento 4; SPEC §3.6, §6.1): la scheda è alta quanto il servizio e la pausa è una coda
+// a parte, solo se blocked_until > ends_at. Il buffer vive in shop_settings, quindi il test sta qui.
+// L'afterAll ripristina buffer_min e cancella i dati anche se il test fallisce.
+test.describe('Calendario – coda della pausa (fetta 8j; SPEC §3.6, §6.1)', () => {
+  test.use({ viewport: DESKTOP });
+
+  const BUFFER_MIN = 10;
+  const bookings: string[] = [];
+  let originalBuffer: number | undefined;
+
+  /** Mercoledì di gennaio o febbraio (ora solare), giorno lavorativo per il seed. */
+  const futureWednesday = (): string => {
+    const year = 2071 + Math.floor(Math.random() * 29);
+    const day = new Date(Date.UTC(year, Math.floor(Math.random() * 2), 5 + Math.floor(Math.random() * 16), 12));
+    day.setUTCDate(day.getUTCDate() + ((3 - day.getUTCDay() + 7) % 7));
+    return day.toISOString().slice(0, 10);
+  };
+
+  const setBuffer = async (api: AdminApi, minutes: number): Promise<void> => {
+    await api.patch('/rest/v1/shop_settings?id=eq.true', { buffer_min: minutes });
+  };
+
+  const book = async (api: AdminApi, guestName: string, startsAt: string): Promise<string> => {
+    const rows = await api.post<Array<{ id: string }>>('/rest/v1/bookings?select=id', {
+      guest_name: guestName,
+      guest_phone: '+393330000878',
+      barber_id: SEED.luca,
+      service_id: SEED.taglio,
+      starts_at: startsAt,
+      source: 'manual',
+      status: 'confirmed',
+    });
+    const id = rows[0]?.id ?? '';
+    bookings.push(id);
+    return id;
+  };
+
+  test.afterAll(async ({ request }) => {
+    const api = await adminApi(request);
+    if (originalBuffer !== undefined) await setBuffer(api, originalBuffer);
+    await cleanup(api, { bookings });
+  });
+
+  test('coda visibile dopo la scheda, alta quanto la pausa; niente coda senza pausa', async ({ page }) => {
+    const api = await adminApi(page.request);
+    originalBuffer = (await readSettings(api)).buffer_min;
+    const date = futureWednesday();
+    const withBuffer = uniqueName('Ospite con pausa');
+    const withoutBuffer = uniqueName('Ospite senza pausa');
+
+    await setBuffer(api, 0);
+    await book(api, withoutBuffer, romeWinter(date, '11:30'));
+    await setBuffer(api, BUFFER_MIN);
+    const id = await book(api, withBuffer, romeWinter(date, '10:00'));
+
+    // Il blocked_until lo calcola il database
+    const [row] = await api.get<Array<{ ends_at: string; blocked_until: string }>>(
+      `/rest/v1/bookings?select=ends_at,blocked_until&id=eq.${id}`,
+    );
+    expect(new Date(row?.ends_at ?? '').getTime()).toBe(new Date(romeWinter(date, '10:30')).getTime());
+    expect(new Date(row?.blocked_until ?? '').getTime()).toBe(new Date(romeWinter(date, '10:40')).getTime());
+
+    await loginAsAdmin(page);
+    await page.goto(`/admin?data=${date}&vista=giorno`);
+
+    const main = page.locator('main');
+    const card = main.getByRole('link', { name: new RegExp(withBuffer) });
+    const buffer = main.locator('[data-booking-buffer]');
+    await expect(card).toHaveCount(1);
+
+    // Una coda sola: la prenotazione senza pausa non ne ha
+    await expect(main.getByRole('link', { name: new RegExp(withoutBuffer) })).toHaveCount(1);
+    await expect(buffer).toHaveCount(1);
+    await expect(buffer).toBeVisible();
+    await expect(buffer).toHaveAttribute('title', s('admin.calendar.bufferBlock'));
+
+    const rowHeight = (await page.locator('[data-grid-row]').first().boundingBox())?.height ?? 0;
+    expect(rowHeight).toBeGreaterThan(0);
+    const minutePx = rowHeight / 15; // passo della griglia del seed
+
+    // La scheda è alta quanto il servizio (m-px: 1 px di margine per lato) e l'orario finisce a ends_at
+    const cardBox = await card.boundingBox();
+    const bufferBox = await buffer.boundingBox();
+    expect(cardBox).not.toBeNull();
+    expect(bufferBox).not.toBeNull();
+    expect(Math.abs((cardBox?.height ?? 0) - 30 * minutePx), `altezza della scheda: ${cardBox?.height}`).toBeLessThanOrEqual(3);
+    expect(Math.abs((bufferBox?.height ?? 0) - BUFFER_MIN * minutePx), `altezza della coda: ${bufferBox?.height}`).toBeLessThanOrEqual(3);
+    await expect(card).toContainText('10:00–10:30');
+
+    // La coda segue la scheda, nella stessa colonna
+    const gap = (bufferBox?.y ?? 0) - ((cardBox?.y ?? 0) + (cardBox?.height ?? 0));
+    expect(Math.abs(gap), `distanza fra scheda e coda: ${gap}`).toBeLessThanOrEqual(3);
+    expect(Math.abs((bufferBox?.x ?? 0) - (cardBox?.x ?? 0))).toBeLessThanOrEqual(2);
+
+    // Fondo disabilitato e bordo --line, niente tratteggio
+    await expect(buffer).toHaveClass(/\bbg-disabled\b/);
+    await expect(buffer).toHaveClass(/\bborder-line\b/);
+    const look = await buffer.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { border: style.borderTopStyle, image: style.backgroundImage };
+    });
+    expect(look.border).toBe('solid');
+    expect(look.image).toBe('none');
+
+    // Le righe del servizio e della pausa restano occupate, quella dopo è libera
+    const slot = (time: string) =>
+      main.getByRole('link', { name: sf('admin.calendar.newAt', { barber: 'Luca', time }), exact: true });
+    await expect(slot('10:30')).toHaveCount(0);
+    await expect(slot('10:45')).toHaveCount(1);
+
+    // Stessa coda nella vista settimana
+    await page.goto(`/admin?data=${date}&vista=settimana&barbiere=${SEED.luca}`);
+    await expect(main.locator('[data-booking-buffer]')).toHaveCount(1);
+    await expect(main.locator('[data-booking-buffer]')).toBeVisible();
   });
 });

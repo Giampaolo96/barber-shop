@@ -73,9 +73,6 @@ export function TrendChart({
 
   return (
     <figure className="flex flex-col gap-2">
-      <figcaption className="text-sm font-medium">
-        {fillText(t.chartTitle, { metric: chart === "incasso" ? t.chart.revenue : t.chart.bookings })}
-      </figcaption>
       {max === 0 || !peak ? (
         <p className="text-sm text-muted-foreground">{t.chartEmpty}</p>
       ) : (
