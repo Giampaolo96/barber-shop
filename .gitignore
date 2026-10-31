@@ -19,3 +19,5 @@ supabase/.branches/
 
 # Illustrazioni segnaposto dei barbieri, si caricano dall'admin
 /tmp-avatars/
+
+.taste-skill/

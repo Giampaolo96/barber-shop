@@ -45,9 +45,17 @@
         "url": "https://github.com/DietrichGebert/ponytail.git",
         "ref": "v5.3.3"
       }
+    },
+    "taste-skill": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/Leonxlnx/taste-skill.git",
+        "ref": "v2.1.5"
+      }
     }
   },
   "enabledPlugins": {
-    "ponytail@ponytail": true
+    "ponytail@ponytail": true,
+    "taste-skill@taste-skill": true
   }
 }
