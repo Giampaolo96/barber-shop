@@ -9,10 +9,11 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 
 // Percorso relativo voluto: non dipende dalla risoluzione dell'alias `@/*` in Playwright.
 import { it } from '../../src/i18n/it';
+import { claimDate, winterWednesday } from './test-date';
 
 export const DEMO_PASSWORD = 'demo1234';
 export const ADMIN_EMAIL = 'admin@demo.local';
@@ -101,15 +102,6 @@ export const uniqueName = (label: string): string => `E2E ${label} ${randomTag()
 
 export const uniqueEmail = (label: string): string => `e2e-${label}-${randomTag()}@qa.test`;
 
-const pad = (value: number): string => String(value).padStart(2, '0');
-const randomInt = (min: number, max: number): number => min + Math.floor(Math.random() * (max - min + 1));
-
-/**
- * Data futura casuale in gennaio o febbraio (sempre ora solare, UTC+1 a Roma) di un anno fra il
- * 2032 e il 2049: test diversi difficilmente scelgono lo stesso giorno.
- */
-export const randomWinterDate = (): string =>
-  `${randomInt(2032, 2049)}-${pad(randomInt(1, 2))}-${pad(randomInt(1, 28))}`;
 
 /** `YYYY-MM-DD` + n giorni. */
 export const plusDays = (date: string, days: number): string => {
@@ -117,6 +109,28 @@ export const plusDays = (date: string, days: number): string => {
   value.setUTCDate(value.getUTCDate() + days);
   return value.toISOString().slice(0, 10);
 };
+
+const testDateCalls = new Map<string, number>();
+
+/**
+ * Mercoledì d'inverno (ora solare, UTC+1 a Roma) tutto di questo test: deriva da progetto, file e
+ * titolo, quindi non cambia fra un giro e l'altro, e il test fallisce se un altro ha la stessa data.
+ * Le chiamate successive nello stesso test danno altre date. Di default nel futuro; `fromYear` e
+ * `toYear` per le date passate.
+ */
+export const testDate = (years?: { fromYear: number; toYear: number }): string => {
+  const info = test.info();
+  const run = `${info.testId}#${info.repeatEachIndex}#${info.retry}`;
+  const call = testDateCalls.get(run) ?? 0;
+  testDateCalls.set(run, call + 1);
+  const key = [info.project.name, ...info.titlePath, info.repeatEachIndex, call].join(' › ');
+  const date = winterWednesday(key, years);
+  claimDate(date, key);
+  return date;
+};
+
+/** Il lunedì della settimana di `testDate`. */
+export const testMonday = (years?: { fromYear: number; toYear: number }): string => plusDays(testDate(years), -2);
 
 /** Ora di Roma in gennaio/febbraio (UTC+1) come istante ISO. */
 export const romeWinter = (date: string, time: string): string => `${date}T${time}:00+01:00`;
@@ -333,6 +347,18 @@ export const countConfirmedOverlapping = async (
   if (barberId !== undefined) params.append('barber_id', `eq.${barberId}`);
   const rows = await api.get<Json[]>(`/rest/v1/bookings?${params.toString()}`);
   return rows.length;
+};
+
+/**
+ * Da chiamare prima di creare le prenotazioni: toglie quelle rimaste da un giro interrotto, solo su
+ * queste date e solo per questi barbieri.
+ */
+export const clearBookings = async (api: AdminApi, barberIds: string[], ...dates: string[]): Promise<void> => {
+  for (const date of dates) {
+    const from = encodeURIComponent(romeWinter(date, '00:00'));
+    const to = encodeURIComponent(romeWinter(plusDays(date, 1), '00:00'));
+    await api.del(`/rest/v1/bookings?barber_id=in.(${barberIds.join(',')})&starts_at=gte.${from}&starts_at=lt.${to}`);
+  }
 };
 
 /** Pulizia di fine test: prenotazioni, poi barbieri e servizi (FK on delete restrict). */

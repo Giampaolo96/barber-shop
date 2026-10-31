@@ -10,6 +10,7 @@ import { chromium, type BrowserContext, type FullConfig, type Page } from '@play
 
 import { ADMIN_EMAIL, CUSTOMER_EMAIL, DEMO_PASSWORD, SEED, s } from './admin-helpers';
 import { confirmHref, newestEmailId, waitForNewEmail } from './mailpit';
+import { resetDateClaims } from './test-date';
 
 /** Una compilazione a freddo può superare i timeout predefiniti. */
 const COMPILE_TIMEOUT = 120_000;
@@ -79,6 +80,9 @@ const warmUpCustomer = async (context: BrowserContext): Promise<void> => {
 };
 
 export default async function globalSetup(config: FullConfig): Promise<void> {
+  // Le date dei test (test-date.ts) valgono per un giro solo.
+  resetDateClaims();
+
   // In CI gli e2e girano sulla build di produzione: niente compilazione su richiesta.
   if (process.env.CI) return;
 

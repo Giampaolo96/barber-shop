@@ -11,6 +11,7 @@
 // - "Nuovo servizio" (it.admin.services.new) apre il modulo con le etichette it.admin.services.*;
 //   si salva con it.admin.common.save; errori di validazione con it.admin.common.invalid.
 // - Dopo il salvataggio si torna (o si può tornare) all'elenco /admin/servizi.
+// Date da testDate() e pulizia prima di creare le prenotazioni: modificato con l'approvazione dell'utente.
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
 
 import { expect, test } from '@playwright/test';
@@ -31,12 +32,13 @@ import {
   linkOrButton,
   loginAsAdmin,
   loginAsBarber,
-  randomWinterDate,
   romeWinter,
   rowWith,
   s,
   saveButton,
   sf,
+  testDate,
+  clearBookings,
   uniqueName,
 } from './admin-helpers';
 
@@ -194,7 +196,8 @@ test.describe('Admin – servizi (SPEC §6.4)', () => {
     const name = uniqueName('Con prenotazioni');
     const serviceId = await createService(api, { name, durationMin: 20 });
     const barberId = await createBarber(api, uniqueName('Barbiere servizio'), [serviceId]);
-    const date = randomWinterDate();
+    const date = testDate();
+    await clearBookings(api, [barberId], date);
     const bookingId = await createBooking(api, { barberId, serviceId, startsAt: romeWinter(date, '10:00') });
 
     try {
@@ -219,7 +222,8 @@ test.describe('Admin – servizi (SPEC §6.4)', () => {
     const name = uniqueName('Da disattivare');
     const serviceId = await createService(api, { name, durationMin: 20, priceCents: 1800 });
     const barberId = await createBarber(api, uniqueName('Barbiere disattivazione'), [serviceId, SEED.taglio]);
-    const date = randomWinterDate();
+    const date = testDate();
+    await clearBookings(api, [barberId], date);
     const bookings = [
       await createBooking(api, { barberId, serviceId, startsAt: romeWinter(date, '10:00') }),
       await createBooking(api, { barberId, serviceId, startsAt: romeWinter(date, '15:00') }),

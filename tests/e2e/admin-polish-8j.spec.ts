@@ -1,3 +1,4 @@
+// Date da testDate() e pulizia prima di creare le prenotazioni: modificato con l'approvazione dell'utente.
 // Test di accettazione e2e – FETTA 8j (rifiniture di stile dell'area admin).
 // Fonte: docs/audit/2026-10-31-taste.md e decisioni approvate dall'utente ("8j.N" è il numero
 // dell'intervento); SPEC §6.1 (calendario), §6.3 (dettaglio), §6.4 (servizi), §6.7 (clienti), §6.8
@@ -28,6 +29,7 @@ import {
   adminApi,
   apiHeaders,
   cleanup,
+  clearBookings,
   env,
   field,
   loginAsAdmin,
@@ -36,6 +38,8 @@ import {
   s,
   saveButton,
   supabaseUrl,
+  testDate,
+  testMonday,
   uniqueEmail,
   uniqueName,
   createService,
@@ -58,25 +62,9 @@ const futureWorkday = (): string => {
   return day.toISOString().slice(0, 10);
 };
 
-/** Lunedì di gennaio/febbraio degli anni dati. */
-const pastMonday = (fromYear: number, toYear: number): string => {
-  const day = new Date(Date.UTC(randomInt(fromYear, toYear), randomInt(0, 1), randomInt(1, 20), 12));
-  day.setUTCDate(day.getUTCDate() + ((8 - day.getUTCDay()) % 7));
-  return day.toISOString().slice(0, 10);
-};
-// Ogni test che crea prenotazioni ha la sua data, che nessun altro test usa: con date casuali due test
-// in parallelo potevano scontrarsi sullo stesso barbiere (modificato con l'approvazione dell'utente).
-const alignTo = (day: Date, weekday: number): string => {
-  day.setUTCDate(day.getUTCDate() + ((7 + weekday - day.getUTCDay()) % 7));
-  return day.toISOString().slice(0, 10);
-};
-/** Lunedì passato, in inverno, del test numero `slot` (al massimo 19): 1981–1985. */
-const ownPastMonday = (slot: number): string =>
-  alignTo(new Date(Date.UTC(1981 + Math.floor(slot / 4), 0, 5 + (slot % 4) * 7, 12)), 1);
-/** Mercoledì futuro, in inverno, del test numero `slot`: dal 2071. */
-const ownWorkday = (slot: number): string => alignTo(new Date(Date.UTC(2071 + slot, 0, 15, 12)), 3);
-// Solo il test delle statistiche usa il 1986–1989: i suoi totali contengono soltanto i suoi dati.
-const statsPastMonday = (): string => pastMonday(1986, 1989);
+// Anni delle date passate: quelli delle statistiche sono riservati, i loro totali contengono solo i loro dati.
+const PAST_YEARS = { fromYear: 1900, toYear: 1985 };
+const STATS_YEARS = { fromYear: 1986, toYear: 1989 };
 
 type Booking = { guestName: string; date: string; time: string; status?: string };
 
@@ -163,7 +151,8 @@ test.describe('Menu dell\'area staff (8j.1, 8j.2)', () => {
   test('la voce attiva ha aria-current, anche nelle sottopagine e dopo la navigazione lato client', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     const api = await adminApi(page.request);
-    const date = ownWorkday(20);
+    const date = testDate();
+    await clearBookings(api, [SEED.luca], date);
     const id = await guestBooking(api, { guestName: uniqueName('Ospite menu'), date, time: '12:15' });
 
     const expectActive = async (key: string): Promise<void> => {
@@ -309,12 +298,11 @@ test.describe('Controlli e sforamento (8j.10)', () => {
   let bookingId: string;
   const bookings: string[] = [];
 
-  test.beforeEach(async ({ request }, testInfo) => {
+  test.beforeEach(async ({ request }) => {
     api = await adminApi(request);
-    // Una data per test (modificato con l'approvazione dell'utente)
-    const slot = pages.findIndex(([name]) => testInfo.title.startsWith(name)) + 1;
-    date = ownWorkday(slot);
-    monday = ownPastMonday(slot);
+    date = testDate();
+    monday = testMonday(PAST_YEARS);
+    await clearBookings(api, [SEED.luca], date, monday);
     bookingId = await guestBooking(api, { guestName: uniqueName('Ospite misure'), date, time: '12:15' });
     bookings.push(
       bookingId,
@@ -376,7 +364,8 @@ test('sotto i 15 minuti la scheda è alta il giusto, su una riga, con il testo c
 }) => {
   await page.setViewportSize(DESKTOP);
   const api = await adminApi(page.request);
-  const date = ownWorkday(21);
+  const date = testDate();
+  await clearBookings(api, [SEED.luca], date);
   const brief = uniqueName('Ospite con un nome molto lungo da troncare');
   const quarter = uniqueName('Ospite quindici');
   const bookings = [
@@ -434,7 +423,8 @@ test('dettaglio: titolo con giorno, ora e cliente, telefono chiamabile, pulsanti
 }) => {
   await page.setViewportSize(DESKTOP);
   const api = await adminApi(page.request);
-  const date = ownWorkday(22);
+  const date = testDate();
+  await clearBookings(api, [SEED.luca], date);
   const guestName = uniqueName('Giulia Verdi');
   const id = await guestBooking(api, { guestName, date, time: '12:15' });
   const [, month, day] = date.split('-').map(Number);
@@ -539,11 +529,13 @@ test('clienti: badge solo per i bloccati, "—" se i no-show sono zero, a destra
     const blocked = await createCustomer(page.request, api, `${tag} Bloccata`);
     customers.push(blocked);
     await api.patch(`/rest/v1/profiles?id=eq.${blocked}&select=id`, { is_blocked: true });
+    const past = testMonday(PAST_YEARS);
+    await clearBookings(api, [SEED.luca], past);
     await api.post('/rest/v1/bookings?select=id', {
       customer_id: blocked,
       barber_id: SEED.luca,
       service_id: SEED.taglio,
-      starts_at: romeWinter(ownPastMonday(9), '10:00'),
+      starts_at: romeWinter(past, '10:00'),
       source: 'manual',
       status: 'no_show',
     });
@@ -589,8 +581,9 @@ test('statistiche: periodi vuoti nascosti e mostrabili, grafico intero, incasso 
 }) => {
   await page.setViewportSize(DESKTOP);
   const api = await adminApi(page.request);
-  const monday = statsPastMonday();
+  const monday = testMonday(STATS_YEARS);
   const sunday = plusDays(monday, 6);
+  await clearBookings(api, [SEED.luca], monday, plusDays(monday, 2));
   const guestName = uniqueName('Ospite statistiche');
   const bookings = [
     await guestBooking(api, { guestName, date: monday, time: '10:00', status: 'completed' }),

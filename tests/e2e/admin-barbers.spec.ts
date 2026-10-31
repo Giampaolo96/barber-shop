@@ -12,6 +12,7 @@
 //   fascia con i campi it.admin.hours.startLabel / endLabel (input type="time"); un solo pulsante
 //   it.admin.common.save salva tutta la settimana; esito it.admin.common.saved, fasce sovrapposte
 //   it.admin.hours.overlap.
+// Date da testDate() e pulizia prima di creare le prenotazioni: modificato con l'approvazione dell'utente.
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
 
 import { expect, test, type Page } from '@playwright/test';
@@ -30,12 +31,13 @@ import {
   linkOrButton,
   loginAsAdmin,
   loginAsBarber,
-  randomWinterDate,
   romeWinter,
   rowWith,
   s,
   saveButton,
   sf,
+  testDate,
+  clearBookings,
   uniqueName,
 } from './admin-helpers';
 
@@ -189,7 +191,8 @@ test.describe('Admin – barbieri (SPEC §6.5)', () => {
     const name = uniqueName('Barbiere in uscita');
     const serviceId = await createService(api, { name: uniqueName('Servizio barbiere'), durationMin: 20 });
     const barberId = await createBarber(api, name, [serviceId]);
-    const date = randomWinterDate();
+    const date = testDate();
+    await clearBookings(api, [barberId], date);
     const bookings = [
       await createBooking(api, { barberId, serviceId, startsAt: romeWinter(date, '09:30') }),
       await createBooking(api, { barberId, serviceId, startsAt: romeWinter(date, '11:00') }),

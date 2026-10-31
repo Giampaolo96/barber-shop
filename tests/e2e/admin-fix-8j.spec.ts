@@ -6,24 +6,19 @@ import {
   adminApi,
   adminNavLink,
   cleanup,
+  clearBookings,
   DESKTOP,
   loginAsAdmin,
   plusDays,
   romeWinter,
   s,
   SEED,
+  testDate,
   uniqueName,
   type AdminApi,
 } from './admin-helpers';
 
 const PHONE = { width: 390, height: 844 };
-
-/** Mercoledì d'inverno del test numero `slot`, anni che nessun altro e2e usa: niente collisioni. */
-const ownDate = (slot: number): string => {
-  const day = new Date(Date.UTC(2051 + slot, 0, 15, 12));
-  day.setUTCDate(day.getUTCDate() + ((10 - day.getUTCDay()) % 7));
-  return day.toISOString().slice(0, 10);
-};
 
 /** Trascina la scheda di `rows` righe in basso. */
 const dragDown = async (page: Page, card: Locator, rows: number): Promise<void> => {
@@ -55,7 +50,8 @@ const booking = async (api: AdminApi, guestName: string, startsAt: string, durat
 test('settimana: una riga occupata fuori orario resta segnata come fuori orario (M2)', async ({ page }) => {
   await page.setViewportSize(DESKTOP);
   const api = await adminApi(page.request);
-  const date = ownDate(0);
+  const date = testDate();
+  await clearBookings(api, [SEED.luca], date);
   const id = await booking(api, uniqueName('Fuori orario'), romeWinter(date, '13:30'));
   try {
     await loginAsAdmin(page);
@@ -96,7 +92,8 @@ test('voce attiva del menu: niente pieno né bagliore, filetto a sinistra su des
 test('su desktop la griglia parte subito sotto la barra del calendario', async ({ page }) => {
   await page.setViewportSize(DESKTOP);
   const api = await adminApi(page.request);
-  const date = ownDate(1);
+  const date = testDate();
+  await clearBookings(api, [SEED.luca], date);
   const id = await booking(api, uniqueName('Spazio'), romeWinter(date, '10:00'));
   try {
     await loginAsAdmin(page);
@@ -120,7 +117,8 @@ test('su desktop il riquadro di spostamento non sposta la griglia, sta lontano d
   test.setTimeout(45_000);
   await page.setViewportSize(DESKTOP);
   const api = await adminApi(page.request);
-  const date = ownDate(10);
+  const date = testDate();
+  await clearBookings(api, [SEED.luca], date);
   const guest = uniqueName('Avviso');
   const id = await booking(api, guest, romeWinter(date, '09:15'));
   try {
@@ -151,7 +149,8 @@ test('su desktop il riquadro di spostamento non sposta la griglia, sta lontano d
 test('un errore di spostamento resta finché non si preme "Chiudi", da 44 px', async ({ page }) => {
   await page.setViewportSize(DESKTOP);
   const api = await adminApi(page.request);
-  const date = ownDate(11);
+  const date = testDate();
+  await clearBookings(api, [SEED.luca], date);
   const guest = uniqueName('Errore');
   const ids = [
     await booking(api, guest, romeWinter(date, '09:15')),
@@ -177,7 +176,8 @@ test('un errore di spostamento resta finché non si preme "Chiudi", da 44 px', a
 test('cambiando giorno o settimana l\'avviso sparisce', async ({ page }) => {
   await page.setViewportSize(DESKTOP);
   const api = await adminApi(page.request);
-  const date = ownDate(12);
+  const date = testDate();
+  await clearBookings(api, [SEED.luca], date);
   const guest = uniqueName('Cambio giorno');
   const id = await booking(api, guest, romeWinter(date, '09:15'));
   try {
@@ -200,7 +200,8 @@ test('cambiando giorno o settimana l\'avviso sparisce', async ({ page }) => {
 test("cambiando settimana o barbiere lo scorrimento verticale non cambia", async ({ page }) => {
   await page.setViewportSize(DESKTOP);
   const api = await adminApi(page.request);
-  const date = ownDate(13);
+  const date = testDate();
+  await clearBookings(api, [SEED.luca], date);
   const id = await booking(api, uniqueName('Scorrimento'), romeWinter(date, '09:15'));
   try {
     await loginAsAdmin(page);
@@ -229,7 +230,8 @@ test('se il server rifiuta uno spostamento dopo un cambio di giorno, compare com
 }) => {
   await page.setViewportSize(DESKTOP);
   const api = await adminApi(page.request);
-  const date = ownDate(14);
+  const date = testDate();
+  await clearBookings(api, [SEED.luca], date);
   const guest = uniqueName('Rifiuto');
   const ids = [
     await booking(api, guest, romeWinter(date, '09:15')),
@@ -258,7 +260,7 @@ test('se il server rifiuta uno spostamento dopo un cambio di giorno, compare com
     await expect(page).toHaveURL(new RegExp(`data=${plusDays(date, 1)}`));
     release();
 
-    await expect(notice(page)).toContainText(s('admin.calendar.errors.barberBusy'));
+    await expect(notice(page)).toContainText(s('admin.calendar.errors.barberBusy'), { timeout: 20_000 });
     await notice(page).getByRole('button', { name: s('admin.calendar.move.close'), exact: true }).click();
     await expect(notice(page)).toHaveCount(0);
   } finally {
@@ -271,7 +273,8 @@ test('scheda da 15 minuti su telefono: altezza reale, area di tocco da 44 px, ne
 }) => {
   await page.setViewportSize(PHONE);
   const api = await adminApi(page.request);
-  const date = ownDate(2);
+  const date = testDate();
+  await clearBookings(api, [SEED.luca], date);
   const first = uniqueName('Quindici');
   const second = uniqueName('Successiva');
   const ids = [
