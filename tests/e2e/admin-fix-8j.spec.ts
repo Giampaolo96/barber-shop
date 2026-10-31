@@ -8,6 +8,7 @@ import {
   cleanup,
   DESKTOP,
   loginAsAdmin,
+  plusDays,
   romeWinter,
   s,
   SEED,
@@ -193,6 +194,75 @@ test('cambiando giorno o settimana l\'avviso sparisce', async ({ page }) => {
     }
   } finally {
     await cleanup(api, { bookings: [id] });
+  }
+});
+
+test("cambiando settimana o barbiere lo scorrimento verticale non cambia", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  const api = await adminApi(page.request);
+  const date = ownDate(13);
+  const id = await booking(api, uniqueName('Scorrimento'), romeWinter(date, '09:15'));
+  try {
+    await loginAsAdmin(page);
+    await page.goto(`/admin?data=${date}&vista=settimana&barbiere=${SEED.luca}`);
+    const scroller = page.locator('[data-week-scroll]');
+    await scroller.evaluate((element) => {
+      element.scrollTop = 200;
+    });
+    const scrollTop = () => scroller.evaluate((element) => element.scrollTop);
+    expect(await scrollTop()).toBe(200);
+
+    await page.getByRole('link', { name: s('admin.calendar.nextWeek'), exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`data=${plusDays(date, 7)}`));
+    await expect.poll(scrollTop).toBe(200);
+
+    await page.getByRole('navigation', { name: s('admin.calendar.barberFilterLabel') }).getByRole('link', { name: 'Sara' }).click();
+    await expect(page).toHaveURL(new RegExp(`barbiere=${SEED.sara}`));
+    await expect.poll(scrollTop).toBe(200);
+  } finally {
+    await cleanup(api, { bookings: [id] });
+  }
+});
+
+test('se il server rifiuta uno spostamento dopo un cambio di giorno, compare comunque un errore con "Chiudi"', async ({
+  page,
+}) => {
+  await page.setViewportSize(DESKTOP);
+  const api = await adminApi(page.request);
+  const date = ownDate(14);
+  const guest = uniqueName('Rifiuto');
+  const ids = [
+    await booking(api, guest, romeWinter(date, '09:15')),
+    await booking(api, uniqueName('Occupa rifiuto'), romeWinter(date, '09:45')),
+  ];
+  try {
+    await loginAsAdmin(page);
+    await page.goto(`/admin?data=${date}&vista=giorno`);
+
+    // La risposta del server arriva solo dopo il cambio di giorno
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(
+      (url) => url.pathname === '/admin',
+      async (route) => {
+        if (route.request().method() === 'POST') await held;
+        await route.fallback();
+      },
+    );
+
+    await dragDown(page, page.locator('main').getByRole('link', { name: new RegExp(guest) }), 2);
+    await expect(notice(page)).toContainText(s('admin.calendar.move.saving'));
+    await page.getByRole('link', { name: s('admin.calendar.nextDay'), exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`data=${plusDays(date, 1)}`));
+    release();
+
+    await expect(notice(page)).toContainText(s('admin.calendar.errors.barberBusy'));
+    await notice(page).getByRole('button', { name: s('admin.calendar.move.close'), exact: true }).click();
+    await expect(notice(page)).toHaveCount(0);
+  } finally {
+    await cleanup(api, { bookings: ids });
   }
 });
 

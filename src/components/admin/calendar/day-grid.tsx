@@ -57,7 +57,7 @@ export function DayGridView({
   now: Date;
 }) {
   const time = (instant: Date) => formatInTimeZone(instant, timezone, "HH:mm");
-  const { positions, notice, dialog, busy, move, reject, dismiss } = useBookingMove(columns);
+  const { positions, notice, dialog, busy, move, reject, dismiss } = useBookingMove(columns, date);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const bookings = columns.flatMap((column) => column.bookings).map((booking) => placed(booking, positions[booking.id]));

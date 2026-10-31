@@ -65,6 +65,7 @@ export function WeekGridView({
   barberActive,
   timezone,
   today,
+  weekStart,
   showCancelled,
   role,
   ownBarberId,
@@ -77,6 +78,8 @@ export function WeekGridView({
   timezone: string;
   /** Oggi nella timezone del negozio, dal server. */
   today: string;
+  /** Lunedì della settimana: identifica la vista anche quando i giorni disegnati cambiano. */
+  weekStart: string;
   showCancelled: boolean;
   role: StaffRole;
   ownBarberId: string | null;
@@ -84,7 +87,7 @@ export function WeekGridView({
   now: Date;
 }) {
   const time = (instant: Date) => formatInTimeZone(instant, timezone, "HH:mm");
-  const { positions, notice, dialog, busy, move, reject, dismiss } = useBookingMove(days);
+  const { positions, notice, dialog, busy, move, reject, dismiss } = useBookingMove(days, `${weekStart}-${barberId}`);
   const scrollRef = useRef<HTMLDivElement>(null);
   const cornerRef = useRef<HTMLDivElement>(null);
   const dates = days.map((day) => day.date);

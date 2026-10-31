@@ -26,9 +26,11 @@ export type MoveDialog = { warnings: WarningCode[]; confirm: () => void; cancel:
  * spostamento" richiama il server all'indietro con gli avvisi della posizione di partenza già
  * confermati (se ne compare uno nuovo, si chiede di nuovo conferma).
  * Le posizioni ottimistiche valgono solo per i dati con cui sono nate (`base`): quando la pagina
- * si aggiorna con i dati salvati spariscono da sole.
+ * si aggiorna con i dati salvati spariscono da sole. `view` è la vista (giorno o settimana e barbiere):
+ * quando cambia l'avviso sparisce, ma le griglie restano montate, con il loro scorrimento e con
+ * l'esito di uno spostamento ancora in corso.
  */
-export function useBookingMove<T>(base: T) {
+export function useBookingMove<T>(base: T, view: string) {
   const router = useRouter();
   const [optimistic, setOptimistic] = useState<{ base: T; positions: Record<string, Position> }>({
     base,
@@ -37,6 +39,11 @@ export function useBookingMove<T>(base: T) {
   const [notice, setNotice] = useState<MoveNotice | null>(null);
   const [dialog, setDialog] = useState<MoveDialog | null>(null);
   const [busy, setBusy] = useState(false);
+  const [shownView, setShownView] = useState(view);
+  if (shownView !== view) {
+    setShownView(view);
+    setNotice(null);
+  }
   // Dati attuali anche per le azioni nate in un rendering precedente (es. l'annullamento).
   const latestBase = useRef(base);
   useEffect(() => {
