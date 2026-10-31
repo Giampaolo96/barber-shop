@@ -361,6 +361,15 @@ export const clearBookings = async (api: AdminApi, barberIds: string[], ...dates
   }
 };
 
+/** Come `clearBookings`, per le chiusure del negozio che iniziano su queste date. */
+export const clearClosures = async (api: AdminApi, ...dates: string[]): Promise<void> => {
+  for (const date of dates) {
+    const from = encodeURIComponent(romeWinter(date, '00:00'));
+    const to = encodeURIComponent(romeWinter(plusDays(date, 1), '00:00'));
+    await api.del(`/rest/v1/shop_closures?starts_at=gte.${from}&starts_at=lt.${to}`);
+  }
+};
+
 /** Pulizia di fine test: prenotazioni, poi barbieri e servizi (FK on delete restrict). */
 export const cleanup = async (
   api: AdminApi,

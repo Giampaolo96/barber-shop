@@ -32,6 +32,7 @@
 // dell'admin demo. Barbiere demo: barber@demo.local → scheda "Luca". Orari del seed: martedì–sabato
 // 09:00–13:00 e 15:00–19:30; la griglia del giorno va dalle 09:00 alle 19:30 (pausa 13:00–15:00
 // visibile, fuori fascia).
+// Date da testDate() e pulizia prima di creare i dati: modificato con l'approvazione dell'utente.
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
 
 import { expect, test, type Locator, type Page } from '@playwright/test';
@@ -41,12 +42,14 @@ import {
   SEED,
   adminApi,
   cleanup,
+  clearBookings,
   instant,
   loginAsAdmin,
   loginAsBarber,
   romeWinter,
   s,
   sf,
+  testDate,
   uniqueName,
   type AdminApi,
 } from './admin-helpers';
@@ -64,7 +67,7 @@ const randomWinterWednesday = (fromYear: number, toYear: number): string => {
   return `${day.getUTCFullYear()}-${pad(day.getUTCMonth() + 1)}-${pad(day.getUTCDate())}`;
 };
 const futureDay = (): string => randomWinterWednesday(2032, 2049);
-const pastDay = (): string => randomWinterWednesday(2012, 2024);
+const pastDay = (): string => testDate({ fromYear: 2012, toYear: 2024 });
 
 type BookingRow = {
   id: string;
@@ -264,6 +267,7 @@ test.describe('Spostamento con trascinamento sul calendario (SPEC §6.3, fetta 6
     const api = await adminApi(page.request);
     const date = futureDay();
     const past = pastDay();
+    await clearBookings(api, [SEED.luca], past);
     const movable = uniqueName('Ospite di Luca mobile');
     const cancelled = uniqueName('Ospite di Luca cancellato');
     const old = uniqueName('Ospite di Luca passato');

@@ -28,6 +28,7 @@
 // unici per test (nomi degli ospiti e date casuali), creati e rimossi con l'API dell'admin demo.
 // Barbiere demo: barber@demo.local → scheda "Luca". Orari del seed: martedì–sabato 09:00–13:00 e
 // 15:00–19:30.
+// Date da testDate() e pulizia prima di creare i dati: modificato con l'approvazione dell'utente.
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
 
 import { expect, test, type Locator, type Page } from '@playwright/test';
@@ -37,6 +38,7 @@ import {
   SEED,
   adminApi,
   cleanup,
+  clearBookings,
   expectPath,
   field,
   instant,
@@ -46,6 +48,7 @@ import {
   s,
   saveButton,
   sf,
+  testDate,
   uniqueName,
   type AdminApi,
 } from './admin-helpers';
@@ -63,7 +66,7 @@ const randomWinterWednesday = (fromYear: number, toYear: number): string => {
   return `${day.getUTCFullYear()}-${pad(day.getUTCMonth() + 1)}-${pad(day.getUTCDate())}`;
 };
 const futureDay = (): string => randomWinterWednesday(2032, 2049);
-const pastDay = (): string => randomWinterWednesday(2012, 2024);
+const pastDay = (): string => testDate({ fromYear: 2012, toYear: 2024 });
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -271,6 +274,7 @@ test.describe('Calendario dello staff (SPEC §6.1–6.3)', () => {
   test('il barbiere vede solo la propria colonna e segna no-show una propria prenotazione passata', async ({ page }) => {
     const api = await adminApi(page.request);
     const date = pastDay();
+    await clearBookings(api, [SEED.luca, SEED.mario], date);
     const own = uniqueName('Ospite di Luca');
     const others = uniqueName('Ospite di Mario');
     const ownId = await createGuestBooking(api, { barberId: SEED.luca, guestName: own, startsAt: romeWinter(date, '10:00') });
