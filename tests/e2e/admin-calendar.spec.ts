@@ -21,7 +21,7 @@
 //     finché non si conferma. Sovrapposizioni: it.admin.calendar.errors.barberBusy / customerBusy.
 //   /admin/calendario/<id> – dettaglio; pulsanti di stato it.admin.calendar.status.*; solo per l'admin
 //     un form con nome accessibile it.admin.calendar.edit.title (stessi campi barbiere, servizio, data,
-//     ora + edit.durationLabel, edit.priceLabel; invio con it.admin.common.save). Prenotazione non
+//     ora + edit.durationLabel, edit.priceLabel; invio con it.admin.calendar.edit.saveChanges). Prenotazione non
 //     visibile all'utente o id non valido → 404.
 //
 // Prerequisiti: Supabase locale con il seed; NEXT_PUBLIC_SUPABASE_* (ambiente o .env.local). Dati
@@ -177,7 +177,7 @@ test.describe('Calendario dello staff (SPEC §6.1–6.3)', () => {
       await expect(form).toBeVisible();
       await field(form, 'admin.calendar.form.barberLabel').selectOption(SEED.mario);
       await field(form, 'admin.calendar.form.timeLabel').fill('11:00');
-      await saveButton(form).click();
+      await form.getByRole('button', { name: s('admin.calendar.edit.saveChanges'), exact: true }).click();
       await expect
         .poll(async () => {
           const [row] = await bookingsOfGuest(api, guestName);

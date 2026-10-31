@@ -2,8 +2,9 @@
 // per" la settimana e il mese vanno per giorno, gli ultimi 3 mesi per settimana, l'anno per mese.
 // Una scelta esplicita vale anche cambiando periodo; "Automatico" torna al predefinito.
 //
-// Le righe della tabella dell'andamento sono i bucket del grafico: si contano quelle, che ci sono
-// anche senza prenotazioni. Per vedere le barre dell'anno serve almeno un appuntamento: uno su Luca
+// Le righe della tabella dell'andamento sono i bucket del grafico: si contano quelle, che con vuoti=1
+// (fetta 8j) ci sono anche senza prenotazioni; la scelta resta nei periodi rapidi e con "Applica".
+// Per vedere le barre dell'anno serve almeno un appuntamento: uno su Luca
 // in un giorno di gennaio dell'anno in corso, alle 7, fuori dagli orari usati dagli altri e2e.
 // Pulizia nel finally.
 
@@ -79,7 +80,7 @@ test.describe('Statistiche: raggruppamento predefinito in base al periodo', () =
       bookings.push(rows[0]?.id ?? '');
 
       await loginAsAdmin(page);
-      await page.goto('/admin/statistiche');
+      await page.goto('/admin/statistiche?vuoti=1');
       await openShortcut(page, 'thisYear');
 
       await expect.poll(() => new URL(page.url()).searchParams.get('dal')).toBe(`${year}-01-01`);
@@ -105,7 +106,7 @@ test.describe('Statistiche: raggruppamento predefinito in base al periodo', () =
   }) => {
     await page.setViewportSize(DESKTOP);
     await loginAsAdmin(page);
-    await page.goto('/admin/statistiche');
+    await page.goto('/admin/statistiche?vuoti=1');
 
     // Predefiniti: mese → per giorno, 3 mesi → per settimana, anno → per mese, settimana → per giorno
     await expect(trendRows(page)).toHaveCount(daysInCurrentMonth());
