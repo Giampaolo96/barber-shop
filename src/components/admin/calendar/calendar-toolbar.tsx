@@ -35,7 +35,7 @@ export function CalendarToolbar({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
+      <div className="flex flex-wrap items-center gap-2">
         <Link
           href={calendarHref({ ...keep, date: addDays(query.date, -step) })}
           aria-label={week ? t.previousWeek : t.previousDay}
@@ -54,8 +54,8 @@ export function CalendarToolbar({
           →
         </Link>
         <h1 className={cn(
-            "min-w-0 flex-1 font-display whitespace-nowrap first-letter:uppercase md:ml-2 md:flex-none md:text-3xl",
-            week ? "text-base" : "text-2xl",
+            "min-w-0 flex-1 font-display whitespace-nowrap first-letter:uppercase md:ml-2 md:flex-none",
+            week ? "text-base md:text-2xl xl:text-3xl" : "text-2xl md:text-3xl",
           )}>
           {title}
         </h1>

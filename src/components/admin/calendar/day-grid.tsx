@@ -57,7 +57,7 @@ export function DayGridView({
   now: Date;
 }) {
   const time = (instant: Date) => formatInTimeZone(instant, timezone, "HH:mm");
-  const { positions, notice, dialog, busy, move, reject } = useBookingMove(columns);
+  const { positions, notice, dialog, busy, move, reject, dismiss } = useBookingMove(columns);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const bookings = columns.flatMap((column) => column.bookings).map((booking) => placed(booking, positions[booking.id]));
@@ -120,7 +120,7 @@ export function DayGridView({
       autoScroll={AUTO_SCROLL}
       {...handlers}
     >
-      <MoveFeedback notice={notice} dialog={dialog} busy={busy} />
+      <MoveFeedback notice={notice} dialog={dialog} busy={busy} dismiss={dismiss} />
       {bookings.length === 0 && <EmptyDay />}
       <div className="overflow-x-auto">
         <div

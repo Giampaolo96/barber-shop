@@ -4,7 +4,7 @@
 // Nel passaggio all'ora legale le righe del buco non esistono; nel ritorno all'ora solare l'ora
 // ripetuta compare una volta sola e vale la prima occorrenza.
 import { formatInTimeZone } from "date-fns-tz";
-import { addDays, exactLocalDateTimeToUtc, localDateOf, localDateTimeToUtc, startOfLocalDay } from "@/lib/domain/local-time";
+import { addDays, exactLocalDateTimeToUtc, localDateOf, startOfLocalDay } from "@/lib/domain/local-time";
 import { covers, type Interval, isoWeekday, type LocalBand } from "./grid";
 import { nowLineMinutes } from "./now-line";
 import { type BookingStatus, isCancelledStatus, type StaffRole } from "./transitions";
@@ -79,6 +79,26 @@ export function slotInstant(date: string, minutes: number, tz: string): Date | n
   return same ? earlier : instant;
 }
 
+type RowPeriods = { bands: Interval[]; timeOff: Interval[]; closures: Interval[] };
+
+/** Cosa c'è sotto una riga a prescindere dalle prenotazioni: chiusura, assenza, orario o fuori orario. */
+const rowBackground = (periods: RowPeriods, instant: Date): "closure" | "timeOff" | "free" | "outside" => {
+  if (periods.closures.some((interval) => covers(interval, instant))) return "closure";
+  if (periods.timeOff.some((interval) => covers(interval, instant))) return "timeOff";
+  return periods.bands.some((interval) => covers(interval, instant)) ? "free" : "outside";
+};
+
+/**
+ * Sfondo di ogni riga del giorno (stesso ordine di `grid.rows`): come `daySlots`, ma le prenotazioni
+ * non contano, così una riga occupata fuori orario o in un'assenza continua a segnalarlo.
+ */
+export function slotBackgrounds(input: RowPeriods & { date: string; grid: WeekGrid; tz: string }): SlotKind[] {
+  return input.grid.rows.map((minutes) => {
+    const instant = slotInstant(input.date, minutes, input.tz);
+    return instant ? rowBackground(input, instant) : "nonexistent";
+  });
+}
+
 /**
  * Stato di ogni riga del giorno (stesso ordine di `grid.rows`), come nella vista giorno: occupate
  * fino a `blocked_until` solo dalle confirmed; fuori orario, assenze e chiusure sono sfondo ma restano
@@ -102,15 +122,7 @@ export function daySlots(input: {
   return input.grid.rows.map((minutes) => {
     const instant = slotInstant(input.date, minutes, input.tz);
     if (!instant) return { kind: "nonexistent", past: false, clickable: false };
-    const kind: SlotKind = busy.some((interval) => covers(interval, instant))
-      ? "busy"
-      : input.closures.some((interval) => covers(interval, instant))
-        ? "closure"
-        : input.timeOff.some((interval) => covers(interval, instant))
-          ? "timeOff"
-          : input.bands.some((interval) => covers(interval, instant))
-            ? "free"
-            : "outside";
+    const kind: SlotKind = busy.some((interval) => covers(interval, instant)) ? "busy" : rowBackground(input, instant);
     return { kind, past: instant.getTime() <= input.now.getTime(), clickable: input.barberActive && kind !== "busy" };
   });
 }
@@ -168,6 +180,27 @@ export function weekDropTarget(input: {
 }
 
 /**
+ * Parte di un blocco visibile nella colonna del giorno `date`, in minuti dell'asse (orologio locale),
+ * ritagliata al giorno e all'asse; null se non si vede. Nei giorni del cambio d'ora orologio e durata
+ * reale non coincidono: si tiene il tratto più lungo, così un blocco non è mai più basso del reale.
+ * Nell'ora ripetuta la fine sull'orologio può persino precedere l'inizio; col buco dell'ora legale
+ * il blocco copre anche le righe che non esistono, fino all'orario che mostra.
+ */
+function axisSpan(grid: WeekGrid, date: string, block: Interval, tz: string): { start: number; end: number } | null {
+  // Minuto locale dell'istante nel giorno `date`: 0 se cade prima, 24:00 se cade dopo.
+  const clip = (instant: Date): number => {
+    const day = localDateOf(instant, tz);
+    if (day < date) return 0;
+    return day > date ? MINUTES_PER_DAY : localMinute(instant, tz);
+  };
+  const start = Math.max(clip(block.startsAt), grid.startMin);
+  const from = Math.max(block.startsAt.getTime(), slotInstant(date, start, tz)?.getTime() ?? 0);
+  const to = Math.min(block.endsAt.getTime(), startOfLocalDay(addDays(date, 1), tz).getTime());
+  const end = Math.min(Math.max(clip(block.endsAt), start + (to - from) / 60_000), grid.endMin);
+  return start < end ? { start, end } : null;
+}
+
+/**
  * Riga di inizio e righe occupate da un blocco nella colonna del giorno `date`, ritagliato al giorno
  * (00:00–24:00 locali) e all'asse; null se non si vede. Come blockPosition della vista giorno, ma
  * sull'orologio locale.
@@ -178,27 +211,29 @@ export function dayBlockPosition(
   block: Interval,
   tz: string,
 ): { row: number; span: number } | null {
-  // Minuto locale dell'istante nel giorno `date`: 0 se cade prima, 24:00 se cade dopo.
-  const clip = (instant: Date): number => {
-    const day = localDateOf(instant, tz);
-    if (day < date) return 0;
-    return day > date ? MINUTES_PER_DAY : localMinute(instant, tz);
-  };
-  const start = Math.max(clip(block.startsAt), grid.startMin);
-  const end = Math.min(clip(block.endsAt), grid.endMin);
-  if (start >= end) return null;
-  const row = Math.floor((start - grid.startMin) / grid.granularityMin);
-  const last = Math.ceil((end - grid.startMin) / grid.granularityMin);
+  const visible = axisSpan(grid, date, block, tz);
+  if (!visible) return null;
+  const row = Math.floor((visible.start - grid.startMin) / grid.granularityMin);
+  const last = Math.ceil((visible.end - grid.startMin) / grid.granularityMin);
   return { row, span: Math.max(last - row, 1) };
 }
 
-/** Istanti della riga `row` e della fine dell'asse nel giorno `date`, per `cardGeometry`. */
-export function dayCardBox(grid: WeekGrid, date: string, row: number, tz: string): { rowStartsAt: Date; clipEndsAt: Date } {
-  const at = (minutes: number): Date =>
-    minutes >= MINUTES_PER_DAY
-      ? localDateTimeToUtc(addDays(date, 1), "00:00", tz)
-      : localDateTimeToUtc(date, hhmm(minutes), tz);
-  return { rowStartsAt: at(grid.rows[row]), clipEndsAt: at(grid.endMin) };
+/** Come `cardGeometry` della vista giorno, ma sull'asse dell'orologio locale: `row` è la riga di partenza. */
+export function weekCardGeometry(
+  grid: WeekGrid,
+  date: string,
+  row: number,
+  booking: Interval & { blockedUntil: Date },
+  tz: string,
+): { offsetMin: number; serviceMin: number; bufferMin: number } {
+  const service = axisSpan(grid, date, booking, tz);
+  if (!service) return { offsetMin: 0, serviceMin: 0, bufferMin: 0 };
+  const blocked = axisSpan(grid, date, { startsAt: booking.startsAt, endsAt: booking.blockedUntil }, tz);
+  return {
+    offsetMin: service.start - grid.rows[row],
+    serviceMin: service.end - service.start,
+    bufferMin: Math.max((blocked?.end ?? service.end) - service.end, 0),
+  };
 }
 
 /**

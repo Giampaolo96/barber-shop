@@ -46,7 +46,6 @@ const PHONE = { width: 390, height: 844 };
 const WEEKDAYS = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'];
 const MONTHS = ['gen', 'feb'];
 
-const pad = (value: number): string => String(value).padStart(2, '0');
 const randomInt = (min: number, max: number): number => min + Math.floor(Math.random() * (max - min + 1));
 
 /**
@@ -65,8 +64,18 @@ const pastMonday = (fromYear: number, toYear: number): string => {
   day.setUTCDate(day.getUTCDate() + ((8 - day.getUTCDay()) % 7));
   return day.toISOString().slice(0, 10);
 };
+// Ogni test che crea prenotazioni ha la sua data, che nessun altro test usa: con date casuali due test
+// in parallelo potevano scontrarsi sullo stesso barbiere (modificato con l'approvazione dell'utente).
+const alignTo = (day: Date, weekday: number): string => {
+  day.setUTCDate(day.getUTCDate() + ((7 + weekday - day.getUTCDay()) % 7));
+  return day.toISOString().slice(0, 10);
+};
+/** Lunedì passato, in inverno, del test numero `slot` (al massimo 19): 1981–1985. */
+const ownPastMonday = (slot: number): string =>
+  alignTo(new Date(Date.UTC(1981 + Math.floor(slot / 4), 0, 5 + (slot % 4) * 7, 12)), 1);
+/** Mercoledì futuro, in inverno, del test numero `slot`: dal 2071. */
+const ownWorkday = (slot: number): string => alignTo(new Date(Date.UTC(2071 + slot, 0, 15, 12)), 3);
 // Solo il test delle statistiche usa il 1986–1989: i suoi totali contengono soltanto i suoi dati.
-const sharedPastMonday = (): string => pastMonday(1981, 1985);
 const statsPastMonday = (): string => pastMonday(1986, 1989);
 
 type Booking = { guestName: string; date: string; time: string; status?: string };
@@ -154,7 +163,7 @@ test.describe('Menu dell\'area staff (8j.1, 8j.2)', () => {
   test('la voce attiva ha aria-current, anche nelle sottopagine e dopo la navigazione lato client', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     const api = await adminApi(page.request);
-    const date = futureWorkday();
+    const date = ownWorkday(20);
     const id = await guestBooking(api, { guestName: uniqueName('Ospite menu'), date, time: '12:15' });
 
     const expectActive = async (key: string): Promise<void> => {
@@ -300,16 +309,19 @@ test.describe('Controlli e sforamento (8j.10)', () => {
   let bookingId: string;
   const bookings: string[] = [];
 
-  test.beforeEach(async ({ request }) => {
+  test.beforeEach(async ({ request }, testInfo) => {
     api = await adminApi(request);
-    date = futureWorkday();
-    monday = sharedPastMonday();
+    // Una data per test (modificato con l'approvazione dell'utente)
+    const slot = pages.findIndex(([name]) => testInfo.title.startsWith(name)) + 1;
+    date = ownWorkday(slot);
+    monday = ownPastMonday(slot);
     bookingId = await guestBooking(api, { guestName: uniqueName('Ospite misure'), date, time: '12:15' });
     bookings.push(
       bookingId,
       await guestBooking(api, { guestName: uniqueName('Ospite passato'), date: monday, time: '10:00', status: 'completed' }),
-      // Passata e ancora confermata: compare il link "Da aggiornare"
-      await guestBooking(api, { guestName: uniqueName('Ospite da chiudere'), date: monday, time: `${pad(randomInt(8, 18))}:00` }),
+      // Passata e ancora confermata: compare il link "Da aggiornare". Ora fissa: casuale poteva coincidere
+      // con le 10:00 di "Ospite passato" (modificato con l'approvazione dell'utente)
+      await guestBooking(api, { guestName: uniqueName('Ospite da chiudere'), date: monday, time: '14:00' }),
     );
   });
 
@@ -364,7 +376,7 @@ test('sotto i 15 minuti la scheda è alta il giusto, su una riga, con il testo c
 }) => {
   await page.setViewportSize(DESKTOP);
   const api = await adminApi(page.request);
-  const date = futureWorkday();
+  const date = ownWorkday(21);
   const brief = uniqueName('Ospite con un nome molto lungo da troncare');
   const quarter = uniqueName('Ospite quindici');
   const bookings = [
@@ -422,7 +434,7 @@ test('dettaglio: titolo con giorno, ora e cliente, telefono chiamabile, pulsanti
 }) => {
   await page.setViewportSize(DESKTOP);
   const api = await adminApi(page.request);
-  const date = futureWorkday();
+  const date = ownWorkday(22);
   const guestName = uniqueName('Giulia Verdi');
   const id = await guestBooking(api, { guestName, date, time: '12:15' });
   const [, month, day] = date.split('-').map(Number);
@@ -531,7 +543,7 @@ test('clienti: badge solo per i bloccati, "—" se i no-show sono zero, a destra
       customer_id: blocked,
       barber_id: SEED.luca,
       service_id: SEED.taglio,
-      starts_at: romeWinter(sharedPastMonday(), '10:00'),
+      starts_at: romeWinter(ownPastMonday(9), '10:00'),
       source: 'manual',
       status: 'no_show',
     });

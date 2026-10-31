@@ -16,7 +16,8 @@ export type Position = { barberId: string; startsAt: Date };
 type Move = { id: string; from: Position; to: Position; confirmedWarnings: WarningCode[] };
 type Kind = "move" | "undo";
 
-export type MoveNotice = { text: string; undo?: () => void };
+/** `success` sparisce da solo, `error` resta finché non si chiude, `progress` lo sostituisce l'esito. */
+export type MoveNotice = { text: string; tone: "progress" | "success" | "error"; undo?: () => void };
 export type MoveDialog = { warnings: WarningCode[]; confirm: () => void; cancel: () => void };
 
 /**
@@ -42,13 +43,15 @@ export function useBookingMove<T>(base: T) {
     latestBase.current = base;
   }, [base]);
 
-  // "Annulla spostamento" scade: resta solo il messaggio.
-  const undoAvailable = notice?.undo !== undefined;
+  // "Annulla spostamento" scade: resta solo il messaggio, che dopo lo stesso tempo sparisce.
   useEffect(() => {
-    if (!undoAvailable) return;
-    const timer = setTimeout(() => setNotice((current) => (current ? { text: current.text } : null)), UNDO_MS);
+    if (notice?.tone !== "success") return;
+    const timer = setTimeout(
+      () => setNotice((current) => (current?.undo ? { text: current.text, tone: current.tone } : null)),
+      UNDO_MS,
+    );
     return () => clearTimeout(timer);
-  }, [undoAvailable]);
+  }, [notice]);
 
   const place = (id: string, position: Position | null) =>
     setOptimistic((current) => {
@@ -63,7 +66,7 @@ export function useBookingMove<T>(base: T) {
     setDialog(null);
     setBusy(true);
     place(move.id, move.to);
-    setNotice({ text: t.saving });
+    setNotice({ text: t.saving, tone: "progress" });
     try {
       const result = await moveBooking({
         id: move.id,
@@ -76,7 +79,9 @@ export function useBookingMove<T>(base: T) {
       if (result.status === "saved") {
         const back: Move = { id: move.id, from: move.to, to: move.from, confirmedWarnings: result.previousWarnings };
         setNotice(
-          kind === "move" ? { text: t.saved, undo: () => void run(back, "undo") } : { text: t.undone },
+          kind === "move"
+            ? { text: t.saved, tone: "success", undo: () => void run(back, "undo") }
+            : { text: t.undone, tone: "success" },
         );
         return;
       }
@@ -93,13 +98,13 @@ export function useBookingMove<T>(base: T) {
         return;
       }
       place(move.id, null);
-      setNotice({ text: CALENDAR_ERROR_TEXT[result.status] ?? t.error });
+      setNotice({ text: CALENDAR_ERROR_TEXT[result.status] ?? t.error, tone: "error" });
       // Dati cambiati nel frattempo: si ricarica il calendario.
       if (result.status === "stale") router.refresh();
     } catch (error) {
       console.error("moveBooking", error);
       place(move.id, null);
-      setNotice({ text: t.error });
+      setNotice({ text: t.error, tone: "error" });
     } finally {
       setBusy(false);
     }
@@ -112,6 +117,7 @@ export function useBookingMove<T>(base: T) {
     busy,
     move: (id: string, from: Position, to: Position) => void run({ id, from, to, confirmedWarnings: [] }, "move"),
     /** Spostamento rifiutato prima di chiamare il server (es. verso il passato). */
-    reject: (text: string) => setNotice({ text }),
+    reject: (text: string) => setNotice({ text, tone: "error" }),
+    dismiss: () => setNotice(null),
   };
 }

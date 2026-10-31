@@ -21,7 +21,8 @@ export default defineConfig({
     : [["list"], ["./tests/e2e/run-summary-reporter.ts"]],
   use: {
     baseURL,
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
   },
   projects: [
     // Area clienti mobile first: Chromium con viewport da telefono.

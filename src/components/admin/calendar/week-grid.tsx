@@ -22,15 +22,15 @@ import type { StaffRole } from "@/lib/calendar/transitions";
 import { calendarHref } from "@/lib/calendar/view";
 import {
   dayBlockPosition,
-  dayCardBox,
   daySlots,
   hhmm,
   initialWeekColumn,
+  slotBackgrounds,
   type WeekGrid,
+  weekCardGeometry,
   weekDropTarget,
   weekNowLine,
 } from "@/lib/calendar/week-grid";
-import { cardGeometry } from "@/lib/calendar/grid";
 import { localDateOf } from "@/lib/domain/local-time";
 import { cn } from "@/lib/utils";
 import { BookingCard, ColumnDropZone, DraggedCard, GRID_ROW_CLASS, NowLine, placed, ROW_HEIGHT } from "./grid-parts";
@@ -84,7 +84,7 @@ export function WeekGridView({
   now: Date;
 }) {
   const time = (instant: Date) => formatInTimeZone(instant, timezone, "HH:mm");
-  const { positions, notice, dialog, busy, move, reject } = useBookingMove(days);
+  const { positions, notice, dialog, busy, move, reject, dismiss } = useBookingMove(days);
   const scrollRef = useRef<HTMLDivElement>(null);
   const cornerRef = useRef<HTMLDivElement>(null);
   const dates = days.map((day) => day.date);
@@ -176,7 +176,7 @@ export function WeekGridView({
 
   return (
     <DndContext sensors={sensors} collisionDetection={visibleOnly} autoScroll={AUTO_SCROLL} {...handlers}>
-      <MoveFeedback notice={notice} dialog={dialog} busy={busy} />
+      <MoveFeedback notice={notice} dialog={dialog} busy={busy} dismiss={dismiss} />
       {!barberActive && <p className="text-sm text-muted-foreground">{t.inactiveBarberNoBooking}</p>}
       <div
         ref={scrollRef}
@@ -233,6 +233,14 @@ export function WeekGridView({
               now,
               barberActive,
             });
+            const backgrounds = slotBackgrounds({
+              date: day.date,
+              grid,
+              tz: timezone,
+              bands: day.bands,
+              timeOff: day.periods.filter((period) => period.kind === "timeOff"),
+              closures: day.periods.filter((period) => period.kind === "closure"),
+            });
             const placedBookings = dayBookings.flatMap((booking) => {
               const position = dayBlockPosition(grid, day.date, booking, timezone);
               return position ? [{ booking, position }] : [];
@@ -272,8 +280,8 @@ export function WeekGridView({
                 const cellClass = cn(
                   "border-t",
                   label.endsWith(":00") ? "border-ink/30" : "border-line/60",
-                  (slot.kind === "outside" || slot.kind === "nonexistent") && "bg-disabled",
-                  (slot.kind === "timeOff" || slot.kind === "closure") && "bg-hatch",
+                  (backgrounds[index] === "outside" || backgrounds[index] === "nonexistent") && "bg-disabled",
+                  (backgrounds[index] === "timeOff" || backgrounds[index] === "closure") && "bg-hatch",
                 );
                 if (!slot.clickable) {
                   return (
@@ -336,7 +344,7 @@ export function WeekGridView({
                   canGrab={() => draggableAt(booking, new Date())}
                   style={{ gridColumn, gridRow: `${position.row + 2} / span ${position.span}` }}
                   box={{
-                    ...cardGeometry(dayCardBox(grid, day.date, position.row, timezone), booking),
+                    ...weekCardGeometry(grid, day.date, position.row, booking, timezone),
                     granularityMin: grid.granularityMin,
                   }}
                 />

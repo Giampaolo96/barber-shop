@@ -16,7 +16,7 @@ export function AdminNav({ sections }: { sections: ReadonlyArray<{ slug: string;
           key={section.slug}
           href={section.href}
           aria-current={section.slug === active ? "page" : undefined}
-          className="flex min-h-11 shrink-0 items-center px-2 text-sm font-medium whitespace-nowrap hover:bg-disabled focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:bg-ink aria-[current=page]:text-surface md:px-3"
+          className="flex min-h-11 shrink-0 items-center border-transparent px-2 text-sm font-medium whitespace-nowrap text-muted-foreground hover:bg-disabled focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:border-ink aria-[current=page]:text-ink aria-[current=page]:not-focus-visible:shadow-none max-md:border-b-2 md:border-l-2 md:px-3"
         >
           {section.label}
         </Link>

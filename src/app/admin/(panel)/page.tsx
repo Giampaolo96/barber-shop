@@ -118,6 +118,7 @@ export default async function AdminCalendarPage({ searchParams }: { searchParams
         />
         {week.barberId && week.grid ? (
           <WeekGridView
+            key={`${dates[0]}-${week.barberId}`}
             grid={week.grid}
             days={week.days}
             barberId={week.barberId}
@@ -150,6 +151,7 @@ export default async function AdminCalendarPage({ searchParams }: { searchParams
         action={firstBarber ? <NewBookingLink barberId={firstBarber} date={query.date} /> : null}
       />
       <DayGridView
+        key={query.date}
         grid={day.grid}
         date={query.date}
         timezone={settings.timezone}

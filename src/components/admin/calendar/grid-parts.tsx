@@ -184,7 +184,10 @@ export function BookingCard({
       title={shared || compact ? fullName : undefined}
       {...grabListeners}
       className={cn(
-        "m-px flex flex-col overflow-hidden rounded-md border bg-surface px-2 text-xs",
+        "relative m-px flex flex-col overflow-hidden rounded-md border bg-surface px-2 text-xs",
+        // Alta una riga meno i margini: l'area di tocco li riprende, fino alla scheda vicina e non oltre.
+        box.serviceMin === box.granularityMin &&
+          "max-md:overflow-visible max-md:after:absolute max-md:after:inset-x-0 max-md:after:-inset-y-0.5 max-md:after:content-['']",
         box.serviceMin < TIGHT_BELOW_MIN ? "py-0" : "py-1",
         booking.status === "confirmed" && "border-ink",
         booking.status === "completed" && "border-line text-muted-foreground",
@@ -198,6 +201,8 @@ export function BookingCard({
       )}
       style={{ ...style, ...laneStyle, ...boxStyle }}
     >
+      {/* Il ritaglio sta qui: una scheda da una riga lascia uscire solo l'area di tocco. */}
+      <span className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {compact ? (
         <span className="w-0 min-w-full truncate font-medium">
           {timeLabel} {booking.customerName}
@@ -216,6 +221,7 @@ export function BookingCard({
           <span>{details}</span>
         </>
       )}
+      </span>
     </Link>
     {box.bufferMin > 0 && booking.status === "confirmed" && (
       <div

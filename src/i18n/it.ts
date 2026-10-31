@@ -665,6 +665,7 @@ export const it = {
       move: {
         saved: "Prenotazione spostata.",
         undo: "Annulla spostamento",
+        close: "Chiudi",
         undone: "Spostamento annullato.",
         saving: "Spostamento in corso…",
         dialogTitle: "Confermi lo spostamento?",
