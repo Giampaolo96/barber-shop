@@ -4,7 +4,7 @@
 // Nel passaggio all'ora legale le righe del buco non esistono; nel ritorno all'ora solare l'ora
 // ripetuta compare una volta sola e vale la prima occorrenza.
 import { formatInTimeZone } from "date-fns-tz";
-import { addDays, exactLocalDateTimeToUtc, localDateOf, startOfLocalDay } from "@/lib/domain/local-time";
+import { addDays, exactLocalDateTimeToUtc, localDateOf, localDateTimeToUtc, startOfLocalDay } from "@/lib/domain/local-time";
 import { covers, type Interval, isoWeekday, type LocalBand } from "./grid";
 import { nowLineMinutes } from "./now-line";
 import { type BookingStatus, isCancelledStatus, type StaffRole } from "./transitions";
@@ -190,6 +190,15 @@ export function dayBlockPosition(
   const row = Math.floor((start - grid.startMin) / grid.granularityMin);
   const last = Math.ceil((end - grid.startMin) / grid.granularityMin);
   return { row, span: Math.max(last - row, 1) };
+}
+
+/** Istanti della riga `row` e della fine dell'asse nel giorno `date`, per `cardGeometry`. */
+export function dayCardBox(grid: WeekGrid, date: string, row: number, tz: string): { rowStartsAt: Date; clipEndsAt: Date } {
+  const at = (minutes: number): Date =>
+    minutes >= MINUTES_PER_DAY
+      ? localDateTimeToUtc(addDays(date, 1), "00:00", tz)
+      : localDateTimeToUtc(date, hhmm(minutes), tz);
+  return { rowStartsAt: at(grid.rows[row]), clipEndsAt: at(grid.endMin) };
 }
 
 /**

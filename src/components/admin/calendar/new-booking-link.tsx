@@ -7,9 +7,11 @@ export function NewBookingLink({ barberId, date }: { barberId: string; date: str
   return (
     <Link
       href={newBookingPath({ barberId, date })}
-      className="glow inline-flex min-h-11 items-center self-start rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
+      aria-label={it.admin.calendar.newBooking}
+      className="glow inline-flex min-h-11 shrink-0 items-center rounded-lg bg-primary px-4 text-sm font-medium whitespace-nowrap text-primary-foreground md:ml-auto"
     >
-      {it.admin.calendar.newBooking}
+      <span className="md:hidden">{it.admin.calendar.newBookingShort}</span>
+      <span className="hidden md:inline">{it.admin.calendar.newBooking}</span>
     </Link>
   );
 }

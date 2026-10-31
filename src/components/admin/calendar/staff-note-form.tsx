@@ -30,7 +30,7 @@ export function StaffNoteForm({ bookingId, note }: { bookingId: string; note: st
         className={textareaClass}
       />
       <Button type="submit" variant="outline" disabled={pending} className="self-start">
-        {it.admin.common.save}
+        {it.admin.calendar.detail.saveNote}
       </Button>
       {state.status === "saved" && <FormStatus status="saved" />}
       {error && (

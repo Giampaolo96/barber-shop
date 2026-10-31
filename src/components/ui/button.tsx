@@ -18,12 +18,14 @@ const buttonVariants = cva(
         ghost: "transition-colors border-transparent hover:bg-disabled aria-expanded:bg-disabled",
         destructive:
           "glow-hover border-destructive bg-surface text-destructive hover:bg-destructive hover:text-surface focus-visible:outline-destructive",
+        "destructive-quiet":
+          "glow-hover border-ink bg-surface text-ink hover:border-destructive hover:text-destructive focus-visible:border-destructive focus-visible:text-destructive focus-visible:outline-destructive",
         link: "transition-colors border-transparent text-ink underline underline-offset-4 hover:no-underline",
       },
       size: {
         default: "h-11 gap-2 px-4",
         xs: "h-7 gap-1 px-2 text-xs [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-9 gap-1.5 px-3 [&_svg:not([class*='size-'])]:size-3.5",
+        sm: "h-11 gap-1.5 px-3 md:h-9 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-12 gap-2 px-5 text-base",
         icon: "size-11",
         "icon-xs": "size-7 [&_svg:not([class*='size-'])]:size-3",

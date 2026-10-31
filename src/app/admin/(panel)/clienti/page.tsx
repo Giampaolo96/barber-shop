@@ -70,7 +70,7 @@ export default async function CustomersPage({
                   <th className="py-2 pr-4">{t.name}</th>
                   <th className="py-2 pr-4">{t.phone}</th>
                   <th className="py-2 pr-4">{t.email}</th>
-                  <th className="py-2 pr-4 whitespace-nowrap">{t.noShows}</th>
+                  <th className="py-2 pr-4 text-right whitespace-nowrap">{t.noShows}</th>
                   <th className="py-2">{t.state}</th>
                 </tr>
               </thead>
@@ -84,9 +84,11 @@ export default async function CustomersPage({
                     </td>
                     <td className="py-2 pr-4 whitespace-nowrap">{customer.phone ?? "—"}</td>
                     <td className="py-2 pr-4 whitespace-nowrap">{customer.email ?? "—"}</td>
-                    <td className="py-2 pr-4">{customer.noShowCount}</td>
+                    <td className="py-2 pr-4 text-right tabular-nums">{customer.noShowCount > 0 ? customer.noShowCount : "—"}</td>
                     <td className="py-2">
-                      <CustomerStatusBadges customer={customer} threshold={threshold} />
+                      {customerBlockStatus(customer, threshold).blocked && (
+                        <CustomerStatusBadges customer={customer} threshold={threshold} />
+                      )}
                     </td>
                   </tr>
                 ))}

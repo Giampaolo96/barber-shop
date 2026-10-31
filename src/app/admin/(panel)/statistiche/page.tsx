@@ -13,7 +13,7 @@ import { createClient } from "@/lib/db/server";
 import { getBookingStats, getStatsCatalog, type StatsCatalogItem } from "@/lib/db/stats";
 import { localDateOf } from "@/lib/domain/local-time";
 import { formatCents } from "@/lib/domain/money";
-import { buildStats, type Stats, type StatsRow } from "@/lib/stats/aggregate";
+import { buildStats, isEmptyBucket, type Stats, type StatsRow } from "@/lib/stats/aggregate";
 import { bucketLabel, formatRate } from "@/lib/stats/format";
 import { STATS_PATH, statsPath, statsToUpdatePath } from "@/lib/stats/paths";
 import { defaultGranularity, periodShortcut, STATS_SHORTCUTS } from "@/lib/stats/periods";
@@ -87,6 +87,7 @@ export default async function AdminStatsPage({ searchParams }: { searchParams: P
     barbiere: first(raw.barbiere),
     escludi_demo: first(raw.escludi_demo),
     grafico: first(raw.grafico),
+    vuoti: first(raw.vuoti),
   });
   const data = await loadStats(supabase, params);
   // Raggruppamento scelto dall'admin: vale anche cambiando periodo o grafico. Senza scelta ogni
@@ -150,6 +151,7 @@ export default async function AdminStatsPage({ searchParams }: { searchParams: P
             {t.excludeDemo}
           </label>
           {params.chart !== "prenotazioni" && <input type="hidden" name="grafico" value={params.chart} />}
+          {params.showEmpty && <input type="hidden" name="vuoti" value="1" />}
           <Button type="submit">{t.apply}</Button>
         </div>
         <nav aria-label={t.shortcutsLabel} className="flex flex-wrap gap-2">
@@ -198,8 +200,8 @@ function StatsContent({
   const { stats, barbers, services } = data;
   const { totals } = stats;
   const tiles = [
-    { stat: "bookings", label: t.totals.bookings, value: String(totals.bookings), hint: t.totalsHint.bookings },
     { stat: "revenue", label: t.totals.revenue, value: formatCents(totals.revenueCents), hint: t.totalsHint.revenue },
+    { stat: "bookings", label: t.totals.bookings, value: String(totals.bookings), hint: t.totalsHint.bookings },
     {
       stat: "no-show-rate",
       label: t.totals.noShowRate,
@@ -219,20 +221,25 @@ function StatsContent({
   ];
   // "Da aggiornare" porta all'elenco di quegli appuntamenti, dove si apre il dettaglio.
   const toUpdateHref = totals.toClose > 0 ? statsToUpdatePath(params) : null;
+  const filledSeries = stats.series.filter((bucket) => !isEmptyBucket(bucket));
+  const hasEmptyPeriods = filledSeries.length < stats.series.length;
 
   return (
     <>
-      <dl className="grid grid-cols-2 gap-px border border-line bg-line lg:grid-cols-5">
+      <dl className="grid grid-cols-2 gap-px border border-line bg-line lg:grid-cols-6">
         {tiles.map((tile) => (
           <div
             key={tile.stat}
             data-stat={tile.stat}
-            className={`relative flex flex-col gap-1 bg-surface p-4 last:col-span-2 lg:last:col-span-1 ${
+            className={`relative flex flex-col gap-1 bg-surface p-4 ${tile.stat === "revenue" ? "col-span-2" : ""} ${
               tile.stat === "to-close" && toUpdateHref ? "ring-1 ring-ink ring-inset hover:bg-disabled" : ""
             }`}
           >
             <dt className="text-sm text-muted-foreground">{tile.label}</dt>
-            <dd data-stat-value className="font-display text-2xl whitespace-nowrap tabular-nums sm:text-3xl">
+            <dd
+              data-stat-value
+              className={`font-display whitespace-nowrap tabular-nums ${tile.stat === "revenue" ? "text-4xl sm:text-5xl" : "text-2xl sm:text-3xl"}`}
+            >
               {tile.value}
             </dd>
             {tile.stat === "to-close" && toUpdateHref ? (
@@ -273,12 +280,20 @@ function StatsContent({
       <StatsTable
         title={t.trendTitle}
         firstColumn={it.admin.stats.columns.period}
-        rows={stats.series.map((bucket) => ({
+        rows={(params.showEmpty ? stats.series : filledSeries).map((bucket) => ({
           ...bucket,
           key: bucket.start,
           label: bucketLabel(bucket, params.granularity),
         }))}
       />
+      {hasEmptyPeriods && (
+        <Link
+          href={statsPath({ ...params, showEmpty: !params.showEmpty }, { keepGranularity })}
+          className="inline-flex min-h-11 w-fit items-center text-sm underline underline-offset-4"
+        >
+          {params.showEmpty ? t.hideEmptyPeriods : t.showEmptyPeriods}
+        </Link>
+      )}
       <StatsTable
         title={t.byBarberTitle}
         firstColumn={it.admin.stats.columns.barber}

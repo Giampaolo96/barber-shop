@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { CALENDAR_ERROR_TEXT } from "@/components/admin/calendar/messages";
 import { EditBookingForm } from "@/components/admin/calendar/edit-booking-form";
@@ -10,7 +11,7 @@ import { it } from "@/i18n/it";
 import { getOwnBarberId } from "@/lib/admin/queries";
 import { idSchema } from "@/lib/admin/schemas";
 import { requireRole } from "@/lib/auth/current-user";
-import { formatDateTime, formatTime } from "@/lib/booking/format";
+import { formatDateTime, formatDayLabel, formatTime } from "@/lib/booking/format";
 import { changeBookingStatus } from "@/lib/calendar/actions";
 import { canDrag } from "@/lib/calendar/move";
 import { CREATED_PARAM } from "@/lib/calendar/paths";
@@ -77,12 +78,24 @@ export default async function BookingDetailPage({
     ? await Promise.all([getBarbers(supabase), getServices(supabase)])
     : [[], []];
 
-  const rows: Array<[string, string]> = [
+  const rows: Array<[string, ReactNode]> = [
     [t.detail.when, `${formatDateTime(booking.startsAt, timezone)}–${formatTime(booking.endsAt, timezone)}`],
     [t.detail.barber, booking.barberName],
     [t.detail.service, booking.serviceName],
     [t.detail.customer, booking.isGuest ? `${booking.customerName} (${t.detail.guest})` : booking.customerName],
-    [t.detail.phone, booking.customerPhone ?? "—"],
+    [
+      t.detail.phone,
+      booking.customerPhone ? (
+        <a
+          href={`tel:${booking.customerPhone.replace(/\s/g, "")}`}
+          className="inline-flex min-h-11 items-center underline underline-offset-4 md:min-h-0"
+        >
+          {booking.customerPhone}
+        </a>
+      ) : (
+        "—"
+      ),
+    ],
     [t.detail.duration, t.detail.minutes.replace("{count}", String(booking.durationMin))],
     [t.detail.price, formatCents(booking.priceCents)],
     [t.detail.status, t.statusLabels[booking.status]],
@@ -91,17 +104,21 @@ export default async function BookingDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href={calendarHref({ date })} className="text-sm underline underline-offset-4">
+      <Link href={calendarHref({ date })} className="inline-flex min-h-11 w-fit items-center text-sm underline underline-offset-4">
         {t.detail.backToCalendar}
       </Link>
-      <h1 className="font-display text-4xl leading-tight">{t.detail.title}</h1>
+      <h1 className="font-display text-4xl leading-tight first-letter:uppercase">
+        {formatDayLabel(date)}, {formatTime(booking.startsAt, timezone)}, {booking.customerName}
+      </h1>
       {created && (
         <p role="status" className="text-sm font-medium">
           {t.detail.created}
         </p>
       )}
 
-      <dl className="grid max-w-lg grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+      <div className="grid gap-x-12 gap-y-6 lg:grid-cols-2 lg:items-start">
+        <div className="flex min-w-0 flex-col gap-6">
+      <dl className="grid max-w-lg grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-1 text-sm">
         {rows.map(([label, value]) => (
           <div key={label} className="contents">
             <dt className="font-medium">{label}</dt>
@@ -137,7 +154,9 @@ export default async function BookingDetailPage({
       </section>
 
       <StaffNoteForm bookingId={booking.id} note={booking.staffNote} />
+        </div>
 
+        <div className="flex min-w-0 flex-col gap-6">
       {canMove && (
         <MoveBookingForm
           id={booking.id}
@@ -167,6 +186,8 @@ export default async function BookingDetailPage({
           }}
         />
       )}
+        </div>
+      </div>
     </div>
   );
 }

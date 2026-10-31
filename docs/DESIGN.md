@@ -74,7 +74,7 @@ Il nero profondo richiama il negozio di sera: neon bianchi (al massimo con una l
 | `[aria-current]` | elemento selezionato (giorno, vista del calendario, barbiere della settimana): si accende senza classi | `--glow-box` |
 | `glass` | **solo** pannelli grandi: riepilogo e dettagli della conferma | `--glass-bg`, `--glass-border`, `--glass-filter`, `--glass-pad` |
 | `glass-ink` | biglietto della prossima prenotazione (blocco nero in Mosca, vetro nel neon) | `--glass-ink-*` |
-| `sticky-bar` | striscia dei giorni, unico elemento fisso: fondo pieno in Mosca; nel neon velato e sfocato solo sugli schermi bassi (dove la pagina scorre), trasparente su quelli alti | `--sticky-bar-bg`, `--sticky-bar-filter` |
+| `sticky-bar` | striscia dei giorni, unico elemento fisso dell'area clienti (nell'admin è fissa anche la barra "Salva" di Impostazioni, con fondo `bg-surface`): fondo pieno in Mosca; nel neon velato e sfocato solo sugli schermi bassi (dove la pagina scorre), trasparente su quelli alti | `--sticky-bar-bg`, `--sticky-bar-filter` |
 | `portrait` | ritratti dei barbieri | `--portrait-*` |
 | `mark-glow` | la mosca in volo e posata | `--glow-mark` |
 

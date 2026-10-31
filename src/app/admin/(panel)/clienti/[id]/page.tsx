@@ -53,7 +53,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href={CUSTOMERS_PATH} className="text-sm underline underline-offset-4">
+      <Link href={CUSTOMERS_PATH} className="inline-flex min-h-11 w-fit items-center text-sm underline underline-offset-4">
         {t.backToList}
       </Link>
       <h1 className="font-display text-4xl leading-tight">{customer.fullName ?? t.noName}</h1>

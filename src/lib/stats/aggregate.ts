@@ -26,6 +26,10 @@ export type StatsGroup = {
 
 export type Granularity = "giorno" | "settimana" | "mese";
 
+/** Periodo vuoto (SPEC §6.9): nessun appuntamento e nessuna cancellazione. */
+export const isEmptyBucket = (metrics: Pick<StatsMetrics, "bookings" | "cancellations">): boolean =>
+  metrics.bookings === 0 && metrics.cancellations === 0;
+
 export type StatsMetrics = {
   /** confirmed + completed + no_show */
   bookings: number;

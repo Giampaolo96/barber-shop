@@ -8,12 +8,25 @@ import { it } from "@/i18n/it";
 import type { LaneSlot } from "@/lib/calendar/overlap-layout";
 import { bookingDetailPath } from "@/lib/calendar/paths";
 import type { CalendarBooking } from "@/lib/calendar/queries";
+import type { cardGeometry } from "@/lib/calendar/grid";
 import { isCancelledStatus } from "@/lib/calendar/transitions";
 import { cn } from "@/lib/utils";
 import type { Position } from "./use-booking-move";
 
 const t = it.admin.calendar;
-export const ROW_HEIGHT = "2.25rem";
+/** Altezza di una riga: la variabile cambia con la larghezza (44 px su telefono, 36 su desktop). */
+export const ROW_HEIGHT = "var(--calendar-row)";
+export const GRID_ROW_CLASS = "[--calendar-row:2.75rem] md:[--calendar-row:2.25rem]";
+
+/** Geometria esatta (`cardGeometry`) e passo della griglia. */
+export type CardBox = ReturnType<typeof cardGeometry> & { granularityMin: number };
+
+const minutesToHeight = (minutes: number, granularityMin: number): string => `${minutes / granularityMin} * ${ROW_HEIGHT}`;
+
+/** Sotto i 15 minuti la scheda è più bassa di due righe di testo: una riga sola. */
+const COMPACT_BELOW_MIN = 15;
+/** Fino a qui le due righe di testo stanno solo senza spazio sopra e sotto. */
+const TIGHT_BELOW_MIN = 20;
 
 /** Prenotazione nella posizione mostrata (quella ottimistica durante uno spostamento). */
 export const placed = (booking: CalendarBooking, position: Position | undefined): CalendarBooking => {
@@ -120,6 +133,7 @@ export function BookingCard({
   draggable,
   canGrab,
   style,
+  box,
 }: {
   booking: CalendarBooking;
   label: string;
@@ -129,6 +143,7 @@ export function BookingCard({
   draggable: boolean;
   canGrab: () => boolean;
   style: React.CSSProperties;
+  box: CardBox;
 }) {
   const { setNodeRef, listeners, isDragging } = useDraggable({ id: booking.id, disabled: !draggable });
   const grabListeners =
@@ -149,18 +164,28 @@ export function BookingCard({
   const laneStyle: React.CSSProperties = shared
     ? { width: `calc(100% / ${lane.lanes} - 2px)`, marginLeft: `calc(100% * ${lane.lane} / ${lane.lanes} + 1px)` }
     : {};
+  const compact = box.serviceMin < COMPACT_BELOW_MIN;
+  const fullName = `${label}, ${details}`;
+  const boxStyle: React.CSSProperties = {
+    alignSelf: "start",
+    marginTop: `calc(${minutesToHeight(box.offsetMin, box.granularityMin)} + 1px)`,
+    height: `calc(${minutesToHeight(box.serviceMin, box.granularityMin)} - 2px)`,
+  };
   return (
+    <>
     <Link
       ref={setNodeRef}
       href={bookingDetailPath(booking.id)}
       draggable={false}
       data-draggable={draggable ? "true" : undefined}
       data-lane={shared ? `${lane.lane}/${lane.lanes}` : undefined}
-      aria-label={shared ? `${label}, ${details}` : undefined}
-      title={shared ? `${label}, ${details}` : undefined}
+      data-booking-compact={compact ? "true" : undefined}
+      aria-label={shared || compact ? fullName : undefined}
+      title={shared || compact ? fullName : undefined}
       {...grabListeners}
       className={cn(
-        "m-px flex flex-col overflow-hidden rounded-md border bg-surface px-2 py-1 text-xs",
+        "m-px flex flex-col overflow-hidden rounded-md border bg-surface px-2 text-xs",
+        box.serviceMin < TIGHT_BELOW_MIN ? "py-0" : "py-1",
         booking.status === "confirmed" && "border-ink",
         booking.status === "completed" && "border-line text-muted-foreground",
         booking.status === "no_show" && "border-destructive text-destructive",
@@ -171,9 +196,13 @@ export function BookingCard({
         shared && "@container",
         shared && cancelled ? "z-[9]" : "z-10",
       )}
-      style={{ ...style, ...laneStyle }}
+      style={{ ...style, ...laneStyle, ...boxStyle }}
     >
-      {shared ? (
+      {compact ? (
+        <span className="w-0 min-w-full truncate font-medium">
+          {timeLabel} {booking.customerName}
+        </span>
+      ) : shared ? (
         <>
           <span className="font-medium @max-[7rem]:hidden">{label}</span>
           <span className="@max-[7rem]:hidden">{details}</span>
@@ -188,6 +217,22 @@ export function BookingCard({
         </>
       )}
     </Link>
+    {box.bufferMin > 0 && booking.status === "confirmed" && (
+      <div
+        data-booking-buffer
+        title={t.bufferBlock}
+        className="pointer-events-none z-[9] m-px rounded-b-md border border-t-0 border-line bg-disabled"
+        style={{
+          gridColumn: style.gridColumn,
+          gridRow: style.gridRow,
+          ...laneStyle,
+          alignSelf: "start",
+          marginTop: `calc(${minutesToHeight(box.offsetMin + box.serviceMin, box.granularityMin)} - 1px)`,
+          height: `calc(${minutesToHeight(box.bufferMin, box.granularityMin)})`,
+        }}
+      />
+    )}
+    </>
   );
 }
 

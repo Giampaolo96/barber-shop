@@ -22,6 +22,7 @@ import type { StaffRole } from "@/lib/calendar/transitions";
 import { calendarHref } from "@/lib/calendar/view";
 import {
   dayBlockPosition,
+  dayCardBox,
   daySlots,
   hhmm,
   initialWeekColumn,
@@ -29,9 +30,10 @@ import {
   weekDropTarget,
   weekNowLine,
 } from "@/lib/calendar/week-grid";
+import { cardGeometry } from "@/lib/calendar/grid";
 import { localDateOf } from "@/lib/domain/local-time";
 import { cn } from "@/lib/utils";
-import { BookingCard, ColumnDropZone, DraggedCard, NowLine, placed, ROW_HEIGHT } from "./grid-parts";
+import { BookingCard, ColumnDropZone, DraggedCard, GRID_ROW_CLASS, NowLine, placed, ROW_HEIGHT } from "./grid-parts";
 import { MoveFeedback } from "./move-feedback";
 import { useBookingMove } from "./use-booking-move";
 import { AUTO_SCROLL, useCalendarDrag } from "./use-calendar-drag";
@@ -183,7 +185,7 @@ export function WeekGridView({
       >
         {/* Larghezza minima fissa (non max-content): il testo delle schede non allarga le colonne. */}
         <div
-          className="grid w-full"
+          className={cn("grid w-full", GRID_ROW_CLASS)}
           style={{
             minWidth: `calc(3.5rem + ${days.length} * 7rem)`,
             gridTemplateColumns: `3.5rem repeat(${days.length}, minmax(7rem, 1fr))`,
@@ -251,7 +253,7 @@ export function WeekGridView({
                 className={cn(
                   // Sui dispositivi touch il link occupa tutta l'intestazione, alta 44 px (riga di 20 px + py-3);
                   // su desktop resta compatta. Link block, non flex: ::first-letter (maiuscola) passa solo nei blocchi.
-                  "sticky top-0 z-20 border-b bg-surface px-1 pb-2 text-sm font-semibold first-letter:uppercase pointer-coarse:pb-0",
+                  "sticky top-0 z-20 border-b bg-surface px-1 pb-2 text-sm font-semibold first-letter:uppercase max-md:pb-0 pointer-coarse:pb-0",
                   isToday ? "border-ink" : "border-transparent",
                   day.closed && "text-muted-foreground",
                 )}
@@ -259,7 +261,7 @@ export function WeekGridView({
               >
                 <Link
                   href={calendarHref({ date: day.date, showCancelled })}
-                  className="hover:underline pointer-coarse:block pointer-coarse:py-3"
+                  className="hover:underline max-md:block max-md:py-3 pointer-coarse:block pointer-coarse:py-3"
                 >
                   {dayLabel}
                 </Link>
@@ -277,7 +279,7 @@ export function WeekGridView({
                   return (
                     <div
                       key={`${day.date}-${minutes}`}
-                      className={cn(cellClass, slot.kind === "busy" && "bg-disabled")}
+                      className={cellClass}
                       title={slot.kind === "busy" ? t.bufferBlock : barberActive ? undefined : t.inactiveBarberNoBooking}
                       style={{ gridColumn, gridRow: index + 2 }}
                     />
@@ -333,6 +335,10 @@ export function WeekGridView({
                   draggable={draggableAt(booking, now)}
                   canGrab={() => draggableAt(booking, new Date())}
                   style={{ gridColumn, gridRow: `${position.row + 2} / span ${position.span}` }}
+                  box={{
+                    ...cardGeometry(dayCardBox(grid, day.date, position.row, timezone), booking),
+                    granularityMin: grid.granularityMin,
+                  }}
                 />
               )),
             ];

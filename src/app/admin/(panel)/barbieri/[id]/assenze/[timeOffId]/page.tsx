@@ -31,7 +31,7 @@ export default async function EditBarberTimeOffPage({
 
   return (
     <>
-      <Link href={`/admin/barbieri/${id}/assenze`} className="text-sm underline">
+      <Link href={`/admin/barbieri/${id}/assenze`} className="inline-flex min-h-11 w-fit items-center text-sm underline">
         {it.admin.common.backToList}
       </Link>
       <h1 className="font-display text-4xl leading-tight">{it.admin.period.editTitle}</h1>

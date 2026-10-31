@@ -17,7 +17,7 @@ export default async function NewBarberPage() {
 
   return (
     <>
-      <Link href="/admin/barbieri" className="text-sm underline">
+      <Link href="/admin/barbieri" className="inline-flex min-h-11 w-fit items-center text-sm underline">
         {it.admin.common.backToList}
       </Link>
       <h1 className="font-display text-4xl leading-tight">{it.admin.barbers.newTitle}</h1>

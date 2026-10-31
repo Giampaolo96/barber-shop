@@ -18,6 +18,8 @@ export type StatsParams = {
   barberId: string | null;
   excludeDemo: boolean;
   chart: StatsChart;
+  /** Periodi vuoti visibili nella tabella dell'andamento (`vuoti=1`). */
+  showEmpty?: boolean;
 };
 
 const optionalText = z.string().optional().catch(undefined);
@@ -42,9 +44,10 @@ export function statsSearchParamsSchema(today: string) {
       barbiere: optionalText,
       escludi_demo: optionalText,
       grafico: optionalText,
+      vuoti: optionalText,
     })
     .catch({})
-    .transform(({ dal, al, raggruppa, barbiere, escludi_demo, grafico }): StatsParams => {
+    .transform(({ dal, al, raggruppa, barbiere, escludi_demo, grafico, vuoti }): StatsParams => {
       const validPeriod =
         dal !== undefined &&
         al !== undefined &&
@@ -59,6 +62,7 @@ export function statsSearchParamsSchema(today: string) {
         barberId: barbiere !== undefined && z.uuid().safeParse(barbiere).success ? barbiere : null,
         excludeDemo: escludi_demo === "1" || escludi_demo === "on",
         chart: pick(STATS_CHARTS, grafico, "prenotazioni"),
+        ...(vuoti === "1" && { showEmpty: true }),
       };
     });
 }

@@ -47,7 +47,7 @@ export default async function StatsToUpdatePage({ searchParams }: { searchParams
 
   return (
     <>
-      <Link href={statsPath(params)} className="w-fit text-sm underline underline-offset-4">
+      <Link href={statsPath(params)} className="inline-flex min-h-11 w-fit items-center text-sm underline underline-offset-4">
         {t.back}
       </Link>
       <h1 className="font-display text-4xl leading-tight">{t.title}</h1>
