@@ -1,4 +1,5 @@
 -- Fetta 8h: modifica approvata dall'utente il 2026-11-08 (amr password nei claim staff / nome della RPC), nessuna asserzione cambiata.
+-- Fetta 8h: availability_inputs_json aggiunta all'allowlist delle funzioni per anon, approvata dall'utente il 2026-11-09.
 -- Test del rafforzamento di sicurezza dopo la review della FETTA 1 (non fanno parte dei
 -- test di accettazione scritti prima dell'implementazione). Creano i propri dati, tranne
 -- la riga di shop_settings (seed): vanno eseguiti dopo `npx supabase db reset`.
@@ -282,6 +283,9 @@ select is_empty(
            -- fetta 4: input del motore di disponibilità, leggibile senza login (solo orari)
            'availability_inputs(uuid,uuid,timestamp with time zone,timestamp with time zone)',
            'public.availability_inputs(uuid,uuid,timestamp with time zone,timestamp with time zone)',
+           -- fetta 8h: stessa funzione in un solo jsonb (ADR 015)
+           'availability_inputs_json(uuid,uuid,timestamp with time zone,timestamp with time zone)',
+           'public.availability_inputs_json(uuid,uuid,timestamp with time zone,timestamp with time zone)',
            -- fetta 8a: orari del negozio e chiusure di oggi per la home pubblica (nessun dato dei
            -- barbieri né motivo delle chiusure)
            'shop_opening_hours()', 'public.shop_opening_hours()',
