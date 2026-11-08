@@ -160,6 +160,8 @@ Rimandati: push notification PWA, SMS, WhatsApp.
 - Dati raccolti minimi: nome, email, telefono, storico prenotazioni.
 - Eliminazione account da parte del cliente → anonimizzazione delle prenotazioni passate (restano per le statistiche senza dati personali).
 - Row Level Security attiva su **tutte** le tabelle; nessuna chiave privilegiata nel codice client.
+- I privilegi dello staff valgono solo per una sessione aperta con la password (claim `amr` del token), nel database e nell'app: un accesso con codice email, magic link o recupero password non dà privilegi (ADR 015).
+- Nessun elenco perde righe in silenzio: le letture che possono crescere hanno un limite esplicito con un avviso, o restituiscono un solo `jsonb` (ADR 015).
 - Rate limiting sulla creazione prenotazioni per evitare abusi: nel database, per cliente, al massimo 3 prenotazioni online future e 10 creazioni nelle ultime 24 ore; per le pagine del flusso (che richiedono il login) una regola del firewall Vercel (ADR 005).
 
 ## 9. Requisiti non funzionali

@@ -87,6 +87,9 @@ export async function getServices(supabase: ServerClient): Promise<CatalogServic
 const BOOKING_COLUMNS =
   "id, barber_id, starts_at, ends_at, blocked_until, status, guest_name, service:services(name), customer:profiles!bookings_customer_id_fkey(full_name)";
 
+/** Prenotazioni lette al massimo per una vista (max_rows di PostgREST): oltre, la vista è incompleta. */
+export const CALENDAR_BOOKINGS_LIMIT = 1000;
+
 /** Prenotazioni dei barbieri che si sovrappongono a `[from, to)`, in ordine di inizio. */
 export async function getBookingsInRange(
   supabase: ServerClient,
@@ -101,7 +104,8 @@ export async function getBookingsInRange(
     .in("barber_id", barberIds)
     .lt("starts_at", to.toISOString())
     .gt("ends_at", from.toISOString())
-    .order("starts_at");
+    .order("starts_at")
+    .limit(CALENDAR_BOOKINGS_LIMIT);
   if (error || !data) return fail("prenotazioni", error);
   return data.map((row) => ({
     id: row.id,

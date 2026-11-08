@@ -4,7 +4,7 @@ import { RowAction } from "@/components/admin/row-action";
 import { buttonVariants } from "@/components/ui/button";
 import { it } from "@/i18n/it";
 import type { PeriodRowState } from "@/lib/admin/period-actions";
-import { describePeriod } from "@/lib/admin/periods";
+import { PERIODS_LIST_LIMIT, describePeriod } from "@/lib/admin/periods";
 import { fillText, formatItDate } from "@/lib/admin/text";
 
 export type PeriodRow = { id: string; starts_at: string; ends_at: string; reason: string | null };
@@ -46,6 +46,7 @@ export function PeriodTable({
   editHref,
   deleteAction,
   barberNames,
+  truncated = false,
 }: {
   rows: (PeriodRow & { barber_id?: string })[];
   tz: string;
@@ -53,6 +54,8 @@ export function PeriodTable({
   deleteAction: (previous: PeriodRowState, formData: FormData) => Promise<PeriodRowState>;
   /** Se presente, l'elenco mostra la colonna del barbiere (vista dell'admin). */
   barberNames?: Record<string, string>;
+  /** Il database ha più di PERIODS_LIST_LIMIT righe: se ne mostrano le più recenti, con un avviso. */
+  truncated?: boolean;
 }) {
   if (rows.length === 0) return <p className="text-sm text-muted-foreground">{it.admin.common.empty}</p>;
 
@@ -60,6 +63,11 @@ export function PeriodTable({
   // scorrimento orizzontale della sola tabella. Pulsanti a dimensione piena: tocco ≥ 44 px.
   return (
     <div className="overflow-x-auto">
+      {truncated && (
+        <p className="text-sm text-muted-foreground">
+          {fillText(it.admin.period.listTruncated, { count: PERIODS_LIST_LIMIT })}
+        </p>
+      )}
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b">

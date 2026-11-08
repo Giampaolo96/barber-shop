@@ -13,6 +13,7 @@ import {
   type CalendarPeriod,
   type CalendarSettings,
   getBarbers,
+  CALENDAR_BOOKINGS_LIMIT,
   getBookingsInRange,
   getClosures,
   getOpenWeekdays,
@@ -73,6 +74,8 @@ export type DayViewData = {
   grid: DayGrid;
   columns: DayColumn[];
   cancelledCount: number;
+  /** Lette CALENDAR_BOOKINGS_LIMIT prenotazioni: potrebbero essercene altre non mostrate. */
+  incomplete: boolean;
 };
 
 /** Vista giorno: barbieri attivi più quelli disattivati che hanno prenotazioni nel giorno. */
@@ -120,7 +123,12 @@ export async function loadDayView(
     bookings: shown.filter((booking) => visible.some((barber) => barber.id === booking.barberId)),
   });
 
-  return { grid, columns, cancelledCount: bookings.filter(isCancelled).length };
+  return {
+    grid,
+    columns,
+    cancelledCount: bookings.filter(isCancelled).length,
+    incomplete: bookings.length >= CALENDAR_BOOKINGS_LIMIT,
+  };
 }
 
 export type WeekViewData = {
@@ -129,6 +137,7 @@ export type WeekViewData = {
   /** Solo i giorni da disegnare (visibleWeekDays), da lunedì a domenica. */
   days: WeekDay[];
   cancelledCount: number;
+  incomplete: boolean;
 };
 
 /**
@@ -147,7 +156,7 @@ export async function loadWeekView(
   const chosen = barbers.find((barber) => barber.id === query.barberId)?.id;
   const barberId = chosen ?? defaultWeekBarber({ ownBarberId, barbers });
   const dates = weekDates(query.date);
-  if (!barberId) return { barberId: null, grid: null, days: [], cancelledCount: 0 };
+  if (!barberId) return { barberId: null, grid: null, days: [], cancelledCount: 0, incomplete: false };
 
   const from = startOfLocalDay(dates[0], timezone);
   const to = startOfLocalDay(addDays(dates[6], 1), timezone);
@@ -200,5 +209,11 @@ export async function loadWeekView(
     bookings: days.flatMap((day) => day.bookings),
   });
 
-  return { barberId, grid, days, cancelledCount: bookings.filter(isCancelled).length };
+  return {
+    barberId,
+    grid,
+    days,
+    cancelledCount: bookings.filter(isCancelled).length,
+    incomplete: bookings.length >= CALENDAR_BOOKINGS_LIMIT,
+  };
 }

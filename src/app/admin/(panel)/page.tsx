@@ -116,6 +116,7 @@ export default async function AdminCalendarPage({ searchParams }: { searchParams
             ) : null
           }
         />
+        {week.incomplete && <p role="status" className="text-sm text-destructive">{t.incomplete}</p>}
         {week.barberId && week.grid ? (
           <WeekGridView
             weekStart={dates[0]}
@@ -150,6 +151,7 @@ export default async function AdminCalendarPage({ searchParams }: { searchParams
         cancelledCount={day.cancelledCount}
         action={firstBarber ? <NewBookingLink barberId={firstBarber} date={query.date} /> : null}
       />
+      {day.incomplete && <p role="status" className="text-sm text-destructive">{t.incomplete}</p>}
       <DayGridView
         grid={day.grid}
         date={query.date}

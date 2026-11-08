@@ -3,7 +3,7 @@ import { PeriodTable } from "@/components/admin/period-table";
 import { Button } from "@/components/ui/button";
 import { it } from "@/i18n/it";
 import { deleteTimeOff } from "@/lib/admin/period-actions";
-import { ALL_BARBERS, resolveBarberFilter, sortPeriodsForList } from "@/lib/admin/periods";
+import { ALL_BARBERS, PERIODS_LIST_LIMIT, resolveBarberFilter, sortPeriodsForList } from "@/lib/admin/periods";
 import { getOwnBarberId, getShopTimezone } from "@/lib/admin/queries";
 import { requireRole } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/db/server";
@@ -39,7 +39,9 @@ export default async function TimeOffPage({
     const { data, error } = await supabase
       .from("time_off")
       .select(TIME_OFF_COLUMNS)
-      .eq("barber_id", ownBarberId);
+      .eq("barber_id", ownBarberId)
+      .order("starts_at", { ascending: false })
+      .limit(PERIODS_LIST_LIMIT + 1);
     if (error) throw new Error(`assenze non leggibili: ${error.code}`);
 
     return (
@@ -48,7 +50,8 @@ export default async function TimeOffPage({
         <h2 className="text-lg font-semibold">{it.admin.period.newTitle}</h2>
         <PeriodForm kind="timeOff" values={EMPTY_PERIOD} />
         <PeriodTable
-          rows={sortPeriodsForList(data, now)}
+          rows={sortPeriodsForList(data.slice(0, PERIODS_LIST_LIMIT), now)}
+          truncated={data.length > PERIODS_LIST_LIMIT}
           tz={tz}
           editHref={(id) => `/admin/assenze/${id}`}
           deleteAction={deleteTimeOff}
@@ -71,9 +74,12 @@ export default async function TimeOffPage({
     barbers.map((barber) => barber.id),
   );
 
+  // Le più recenti per prime, una riga oltre il limite per sapere se ce ne sono altre.
   let query = supabase.from("time_off").select(TIME_OFF_COLUMNS);
   if (selected) query = query.eq("barber_id", selected);
-  const { data: rows, error } = await query;
+  const { data: rows, error } = await query
+    .order("starts_at", { ascending: false })
+    .limit(PERIODS_LIST_LIMIT + 1);
   if (error) throw new Error(`assenze non leggibili: ${error.code}`);
 
   const t = it.admin.timeOff;
@@ -119,7 +125,8 @@ export default async function TimeOffPage({
         </Button>
       </form>
       <PeriodTable
-        rows={sortPeriodsForList(rows, now)}
+        rows={sortPeriodsForList(rows.slice(0, PERIODS_LIST_LIMIT), now)}
+        truncated={rows.length > PERIODS_LIST_LIMIT}
         tz={tz}
         editHref={(id) => `/admin/assenze/${id}`}
         deleteAction={deleteTimeOff}

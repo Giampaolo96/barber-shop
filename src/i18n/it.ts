@@ -104,6 +104,7 @@ export const it = {
     },
     list: {
       title: "Le mie prenotazioni",
+      myBookingsTruncated: "Sono mostrate solo le ultime {count} prenotazioni.",
       upcoming: "In programma",
       past: "Passate e cancellate",
       none: "Nessuna prenotazione.",
@@ -205,8 +206,8 @@ export const it = {
       submit: "Entra",
       invalidCredentials: "Credenziali non valide",
       accountDisabled: "Account disabilitato",
-      customerLink: "Sei un cliente? Accedi qui",
       passwordRequired: "Lo staff accede solo con email e password: inseriscile qui sotto.",
+      customerLink: "Sei un cliente? Accedi qui",
     },
     completeProfile: {
       title: "Completa il tuo profilo",
@@ -420,6 +421,7 @@ export const it = {
       overlap: "Due fasce dello stesso giorno si sovrappongono: correggile prima di salvare.",
     },
     period: {
+      listTruncated: "Sono mostrati solo i {count} periodi più recenti.",
       newTitle: "Nuovo periodo",
       editTitle: "Modifica periodo",
       modeLabel: "Durata",
@@ -548,6 +550,7 @@ export const it = {
       },
     },
     calendar: {
+      incomplete: "Troppe prenotazioni in questo periodo: il calendario potrebbe non mostrarle tutte.",
       today: "Oggi",
       previousDay: "Giorno precedente",
       nextDay: "Giorno successivo",
