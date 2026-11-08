@@ -28,6 +28,9 @@ export default defineConfig({
           name: "db",
           include: DB_TESTS,
           fileParallelism: false,
+          // Sotto carico (es. hook Stop in parallelo) le chiamate al DB superano i 5 s predefiniti.
+          testTimeout: 30_000,
+          hookTimeout: 30_000,
         },
       },
     ],
