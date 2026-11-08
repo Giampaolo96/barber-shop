@@ -1,8 +1,8 @@
 import "server-only";
 
 // Disponibilità lato server (SPEC §4, ADR 004): dati da `availability_inputs_json` (un solo jsonb,
-// niente taglio a max_rows: ADR 015) con il client della
-// richiesta (anon o utente, mai la service_role), calcolo nel motore puro, in uscita solo orari.
+// niente taglio a max_rows: ADR 015) con il client della richiesta (anon o utente, mai la
+// service_role), calcolo nel motore puro, in uscita solo orari.
 import { z } from "zod";
 import {
   dayStatuses,
@@ -17,10 +17,6 @@ import { createClient } from "@/lib/db/server";
 import { getShopInfo } from "./queries";
 import { initialDay, recentBarberId } from "./when";
 
-/**
- * input null: servizio inesistente o non visibile, nessun orario. `today` e `lastDay`: oggi e
- * ultimo giorno prenotabile (oggi + max_horizon_days), giorni locali del negozio.
- */
 /** Righe di availability_inputs_json: intervalli senza dati di clienti o prenotazioni. */
 const inputRowsSchema = z.array(
   z.object({
@@ -31,6 +27,10 @@ const inputRowsSchema = z.array(
   }),
 );
 
+/**
+ * input null: servizio inesistente o non visibile, nessun orario. `today` e `lastDay`: oggi e
+ * ultimo giorno prenotabile (oggi + max_horizon_days), giorni locali del negozio.
+ */
 type Loaded =
   | { ok: true; input: AvailabilityInput | null; today: string; lastDay: string }
   | { ok: false };
