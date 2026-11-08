@@ -1,3 +1,4 @@
+-- Fetta 8h: modifica approvata dall'utente il 2026-11-08 (amr password nei claim staff / nome della RPC), nessuna asserzione cambiata.
 -- Regressioni della review della fetta 3 (scritte durante l'implementazione, non da spec-qa).
 -- 1. Collegamento scheda → account: una scheda già collegata non passa a un altro account
 --    (barbers_guard_account_link); scollegare e collegare una scheda libera restano possibili.
@@ -10,8 +11,13 @@ select plan(20);
 
 create function pg_temp.act_as(uid uuid) returns void language plpgsql as $f$
 begin
+  -- Fetta 8h: lo staff accede con password, quindi il suo token ha amr password (ruolo letto come postgres)
+  reset role;
   perform set_config('request.jwt.claims',
-    json_build_object('sub', uid, 'role', 'authenticated')::text, true);
+    (json_build_object('sub', uid, 'role', 'authenticated')::jsonb
+       || case when exists (select 1 from public.profiles p where p.id = uid and p.role in ('barber', 'admin'))
+               then jsonb_build_object('amr', jsonb_build_array(jsonb_build_object('method', 'password')))
+               else '{}'::jsonb end)::text, true);
   set local role authenticated;
 end $f$;
 

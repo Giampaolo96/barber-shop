@@ -1,3 +1,4 @@
+// Fetta 8h: modifica approvata dall'utente il 2026-11-08 (amr password nei claim staff / nome della RPC), nessuna asserzione cambiata.
 // Test di accettazione – FETTA 2 (SPEC §11: "Auth e ruoli").
 // Fatta quando: "Cliente e admin entrano e vedono aree diverse".
 // Sezioni: SPEC §2 (ruoli), §5.5 (registrazione/login, telefono obbligatorio), §8 (privacy e
@@ -858,6 +859,10 @@ vi.mock('@/lib/db/server', () => {
                   email: user.email,
                   user_metadata: user.user_metadata,
                   app_metadata: user.app_metadata,
+                  // Fetta 8h: lo staff (ruolo in profiles) accede con password
+                  ...(fake.profile?.role === 'admin' || fake.profile?.role === 'barber'
+                    ? { amr: [{ method: 'password', timestamp: 1794000000 }] }
+                    : {}),
                 },
               },
               error: null,

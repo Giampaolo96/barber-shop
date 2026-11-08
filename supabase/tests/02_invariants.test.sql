@@ -1,3 +1,4 @@
+-- Fetta 8h: modifica approvata dall'utente il 2026-11-08 (amr password nei claim staff / nome della RPC), nessuna asserzione cambiata.
 -- Test di accettazione – FETTA 1 (SPEC §11: "Schema DB + RLS + seed dati demo").
 -- 02 – Regole invarianti garantite dal database (SPEC §3.7) e casi limite (SPEC §12).
 -- Eseguito come postgres (proprietario delle tabelle, senza JWT), tranne i cambi di stato che
@@ -260,7 +261,8 @@ select is((select no_show_count from public.profiles where id = 'c0000000-0000-4
 
 set local role authenticated;
 select set_config('request.jwt.claims',
-  json_build_object('sub', 'a0000000-0000-4000-8000-000000000201', 'role', 'authenticated')::text, true);
+  json_build_object('sub', 'a0000000-0000-4000-8000-000000000201', 'role', 'authenticated',
+    'amr', json_build_array(json_build_object('method', 'password')))::text, true);
 
 select is(
   pg_temp.outcome($q$ update public.bookings set status = 'cancelled_by_customer' where id = 'b00c0000-0000-4000-8000-000000000211' $q$),

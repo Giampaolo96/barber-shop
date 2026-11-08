@@ -1,3 +1,4 @@
+-- Fetta 8h: modifica approvata dall'utente il 2026-11-08 (amr password nei claim staff / nome della RPC), nessuna asserzione cambiata.
 -- Test di accettazione – FETTA 4 (SPEC §11: "Motore disponibilità").
 -- 17 – availability_inputs: dati minimi per il motore puro, leggibili da anon senza service_role.
 -- SPEC §4 (passi 1–3, "solo orari, mai dati di altre prenotazioni"), §3.4 (fasce in ora locale),
@@ -27,8 +28,13 @@ select plan(39);
 
 create function pg_temp.act_as(uid uuid) returns void language plpgsql as $f$
 begin
+  -- Fetta 8h: lo staff accede con password, quindi il suo token ha amr password (ruolo letto come postgres)
+  reset role;
   perform set_config('request.jwt.claims',
-    json_build_object('sub', uid, 'role', 'authenticated')::text, true);
+    (json_build_object('sub', uid, 'role', 'authenticated')::jsonb
+       || case when exists (select 1 from public.profiles p where p.id = uid and p.role in ('barber', 'admin'))
+               then jsonb_build_object('amr', jsonb_build_array(jsonb_build_object('method', 'password')))
+               else '{}'::jsonb end)::text, true);
   set local role authenticated;
 end $f$;
 
