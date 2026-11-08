@@ -8,7 +8,9 @@ import {
   CUSTOMER_LOGIN_PATH,
   DISABLED_REASON,
   HOME_PATH,
+  PASSWORD_REQUIRED_REASON,
   STAFF_LOGIN_PATH,
+  isPasswordSession,
   isStaffRole,
 } from "./access";
 import type { Role } from "./access";
@@ -74,6 +76,12 @@ export async function getCurrentNoShowCount(): Promise<number | null> {
   return (await getSessionProfile())?.noShowCount ?? null;
 }
 
+/** Sessione della richiesta aperta con password (claim amr); false se i claim non si leggono. */
+const hasPasswordSession = cache(async (): Promise<boolean> => {
+  const { data } = await (await createClient()).auth.getClaims();
+  return isPasswordSession(data?.claims);
+});
+
 /** Da chiamare in layout, pagine e server action: respinge con un redirect chi non ha il ruolo. */
 export async function requireRole(allowed: readonly Role[]): Promise<CurrentUser> {
   const user = await getCurrentUser();
@@ -82,6 +90,10 @@ export async function requireRole(allowed: readonly Role[]): Promise<CurrentUser
   if (!user) redirect(staffOnly ? STAFF_LOGIN_PATH : CUSTOMER_LOGIN_PATH);
   if (isStaffRole(user.role) && user.isBlocked) {
     redirect(STAFF_LOGIN_PATH + "?motivo=" + DISABLED_REASON);
+  }
+  // Staff entrato senza password (ADR 015): nel database non ha privilegi, qui nessun accesso.
+  if (isStaffRole(user.role) && !(await hasPasswordSession())) {
+    redirect(STAFF_LOGIN_PATH + "?motivo=" + PASSWORD_REQUIRED_REASON);
   }
   if (!allowed.includes(user.role)) redirect(isStaffRole(user.role) ? ADMIN_PATH : HOME_PATH);
 

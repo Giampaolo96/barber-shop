@@ -5,7 +5,9 @@ import {
   COMPLETE_PROFILE_PATH,
   CUSTOMER_LOGIN_PATH,
   DISABLED_REASON,
+  PASSWORD_REQUIRED_REASON,
   STAFF_LOGIN_PATH,
+  isPasswordSession,
   isStaffRole,
 } from "@/lib/auth/access";
 import { emailLinkFallback } from "@/lib/auth/email-fallback";
@@ -51,6 +53,10 @@ export async function proxy(request: NextRequest) {
       .maybeSingle();
     if (profile) claimedUser = toCurrentUser(userId, profile);
   }
+  // Staff entrato senza password (ADR 015): fuori da /admin come lo staff bloccato, motivo a parte.
+  const withoutPassword =
+    claimedUser !== null && isStaffRole(claimedUser.role) && !isPasswordSession(data?.claims);
+  if (claimedUser && withoutPassword) claimedUser = { ...claimedUser, isBlocked: true };
 
   // getClaims() non vede una sessione revocata altrove (ADR 002): prima di un redirect dovuto
   // all'utente loggato la sessione si conferma con Supabase.
@@ -91,10 +97,10 @@ export async function proxy(request: NextRequest) {
     target.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
   }
 
-  // Staff bloccato a sessione aperta: resta fuori da /admin e la sessione del browser
+  // Staff bloccato (o senza password) a sessione aperta: resta fuori da /admin e la sessione del browser
   // viene chiusa togliendo i cookie di autenticazione.
   if (user && isStaffRole(user.role) && user.isBlocked && decision.to === STAFF_LOGIN_PATH) {
-    target.searchParams.set("motivo", DISABLED_REASON);
+    target.searchParams.set("motivo", withoutPassword ? PASSWORD_REQUIRED_REASON : DISABLED_REASON);
     const blockedResponse = NextResponse.redirect(target);
     for (const { name } of request.cookies.getAll()) {
       if (name.startsWith("sb-") && name.includes("-auth-token")) blockedResponse.cookies.delete(name);

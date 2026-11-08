@@ -206,6 +206,7 @@ export const it = {
       invalidCredentials: "Credenziali non valide",
       accountDisabled: "Account disabilitato",
       customerLink: "Sei un cliente? Accedi qui",
+      passwordRequired: "Lo staff accede solo con email e password: inseriscile qui sotto.",
     },
     completeProfile: {
       title: "Completa il tuo profilo",
