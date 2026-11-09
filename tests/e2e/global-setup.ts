@@ -83,8 +83,8 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   // Le date dei test (test-date.ts) valgono per un giro solo.
   resetDateClaims();
 
-  // In CI gli e2e girano sulla build di produzione: niente compilazione su richiesta.
-  if (process.env.CI) return;
+  // Sulla build di produzione (CI e npm run test:e2e) niente compilazione su richiesta.
+  if (process.env.CI || config.metadata.production) return;
 
   const baseURL = config.projects[0]?.use.baseURL;
   const browser = await chromium.launch();
