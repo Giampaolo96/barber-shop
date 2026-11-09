@@ -56,3 +56,16 @@ Con la fetta 6 lo spostamento (SPEC §6.3) passava solo dal modulo di modifica d
 - Il barbiere può riorganizzare la propria giornata senza passare dall'admin; il database resta l'ultima garanzia.
 - Notifica al cliente dello spostamento (anche da trascinamento e annullamento): da fare nella fetta 7.
 - Il touch va verificato a mano su un dispositivo o una viewport iPhone: gli e2e usano il mouse.
+
+## Aggiornamento (fetta 8h, 2026-11-09): niente cambio di giorno durante uno spostamento
+
+**Contesto.** Il test e2e "se il server rifiuta uno spostamento dopo un cambio di giorno…" (8j) falliva ogni tanto, anche sulla build di produzione: dopo il clic su "Giorno successivo" con la risposta di `moveBooking` trattenuta, l'avviso non arrivava mai. La trace mostra una GET del documento completo (`/admin?data=…`, senza `_rsc`).
+
+Comportamento di Next 16.4.3, verificato nei sorgenti in `node_modules/next/dist/client/components/`:
+- `app-router-instance.js`, `dispatchAction`: una navigazione (o un back/forward) che arriva con un'azione in corso ha la precedenza. L'azione in corso è marcata `discarded` e la navigazione parte subito.
+- `runAction` → `handleResult`: se l'azione è `discarded`, il suo stato non si applica e la promise del chiamante non viene né risolta né rifiutata. L'`await moveBooking(…)` del client resta in sospeso per sempre, quindi né l'esito né l'errore arrivano all'interfaccia. Se l'azione aveva rivalidato dati, si fa solo un `refresh` a coda vuota.
+- `app-router-state.js` (`navigate` → `completeHardNavigation`) e `render-tree.js`: quando la navigazione SPA non riesce (richiesta RSC fallita, redirect, albero non coerente), Next ripiega su una navigazione completa del documento (MPA), che azzera lo stato del client. È la GET senza `_rsc` della trace.
+
+**Decisione.** Mentre uno spostamento aspetta il server, la barra del calendario non naviga. Frecce, "Oggi", Giorno/Settimana e selettore del barbiere diventano `aria-disabled` e il clic non fa nulla (`CalendarNavLink` e `setMoveBusy` in `move-lock.tsx`, collegati a `busy` di `useBookingMove`). Tornano attivi all'esito, positivo o di errore. Se la risposta non arriva entro 15 s (`MOVE_TIMEOUT_MS`), la scheda torna al suo posto, i comandi si riattivano e compare l'errore `move.timeout` con "Chiudi"; un'eventuale risposta tardiva si ignora. Il server non cambia. Scorciatoie da tastiera per cambiare giorno non ne esistono.
+
+**Conseguenze.** Restano possibili le navigazioni fuori dalla barra (link delle schede, "Nuova prenotazione", "mostra cancellate", menu, indietro del browser): scartano lo spostamento in corso come prima. Dopo un timeout lo stato reale si vede ricaricando la pagina.

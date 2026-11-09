@@ -4,6 +4,7 @@ import { it } from "@/i18n/it";
 import { addDays } from "@/lib/domain/local-time";
 import { type CalendarQuery, calendarHref } from "@/lib/calendar/view";
 import { cn } from "@/lib/utils";
+import { CalendarNavLink } from "./move-lock";
 
 const t = it.admin.calendar;
 const linkClass =
@@ -36,23 +37,23 @@ export function CalendarToolbar({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Link
+        <CalendarNavLink
           href={calendarHref({ ...keep, date: addDays(query.date, -step) })}
           aria-label={week ? t.previousWeek : t.previousDay}
           className={linkClass}
         >
           ←
-        </Link>
-        <Link href={calendarHref({ ...keep, date: today })} className={linkClass}>
+        </CalendarNavLink>
+        <CalendarNavLink href={calendarHref({ ...keep, date: today })} className={linkClass}>
           {t.today}
-        </Link>
-        <Link
+        </CalendarNavLink>
+        <CalendarNavLink
           href={calendarHref({ ...keep, date: addDays(query.date, step) })}
           aria-label={week ? t.nextWeek : t.nextDay}
           className={linkClass}
         >
           →
-        </Link>
+        </CalendarNavLink>
         <h1 className={cn(
             "min-w-0 flex-1 font-display whitespace-nowrap first-letter:uppercase md:ml-2 md:flex-none",
             week ? "text-base md:text-2xl xl:text-3xl" : "text-2xl md:text-3xl",
@@ -63,27 +64,27 @@ export function CalendarToolbar({
         <div className="flex w-full flex-wrap items-center justify-between gap-2 md:contents">
       <nav aria-label={t.viewLabel} className="flex md:ml-2">
         {(["giorno", "settimana"] as const).map((view) => (
-          <Link
+          <CalendarNavLink
             key={view}
             href={calendarHref({ ...keep, view, barberId: view === "settimana" ? weekBarberId : null, date: query.date })}
             aria-current={query.view === view ? "page" : undefined}
             className={cn(linkClass, "-ml-px first:ml-0", query.view === view && "relative border-ink bg-ink text-surface")}
           >
             {view === "giorno" ? t.dayView : t.weekView}
-          </Link>
+          </CalendarNavLink>
         ))}
       </nav>
       {week && barbers.length > 1 && (
         <nav aria-label={t.barberFilterLabel} className="order-last flex w-full flex-wrap gap-2 md:order-none md:ml-2 md:w-auto">
           {barbers.map((barber) => (
-            <Link
+            <CalendarNavLink
               key={barber.id}
               href={calendarHref({ ...keep, barberId: barber.id, date: query.date })}
               aria-current={barber.id === weekBarberId ? "page" : undefined}
               className={cn(linkClass, barber.id === weekBarberId && "border-ink bg-ink text-surface")}
             >
               {barber.displayName}
-            </Link>
+            </CalendarNavLink>
           ))}
         </nav>
       )}

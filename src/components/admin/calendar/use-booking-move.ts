@@ -6,10 +6,13 @@ import { it } from "@/i18n/it";
 import { moveBooking } from "@/lib/calendar/actions";
 import type { WarningCode } from "@/lib/calendar/warnings";
 import { CALENDAR_ERROR_TEXT } from "./messages";
+import { setMoveBusy } from "./move-lock";
 
 const t = it.admin.calendar.move;
 /** Per quanto resta disponibile "Annulla spostamento" (decisione fetta 6c). */
 const UNDO_MS = 8_000;
+/** Oltre questo tempo senza risposta i comandi del calendario tornano attivi, con un errore. */
+export const MOVE_TIMEOUT_MS = 15_000;
 
 export type Position = { barberId: string; startsAt: Date };
 
@@ -50,6 +53,12 @@ export function useBookingMove<T>(base: T, view: string) {
     latestBase.current = base;
   }, [base]);
 
+  // Con uno spostamento in corso la barra del calendario non naviga (move-lock).
+  useEffect(() => {
+    setMoveBusy(busy);
+    return () => setMoveBusy(false);
+  }, [busy]);
+
   // "Annulla spostamento" scade: resta solo il messaggio, che dopo lo stesso tempo sparisce.
   useEffect(() => {
     if (notice?.tone !== "success") return;
@@ -74,15 +83,28 @@ export function useBookingMove<T>(base: T, view: string) {
     setBusy(true);
     place(move.id, move.to);
     setNotice({ text: t.saving, tone: "progress" });
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const result = await moveBooking({
-        id: move.id,
-        barberId: move.to.barberId,
-        startsAt: move.to.startsAt.toISOString(),
-        expectedBarberId: move.from.barberId,
-        expectedStartsAt: move.from.startsAt.toISOString(),
-        confirmedWarnings: move.confirmedWarnings,
+      const timedOut = new Promise<"timeout">((resolve) => {
+        timer = setTimeout(() => resolve("timeout"), MOVE_TIMEOUT_MS);
       });
+      const result = await Promise.race([
+        moveBooking({
+          id: move.id,
+          barberId: move.to.barberId,
+          startsAt: move.to.startsAt.toISOString(),
+          expectedBarberId: move.from.barberId,
+          expectedStartsAt: move.from.startsAt.toISOString(),
+          confirmedWarnings: move.confirmedWarnings,
+        }),
+        timedOut,
+      ]);
+      // Esito ignoto: la scheda torna al suo posto e un'eventuale risposta tardiva si ignora.
+      if (result === "timeout") {
+        place(move.id, null);
+        setNotice({ text: t.timeout, tone: "error" });
+        return;
+      }
       if (result.status === "saved") {
         const back: Move = { id: move.id, from: move.to, to: move.from, confirmedWarnings: result.previousWarnings };
         setNotice(
@@ -113,6 +135,7 @@ export function useBookingMove<T>(base: T, view: string) {
       place(move.id, null);
       setNotice({ text: t.error, tone: "error" });
     } finally {
+      clearTimeout(timer);
       setBusy(false);
     }
   };

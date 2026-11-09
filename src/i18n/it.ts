@@ -682,6 +682,7 @@ export const it = {
         submit: "Sposta",
         pastTarget: "Non si può spostare una prenotazione su un orario già passato.",
         error: "Non è stato possibile spostare la prenotazione. Riprova.",
+        timeout: "Il server non risponde: lo spostamento potrebbe non essere stato salvato. Ricarica la pagina per controllare.",
       },
     },
   },

@@ -1,5 +1,9 @@
 // Correzioni dopo la review della fetta 8j: sfondo delle righe occupate (M2), voce attiva del menu,
 // spazio sopra la griglia, area di tocco delle schede da 15 minuti.
+// Modifica approvata dall'utente il 2026-11-09: il test "se il server rifiuta uno spostamento dopo un
+// cambio di giorno…" descriveva uno scenario non più possibile (durante uno spostamento la barra non
+// naviga: una navigazione di Next scarta la server action in volo, ADR 008). Sostituito da due test:
+// comandi disattivati durante lo spostamento trattenuto; errore con "Chiudi" e comandi riattivati al rifiuto.
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import {
@@ -225,44 +229,73 @@ test("cambiando settimana o barbiere lo scorrimento verticale non cambia", async
   }
 });
 
-test('se il server rifiuta uno spostamento dopo un cambio di giorno, compare comunque un errore con "Chiudi"', async ({
+/** Prepara uno spostamento che il server rifiuterà (barbiere occupato) e ne trattiene la risposta. */
+const heldRejectedMove = async (page: Page, api: AdminApi, label: string) => {
+  const date = testDate();
+  await clearBookings(api, [SEED.luca], date);
+  const guest = uniqueName(label);
+  const ids = [
+    await booking(api, guest, romeWinter(date, '09:15')),
+    await booking(api, uniqueName(`Occupa ${label}`), romeWinter(date, '09:45')),
+  ];
+  await loginAsAdmin(page);
+  await page.goto(`/admin?data=${date}&vista=giorno`);
+
+  let release = (): void => undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    (url) => url.pathname === '/admin',
+    async (route) => {
+      if (route.request().method() === 'POST') await held;
+      await route.fallback();
+    },
+  );
+
+  await dragDown(page, page.locator('main').getByRole('link', { name: new RegExp(guest) }), 2);
+  await expect(notice(page)).toContainText(s('admin.calendar.move.saving'));
+  return { date, ids, release };
+};
+
+/** Comandi della barra che cambiano giorno o vista. */
+const dayControls = (page: Page): Locator[] =>
+  (['admin.calendar.previousDay', 'admin.calendar.today', 'admin.calendar.nextDay', 'admin.calendar.dayView', 'admin.calendar.weekView'] as const).map(
+    (key) => page.locator('main').getByRole('link', { name: s(key), exact: true }),
+  );
+
+test("durante uno spostamento trattenuto i comandi di cambio giorno sono disattivati e un clic non cambia l'URL", async ({
   page,
 }) => {
   await page.setViewportSize(DESKTOP);
   const api = await adminApi(page.request);
-  const date = testDate();
-  await clearBookings(api, [SEED.luca], date);
-  const guest = uniqueName('Rifiuto');
-  const ids = [
-    await booking(api, guest, romeWinter(date, '09:15')),
-    await booking(api, uniqueName('Occupa rifiuto'), romeWinter(date, '09:45')),
-  ];
+  const { ids, release } = await heldRejectedMove(page, api, 'Bloccati');
   try {
-    await loginAsAdmin(page);
-    await page.goto(`/admin?data=${date}&vista=giorno`);
-
-    // La risposta del server arriva solo dopo il cambio di giorno
-    let release = (): void => undefined;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    await page.route(
-      (url) => url.pathname === '/admin',
-      async (route) => {
-        if (route.request().method() === 'POST') await held;
-        await route.fallback();
-      },
-    );
-
-    await dragDown(page, page.locator('main').getByRole('link', { name: new RegExp(guest) }), 2);
-    await expect(notice(page)).toContainText(s('admin.calendar.move.saving'));
-    await page.getByRole('link', { name: s('admin.calendar.nextDay'), exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`data=${plusDays(date, 1)}`));
+    for (const control of dayControls(page)) await expect(control).toHaveAttribute('aria-disabled', 'true');
+    const before = page.url();
+    // force: Playwright non clicca un elemento aria-disabled; il clic deve comunque arrivare e non navigare.
+    await page.getByRole('link', { name: s('admin.calendar.nextDay'), exact: true }).click({ force: true });
+    await page.getByRole('link', { name: s('admin.calendar.weekView'), exact: true }).click({ force: true });
+    await page.waitForTimeout(500);
+    expect(page.url()).toBe(before);
+  } finally {
     release();
+    await cleanup(api, { bookings: ids });
+  }
+});
 
-    await expect(notice(page)).toContainText(s('admin.calendar.errors.barberBusy'), { timeout: 20_000 });
+test(`al rilascio con rifiuto del server compare l'errore con "Chiudi" e i comandi tornano attivi`, async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  const api = await adminApi(page.request);
+  const { date, ids, release } = await heldRejectedMove(page, api, 'Rifiuto');
+  try {
+    release();
+    await expect(notice(page)).toContainText(s('admin.calendar.errors.barberBusy'));
+    for (const control of dayControls(page)) await expect(control).not.toHaveAttribute('aria-disabled');
     await notice(page).getByRole('button', { name: s('admin.calendar.move.close'), exact: true }).click();
     await expect(notice(page)).toHaveCount(0);
+    await page.getByRole('link', { name: s('admin.calendar.nextDay'), exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`data=${plusDays(date, 1)}`));
   } finally {
     await cleanup(api, { bookings: ids });
   }
