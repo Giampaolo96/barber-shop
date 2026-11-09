@@ -78,7 +78,7 @@ export async function getCurrentNoShowCount(): Promise<number | null> {
 }
 
 /** Sessione della richiesta aperta con password (claim amr); false se i claim non si leggono. */
-const hasPasswordSession = cache(async (): Promise<boolean> => {
+export const hasPasswordSession = cache(async (): Promise<boolean> => {
   return isPasswordSession(await getClaimsCached(await createClient()));
 });
 

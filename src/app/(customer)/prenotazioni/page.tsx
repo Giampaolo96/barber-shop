@@ -117,12 +117,14 @@ export default async function MyBookingsPage({
             ) : (
               <ul className="flex flex-col gap-2">{past.map((booking) => item(booking, null))}</ul>
             )}
-            {own?.truncated && (
-              <p className="text-sm text-muted-foreground">
-                {fillText(t.myBookingsTruncated, { count: MY_BOOKINGS_LIMIT })}
-              </p>
-            )}
           </section>
+
+          {/* Avviso sull'intero elenco, fuori dalle passate: con 200 future le passate sarebbero "nessuna". */}
+          {own?.truncated && (
+            <p role="status" className="text-sm text-muted-foreground">
+              {fillText(t.myBookingsTruncated, { count: MY_BOOKINGS_LIMIT })}
+            </p>
+          )}
         </>
       )}
     </main>

@@ -13,7 +13,6 @@ import {
   type CalendarPeriod,
   type CalendarSettings,
   getBarbers,
-  CALENDAR_BOOKINGS_LIMIT,
   getBookingsInRange,
   getClosures,
   getOpenWeekdays,
@@ -74,7 +73,7 @@ export type DayViewData = {
   grid: DayGrid;
   columns: DayColumn[];
   cancelledCount: number;
-  /** Lette CALENDAR_BOOKINGS_LIMIT prenotazioni: potrebbero essercene altre non mostrate. */
+  /** Più di CALENDAR_BOOKINGS_LIMIT prenotazioni nel periodo (o conteggio mancante): alcune non si vedono. */
   incomplete: boolean;
 };
 
@@ -90,7 +89,7 @@ export async function loadDayView(
   const to = startOfLocalDay(addDays(query.date, 1), timezone);
   const ids = barbers.map((barber) => barber.id);
 
-  const [bookings, bands, timeOff, closures] = await Promise.all([
+  const [{ bookings, incomplete }, bands, timeOff, closures] = await Promise.all([
     getBookingsInRange(supabase, ids, from, to),
     getWorkingBands(supabase, ids),
     getTimeOff(supabase, ids, from, to),
@@ -127,7 +126,7 @@ export async function loadDayView(
     grid,
     columns,
     cancelledCount: bookings.filter(isCancelled).length,
-    incomplete: bookings.length >= CALENDAR_BOOKINGS_LIMIT,
+    incomplete,
   };
 }
 
@@ -160,7 +159,7 @@ export async function loadWeekView(
 
   const from = startOfLocalDay(dates[0], timezone);
   const to = startOfLocalDay(addDays(dates[6], 1), timezone);
-  const [bookings, bands, timeOff, closures, openWeekdays] = await Promise.all([
+  const [{ bookings, incomplete }, bands, timeOff, closures, openWeekdays] = await Promise.all([
     getBookingsInRange(supabase, [barberId], from, to),
     getWorkingBands(supabase, [barberId]),
     getTimeOff(supabase, [barberId], from, to),
@@ -214,6 +213,6 @@ export async function loadWeekView(
     grid,
     days,
     cancelledCount: bookings.filter(isCancelled).length,
-    incomplete: bookings.length >= CALENDAR_BOOKINGS_LIMIT,
+    incomplete,
   };
 }

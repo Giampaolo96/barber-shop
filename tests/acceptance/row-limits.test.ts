@@ -13,11 +13,14 @@
 //     getMyBookings(customerId) → { bookings: MyBooking[]; truncated: boolean } | null, con
 //     .limit(MY_BOOKINGS_LIMIT + 1); /prenotazioni mostra it.booking.list.myBookingsTruncated ({count}).
 //   src/lib/calendar/queries.ts: export const CALENDAR_BOOKINGS_LIMIT = 1000; getBookingsInRange usa
-//     .limit(CALENDAR_BOOKINGS_LIMIT).
-//   src/lib/calendar/page-data.ts: DayViewData e WeekViewData con incomplete: boolean (righe lette >=
-//     CALENDAR_BOOKINGS_LIMIT); il calendario mostra it.admin.calendar.incomplete quando incomplete.
+//     .select(…, { count: "exact" }) e .limit(CALENDAR_BOOKINGS_LIMIT).
+//   src/lib/calendar/page-data.ts: DayViewData e WeekViewData con incomplete: boolean (totale >
+//     CALENDAR_BOOKINGS_LIMIT o conteggio mancante); il calendario mostra it.admin.calendar.incomplete.
 // Client Supabase finto: simula il database (ordine dato dal test, limite applicato come PostgREST).
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
+// Modifica approvata dall'utente il 2026-11-09 (migliorie della review): il calendario legge con
+// .limit(1000) e count esatto; incomplete solo se il totale supera 1000 o il conteggio manca
+// (esattamente 1000 → nessun avviso).
 
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -33,6 +36,8 @@ const fake = vi.hoisted(() => ({
   calls: [] as Array<{ table: string; method: string; args: unknown[] }>,
   role: 'admin' as 'admin' | 'barber',
   ownBarberId: null as string | null,
+  /** Conteggio restituito con count: "exact"; undefined = numero di righe della tabella. */
+  count: undefined as number | null | undefined,
 }));
 
 vi.mock('server-only', () => ({}));
@@ -67,9 +72,11 @@ vi.mock('@/lib/admin/queries', async (importOriginal) => ({
 const fakeClient = vi.hoisted(() => () => {
   const builder = (table: string): unknown => {
     let limit: number | null = null;
+    let counted = false;
     const result = () => {
       const all = fake.rows[table] ?? [];
-      return { data: limit === null ? all : all.slice(0, limit), error: null };
+      const count = counted ? (fake.count === undefined ? all.length : fake.count) : null;
+      return { data: limit === null ? all : all.slice(0, limit), error: null, count };
     };
     const proxy: unknown = new Proxy(
       {},
@@ -87,6 +94,7 @@ const fakeClient = vi.hoisted(() => () => {
           return (...args: unknown[]) => {
             fake.calls.push({ table, method: String(property), args });
             if (property === 'limit') limit = Number(args[0]);
+            if (property === 'select') counted = (args[1] as { count?: string } | undefined)?.count === 'exact';
             return proxy;
           };
         },
@@ -118,6 +126,7 @@ beforeEach(() => {
   fake.calls = [];
   fake.role = 'admin';
   fake.ownBarberId = null;
+  fake.count = undefined;
   vi.resetModules();
 });
 
@@ -359,18 +368,20 @@ const views = async () => {
 };
 
 describe('calendario: lettura limitata a 1000 prenotazioni e vista segnalata incompleta (fetta 8h)', () => {
-  test('getBookingsInRange usa .limit(1000)', async () => {
+  test('getBookingsInRange usa .limit(1000) e il conteggio esatto', async () => {
     fake.rows.bookings = calendarRows(3);
     const { getBookingsInRange } = (await import('@/lib/calendar/queries')) as unknown as {
       getBookingsInRange: (...args: unknown[]) => Promise<unknown[]>;
     };
     await getBookingsInRange(fakeClient(), [BARBER], new Date('2027-03-01T23:00:00Z'), new Date('2027-03-02T23:00:00Z'));
     expect(callsOn('bookings', 'limit').map((c) => c.args[0])).toEqual([1000]);
+    expect(callsOn('bookings', 'select').map((c) => c.args[1])).toEqual([{ count: 'exact' }]);
   });
 
   test.each([
     [1500, true],
-    [1000, true],
+    [1001, true],
+    [1000, false],
     [999, false],
   ])('vista giorno con %i prenotazioni nel database → incomplete %s', async (n, expected) => {
     fake.rows.bookings = calendarRows(n);
@@ -380,13 +391,23 @@ describe('calendario: lettura limitata a 1000 prenotazioni e vista segnalata inc
 
   test.each([
     [1500, true],
-    [1000, true],
+    [1001, true],
+    [1000, false],
     [999, false],
   ])('vista settimana con %i prenotazioni nel database → incomplete %s', async (n, expected) => {
     fake.rows.bookings = calendarRows(n);
     fake.rows['rpc:shop_opening_hours'] = [{ weekday: 2, opens_at: '09:00', closes_at: '19:00' }];
     const { week } = await views();
     expect((await week()).incomplete).toBe(expected);
+  });
+
+  test('conteggio mancante → incomplete true, nel giorno e nella settimana', async () => {
+    fake.rows.bookings = calendarRows(3);
+    fake.rows['rpc:shop_opening_hours'] = [{ weekday: 2, opens_at: '09:00', closes_at: '19:00' }];
+    fake.count = null;
+    const { day, week } = await views();
+    expect((await day()).incomplete).toBe(true);
+    expect((await week()).incomplete).toBe(true);
   });
 
   test('la pagina del calendario mostra it.admin.calendar.incomplete per la vista giorno e settimana', () => {

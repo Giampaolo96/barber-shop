@@ -18,12 +18,13 @@ import { getShopInfo } from "./queries";
 import { initialDay, recentBarberId } from "./when";
 
 /** Righe di availability_inputs_json: intervalli senza dati di clienti o prenotazioni. */
-const inputRowsSchema = z.array(
+export const inputRowsSchema = z.array(
   z.object({
     kind: z.enum(["work", "time_off", "closure", "busy"]),
     barber_id: z.string().nullable(),
-    starts_at: z.string(),
-    ends_at: z.string(),
+    // timestamptz in jsonb: ISO 8601 con offset; una data non valida darebbe un Invalid Date nel motore.
+    starts_at: z.iso.datetime({ offset: true }),
+    ends_at: z.iso.datetime({ offset: true }),
   }),
 );
 

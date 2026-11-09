@@ -57,6 +57,9 @@ export async function proxy(request: NextRequest) {
   // Staff entrato senza password (ADR 015): fuori da /admin come lo staff bloccato, motivo a parte.
   const withoutPassword =
     claimedUser !== null && isStaffRole(claimedUser.role) && !isPasswordSession(claims);
+  // Uno staff già bloccato resta "disabilitato" anche senza password.
+  const blockedReason =
+    withoutPassword && !claimedUser?.isBlocked ? PASSWORD_REQUIRED_REASON : DISABLED_REASON;
   if (claimedUser && withoutPassword) claimedUser = { ...claimedUser, isBlocked: true };
 
   // getClaims() non vede una sessione revocata altrove (ADR 002): prima di un redirect dovuto
@@ -101,7 +104,7 @@ export async function proxy(request: NextRequest) {
   // Staff bloccato (o senza password) a sessione aperta: resta fuori da /admin e la sessione del browser
   // viene chiusa togliendo i cookie di autenticazione.
   if (user && isStaffRole(user.role) && user.isBlocked && decision.to === STAFF_LOGIN_PATH) {
-    target.searchParams.set("motivo", withoutPassword ? PASSWORD_REQUIRED_REASON : DISABLED_REASON);
+    target.searchParams.set("motivo", blockedReason);
     const blockedResponse = NextResponse.redirect(target);
     for (const { name } of request.cookies.getAll()) {
       if (name.startsWith("sb-") && name.includes("-auth-token")) blockedResponse.cookies.delete(name);
