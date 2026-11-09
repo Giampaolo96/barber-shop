@@ -20,7 +20,7 @@
 | 8e | completata | 2026-10-16 | Vedi "Fetta 8e" sotto; manca la prova su iPhone e una decisione su "oggi chiuso" |
 | 8f | completata | 2026-10-25 | Vedi "Fetta 8f" sotto; manca la prova su iPhone |
 | 8g | completata | 2026-10-30 | Vedi "Fetta 8g" sotto; scorrimento invariato (deciso su iPhone); punto 6 dell'audit chiuso il 2026-10-30 |
-| 8h | da fare | | Sicurezza dati prima del go-live: punti 2 e 3 dell'audit |
+| 8h | completata | 2026-11-09 | Vedi "Fetta 8h" sotto; da rilasciare (prima `db push`, poi deploy); un e2e della 8j instabile sul branch (punto 1 dei problemi aperti) |
 | 8i | da fare | | Correzioni admin: punti 5, 8 e 9 dell'audit |
 | 8j | completata | 2026-10-31 | Vedi "Fetta 8j" sotto; una decisione aperta sui test (punto 1 dei problemi aperti) |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
@@ -1468,3 +1468,32 @@ Critica sugli screenshot con `references/critique.md`: l'inspector non apre le p
 - `futureWinterWeek` e `pastDay` passano da `testDate()`, con `clearBookings` e `clearClosures` prima di creare i dati. `randomWinterDate` non esiste più.
 - Indagine su `admin-calendar.spec.ts:271`: non è un difetto dell'app né delle policy. Il POST `next-action` su `/admin/calendario/682ac758-…` (2014-01-29, Luca) ha avuto 200 con esito `forbidden` da `if (!existing)` in `changeBookingStatus`, perché la prenotazione non esisteva più: anche l'API dell'admin non la trovava. L'aveva cancellata `clearBookings` di `admin-customers-mobile.spec.ts`, che ha 2014-01-29 come data fissa e gira in parallelo, mentre `pastDay` casuale era caduta sullo stesso giorno e barbiere. Regola: `clearBookings` solo su date di `testDate()`, mai su quelle casuali.
 - Generatori casuali rimasti, fuori da questo intervento: `futureDay` (`admin-calendar`, `admin-calendar-move`), le date di `admin-calendar-cancelled-overlap`, `admin-calendar-move-autoscroll`, `admin-calendar-week-closed-days`, `admin-settings`, `admin-stats*`, `futureWorkday` di `admin-polish-8j` (solo per navigare).
+
+## Fetta 8h – Sicurezza dati prima del go-live
+
+**Stato**: completata il 2026-11-09 sul branch `fetta-8h` (da `origin/main` `68a2123`; test di accettazione in `9aef2ac`). Da rilasciare: prima `db push`, poi il deploy. Fonte: audit del 2026-10-30, punti 2 e 3. ADR 015.
+
+**Fatto**
+- Privilegi staff solo con sessione da password: `is_admin`, `is_staff` e `current_barber_id` richiedono `amr` password (migrazione `20261109090000_staff_privileges_require_password.sql`). Nell'app `isPasswordSession`, `requireRole` (con `getClaims`, una volta per richiesta) e il proxy, che tratta lo staff senza password come lo staff bloccato (cookie tolti) con `motivo=password`. Messaggio `auth.staffLogin.passwordRequired` su `/admin/login`.
+- `availability_inputs_json` (migrazione `20261109090100_availability_inputs_json.sql`): stesse righe in un solo jsonb, usata da `loadInput` con validazione Zod. La vecchia `availability_inputs` resta per il rilascio.
+- Limiti espliciti con avviso: assenze (`/admin/assenze` e `/admin/barbieri/[id]/assenze`) e chiusure 200; "Le mie prenotazioni" 200 (prima era un `.limit(200)` silenzioso); calendario 1000 con l'avviso "calendario incompleto".
+- Route degli orari: già allineata alla soglia di no-show (stessa regola di `create_online_booking`); aggiunto il test Vitest.
+- `testTimeout` e `hookTimeout` a 30 s solo per il progetto `db` di Vitest (commit a parte).
+- SPEC §8: due righe (privilegi staff con password, nessun taglio silenzioso).
+
+**Decisioni**
+- `amr` si conserva al refresh del token: verificato in locale il 2026-11-08 (password e codice, uno e due refresh, stesso timestamp). La documentazione Supabase non lo dice: da ricontrollare a mano dopo un aggiornamento importante di Supabase Auth.
+- Il flusso di reimpostazione della password nell'app non esiste. Un recupero chiesto direttamente a Supabase dà `amr` `recovery`, quindi nessun privilegio.
+- Se `getClaims` fallisce, lo staff è respinto (in caso di dubbio si nega).
+- Il corpo di `availability_inputs_json` è copiato e non richiama la vecchia funzione, così la rimozione è un semplice `drop`.
+- Test esistenti modificati con l'ok dell'utente: `amr` password nei claim dello staff (pgTAP e finto client di `auth.test.ts`), nome della RPC nei finti client, `availability_inputs_json` nelle allowlist delle funzioni per anon (09 e 10). Nessuna asserzione cambiata.
+
+**Verifiche**: lint e typecheck ok; Vitest 2211/2211; pgTAP 1320/1320; e2e completa 196/196 in 2 giri su 5 (vedi problema aperto 1). Falla riprodotta prima della correzione: con il token del codice email l'admin leggeva le prenotazioni via REST.
+
+**Da fare in una migrazione futura**
+- Togliere `availability_inputs` (`drop function public.availability_inputs(uuid, uuid, timestamptz, timestamptz)`), dopo che l'app con `availability_inputs_json` è in produzione. Nella stessa modifica: togliere la funzione dalle allowlist di `09_security_hardening` e `10_auth_profiles`, dagli override di `src/lib/db/database.ts`, da `17_availability_inputs.test.sql` e da `booking-db.test.ts` (servirà l'ok sui test).
+
+**Problemi aperti**
+1. `tests/e2e/admin-fix-8j.spec.ts:228` ("se il server rifiuta uno spostamento dopo un cambio di giorno…") nella suite intera sul branch è fallito 3 volte su 5: l'avviso non compare entro 20 s. Da solo passa (3 su 3, 3,4 s). Nella suite intera è passato su `main` (1 su 1) e sul branch senza la chiamata a `getClaims` in `requireRole` (1 su 1). Nessun errore di `getClaims` registrato. Ipotesi non provata: la latenza in più della server action (verifica del token con il JWKS scaricato da un client nuovo a ogni richiesta) allarga la finestra di gara fra la risposta trattenuta e il cambio di giorno. Decisione dell'utente.
+2. Migliorie della review non applicate: motivo `password` invece di `disabilitato` per uno staff bloccato **e** senza password (proxy); date di `inputRowsSchema` solo `z.string()`; avviso delle "mie prenotazioni" dentro la sezione delle passate; `incomplete` vero anche con esattamente 1000 righe; link all'area staff ancora visibile nell'area cliente a uno staff senza password.
+3. Domanda per il titolare (SPEC §13.9): verifica in due passaggi per l'admin. Chi controlla l'email dello staff può ancora reimpostare la password via API e poi entrare con quella.
