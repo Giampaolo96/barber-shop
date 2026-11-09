@@ -3,6 +3,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { createClient } from "@/lib/db/server";
+import { getClaimsCached } from "./jwks";
 import {
   ADMIN_PATH,
   CUSTOMER_LOGIN_PATH,
@@ -78,8 +79,7 @@ export async function getCurrentNoShowCount(): Promise<number | null> {
 
 /** Sessione della richiesta aperta con password (claim amr); false se i claim non si leggono. */
 const hasPasswordSession = cache(async (): Promise<boolean> => {
-  const { data } = await (await createClient()).auth.getClaims();
-  return isPasswordSession(data?.claims);
+  return isPasswordSession(await getClaimsCached(await createClient()));
 });
 
 /** Da chiamare in layout, pagine e server action: respinge con un redirect chi non ha il ruolo. */

@@ -13,6 +13,7 @@ import {
 import { emailLinkFallback } from "@/lib/auth/email-fallback";
 import { ACCESS_PROFILE_COLUMNS, toCurrentUser } from "@/lib/auth/profile";
 import type { CurrentUser } from "@/lib/auth/profile";
+import { getClaimsCached } from "@/lib/auth/jwks";
 import { isAuthTokenCookie, resolveAccess, sessionIsGone } from "@/lib/auth/stale-session";
 import { supabaseEnv } from "@/lib/db/env";
 import type { Database } from "@/lib/db/database";
@@ -40,9 +41,9 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  // getClaims() verifica il token (e lo rinnova se scaduto); il ruolo si legge da profiles.
-  const { data } = await supabase.auth.getClaims();
-  const userId = data?.claims.sub;
+  // getClaims() verifica il token (e lo rinnova se scaduto) con le chiavi in cache; il ruolo si legge da profiles.
+  const claims = await getClaimsCached(supabase);
+  const userId = typeof claims?.sub === "string" ? claims.sub : undefined;
 
   let claimedUser: CurrentUser | null = null;
   if (userId) {
@@ -55,7 +56,7 @@ export async function proxy(request: NextRequest) {
   }
   // Staff entrato senza password (ADR 015): fuori da /admin come lo staff bloccato, motivo a parte.
   const withoutPassword =
-    claimedUser !== null && isStaffRole(claimedUser.role) && !isPasswordSession(data?.claims);
+    claimedUser !== null && isStaffRole(claimedUser.role) && !isPasswordSession(claims);
   if (claimedUser && withoutPassword) claimedUser = { ...claimedUser, isBlocked: true };
 
   // getClaims() non vede una sessione revocata altrove (ADR 002): prima di un redirect dovuto
