@@ -37,12 +37,13 @@ npm run dev                    # avvio locale
 npm run lint                   # ESLint
 npm run typecheck              # tsc --noEmit
 npm test                       # Vitest
-npm run test:e2e               # Playwright
+npm run test:e2e               # Playwright sulla build di produzione (next build && next start), come la CI: è il gate
+npm run test:e2e:dev           # Playwright sul dev server, per lo sviluppo (riusa un `npm run dev` già avviato)
 npx supabase start             # DB locale (Docker Desktop)
 npx supabase db reset          # riapplica migrazioni + seed
 npx supabase gen types typescript --local > src/lib/db/types.ts
 ```
-Prima di dichiarare finito un task: `lint`, `typecheck` e `test` devono passare. L'hook `Stop` lo verifica in automatico solo quando ci sono modifiche non committate in `src/`, `supabase/migrations/` o `supabase/seed.sql` (le cartelle dei test non contano: i test di accettazione nascono rossi).
+Prima di dichiarare finito un task: `lint`, `typecheck` e `test` devono passare. L'hook `Stop` lo verifica in automatico solo quando ci sono modifiche non committate in `src/`, `supabase/migrations/` o `supabase/seed.sql` (le cartelle dei test non contano: i test di accettazione nascono rossi). L'hook non lancia gli e2e: la suite completa sulla build di produzione (`npm run test:e2e`) si lancia a mano, in primo piano, prima di ogni push.
 Non lasciare suite di test lunghe (es. `test:e2e`) in background a fine turno: l'hook `Stop` lancia i controlli in parallelo e satura la macchina (timeout di login negli e2e, test Vitest in timeout). Eseguile in primo piano, oppure aspetta che finiscano prima di chiudere il turno.
 
 ## Regole di dominio non negoziabili

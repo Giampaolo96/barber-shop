@@ -501,6 +501,10 @@ export type Database = {
           starts_at: string;
         }[];
       };
+      availability_inputs_json: {
+        Args: { p_barber_id: string; p_from: string; p_service_id: string; p_to: string };
+        Returns: Json;
+      };
       barber_accounts: {
         Args: Record<PropertyKey, never>;
         Returns: {

@@ -1,3 +1,4 @@
+-- Fetta 8h: modifica approvata dall'utente il 2026-11-08 (amr password nei claim staff / nome della RPC), nessuna asserzione cambiata.
 -- Test di accettazione – FETTA 1 (SPEC §11: "Schema DB + RLS + seed dati demo").
 -- 05 – RLS per l'admin (titolare): lettura e scrittura complete, ma mai sovrapposizioni.
 -- SPEC §2, §3.7.1, §3.7.5, §6. I dati sono creati dal test (come postgres) e annullati dal rollback.
@@ -77,7 +78,8 @@ insert into public.bookings (id, customer_id, barber_id, service_id, starts_at, 
 -- ===========================================================================
 set local role authenticated;
 select set_config('request.jwt.claims',
-  json_build_object('sub', 'a0000000-0000-4000-8000-000000000501', 'role', 'authenticated')::text, true);
+  json_build_object('sub', 'a0000000-0000-4000-8000-000000000501', 'role', 'authenticated',
+    'amr', json_build_array(json_build_object('method', 'password')))::text, true);
 
 select is(public.current_user_role()::text, 'admin', 'admin – SPEC §2: current_user_role() = admin');
 select is(public.is_admin(), true, 'admin – SPEC §2: is_admin() = true');
@@ -393,7 +395,8 @@ select is((select no_show_count from public.profiles where id = 'c0000000-0000-4
   0, 'SPEC §6.7: nel contesto postgres senza JWT il contatore si può forzare a 0');
 set local role authenticated;
 select set_config('request.jwt.claims',
-  json_build_object('sub', 'a0000000-0000-4000-8000-000000000501', 'role', 'authenticated')::text, true);
+  json_build_object('sub', 'a0000000-0000-4000-8000-000000000501', 'role', 'authenticated',
+    'amr', json_build_array(json_build_object('method', 'password')))::text, true);
 select is(
   pg_temp.outcome($q$ update public.bookings set status = 'completed' where id = 'b00c0000-0000-4000-8000-000000000512' $q$),
   'rows:1', 'admin – SPEC §6.7: uscita da no_show con contatore già a 0, senza errore');

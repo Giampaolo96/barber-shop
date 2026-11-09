@@ -136,20 +136,28 @@ const toMyBooking = (b: MyBookingRow): MyBooking => ({
   barberName: b.barbers?.display_name ?? "",
 });
 
-/** Prenotazioni del cliente (RLS: solo le proprie); null se la lettura non riesce. */
-export async function getMyBookings(customerId: string): Promise<MyBooking[] | null> {
+/** Prenotazioni al massimo in "Le mie prenotazioni": oltre, le più recenti e un avviso. */
+export const MY_BOOKINGS_LIMIT = 200;
+
+export type MyBookings = { bookings: MyBooking[]; truncated: boolean };
+
+/**
+ * Prenotazioni del cliente (RLS: solo le proprie), le più recenti per prime; una riga in più dice se
+ * ce ne sono oltre il limite. null se la lettura non riesce.
+ */
+export async function getMyBookings(customerId: string): Promise<MyBookings | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("bookings")
     .select(MY_BOOKING_COLUMNS)
     .eq("customer_id", customerId)
     .order("starts_at", { ascending: false })
-    .limit(200);
+    .limit(MY_BOOKINGS_LIMIT + 1);
   if (error) {
     console.error("getMyBookings", error);
     return null;
   }
-  return data.map(toMyBooking);
+  return { bookings: data.slice(0, MY_BOOKINGS_LIMIT).map(toMyBooking), truncated: data.length > MY_BOOKINGS_LIMIT };
 }
 
 /** Prenotazione del cliente con la fine, per la conferma e il file .ics (fetta 8b). */

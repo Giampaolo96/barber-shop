@@ -1,3 +1,4 @@
+-- Fetta 8h: modifica approvata dall'utente il 2026-11-08 (amr password nei claim staff / nome della RPC), nessuna asserzione cambiata.
 -- Test di accettazione – FETTA 8d (ritratti dei barbieri). La fetta non è ancora in docs/SPEC.md:
 -- le regole vengono dalle decisioni approvate dall'utente ("8d: ...") e da SPEC §3.3 (barbieri:
 -- "foto"), §5.2 passo 2 (scelta del barbiere con foto), CLAUDE.md – Sicurezza.
@@ -235,7 +236,8 @@ reset role;
 -- --- barbiere (collegato alla scheda A) -------------------------------------------
 set local role authenticated;
 select set_config('request.jwt.claims',
-  json_build_object('sub', 'b0000000-0000-4000-8000-0000000008d1', 'role', 'authenticated')::text, true);
+  json_build_object('sub', 'b0000000-0000-4000-8000-0000000008d1', 'role', 'authenticated',
+    'amr', json_build_array(json_build_object('method', 'password')))::text, true);
 
 select is(pg_temp.outcome($q$ insert into storage.objects (bucket_id, name)
   values ('barber-photos', 'eb000000-0000-4000-8000-0000000008d1/11111111111111111111111111111111.webp') $q$),
@@ -268,7 +270,8 @@ select is(
 -- ===========================================================================
 set local role authenticated;
 select set_config('request.jwt.claims',
-  json_build_object('sub', 'a0000000-0000-4000-8000-0000000008d1', 'role', 'authenticated')::text, true);
+  json_build_object('sub', 'a0000000-0000-4000-8000-0000000008d1', 'role', 'authenticated',
+    'amr', json_build_array(json_build_object('method', 'password')))::text, true);
 
 select is(pg_temp.outcome($q$ insert into storage.objects (bucket_id, name, owner_id)
   values ('barber-photos', 'eb000000-0000-4000-8000-0000000008d2/33333333333333333333333333333333.webp',
@@ -302,7 +305,8 @@ reset role;
 insert into storage.objects (bucket_id, name) values ('qa-8d-other', 'qa/altro.webp');
 set local role authenticated;
 select set_config('request.jwt.claims',
-  json_build_object('sub', 'a0000000-0000-4000-8000-0000000008d1', 'role', 'authenticated')::text, true);
+  json_build_object('sub', 'a0000000-0000-4000-8000-0000000008d1', 'role', 'authenticated',
+    'amr', json_build_array(json_build_object('method', 'password')))::text, true);
 select is((select count(*)::int from storage.objects where bucket_id = 'qa-8d-other'), 0,
   'admin – 8d dec. 3: le policy non aprono la lettura di altri bucket');
 select ok(pg_temp.denied(pg_temp.outcome($q$ delete from storage.objects where bucket_id = 'qa-8d-other' $q$)),

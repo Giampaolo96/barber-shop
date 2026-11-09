@@ -87,23 +87,30 @@ export async function getServices(supabase: ServerClient): Promise<CatalogServic
 const BOOKING_COLUMNS =
   "id, barber_id, starts_at, ends_at, blocked_until, status, guest_name, service:services(name), customer:profiles!bookings_customer_id_fkey(full_name)";
 
-/** Prenotazioni dei barbieri che si sovrappongono a `[from, to)`, in ordine di inizio. */
+/** Prenotazioni lette al massimo per una vista (max_rows di PostgREST): oltre, la vista è incompleta. */
+export const CALENDAR_BOOKINGS_LIMIT = 1000;
+
+/**
+ * Prenotazioni dei barbieri che si sovrappongono a `[from, to)`, in ordine di inizio. `incomplete`:
+ * nel database ce ne sono più di CALENDAR_BOOKINGS_LIMIT, o il conteggio manca (nel dubbio si avvisa).
+ */
 export async function getBookingsInRange(
   supabase: ServerClient,
   barberIds: string[],
   from: Date,
   to: Date,
-): Promise<CalendarBooking[]> {
-  if (barberIds.length === 0) return [];
-  const { data, error } = await supabase
+): Promise<{ bookings: CalendarBooking[]; incomplete: boolean }> {
+  if (barberIds.length === 0) return { bookings: [], incomplete: false };
+  const { data, error, count } = await supabase
     .from("bookings")
-    .select(BOOKING_COLUMNS)
+    .select(BOOKING_COLUMNS, { count: "exact" })
     .in("barber_id", barberIds)
     .lt("starts_at", to.toISOString())
     .gt("ends_at", from.toISOString())
-    .order("starts_at");
+    .order("starts_at")
+    .limit(CALENDAR_BOOKINGS_LIMIT);
   if (error || !data) return fail("prenotazioni", error);
-  return data.map((row) => ({
+  const bookings = data.map((row) => ({
     id: row.id,
     barberId: row.barber_id,
     status: row.status,
@@ -114,6 +121,7 @@ export async function getBookingsInRange(
     // Un cliente che ha eliminato l'account resta senza nome (anonimizzazione, SPEC §8).
     customerName: row.guest_name ?? row.customer?.full_name ?? "",
   }));
+  return { bookings, incomplete: count === null || count > CALENDAR_BOOKINGS_LIMIT };
 }
 
 /** Fasce settimanali per barbiere e giorno ISO (1 = lunedì). */

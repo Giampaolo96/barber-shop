@@ -34,6 +34,9 @@ export function describePeriod(startsAt: Date, endsAt: Date, tz: string): Period
 /** Valore del filtro per vedere le assenze di tutti i barbieri. */
 export const ALL_BARBERS = "tutti";
 
+/** Righe al massimo negli elenchi di assenze e chiusure: oltre, un avviso (PostgREST taglia a 1000). */
+export const PERIODS_LIST_LIMIT = 200;
+
 /**
  * Prima i periodi non ancora finiti, dal più vicino; poi quelli passati, dal più recente.
  * Logica pura: `now` è un parametro.

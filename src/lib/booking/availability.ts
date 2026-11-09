@@ -1,7 +1,8 @@
 import "server-only";
 
-// Disponibilità lato server (SPEC §4, ADR 004): dati da `availability_inputs` con il client della
-// richiesta (anon o utente, mai la service_role), calcolo nel motore puro, in uscita solo orari.
+// Disponibilità lato server (SPEC §4, ADR 004): dati da `availability_inputs_json` (un solo jsonb,
+// niente taglio a max_rows: ADR 015) con il client della richiesta (anon o utente, mai la
+// service_role), calcolo nel motore puro, in uscita solo orari.
 import { z } from "zod";
 import {
   dayStatuses,
@@ -16,6 +17,17 @@ import { createClient } from "@/lib/db/server";
 import { getShopInfo } from "./queries";
 import { initialDay, recentBarberId } from "./when";
 
+/** Righe di availability_inputs_json: intervalli senza dati di clienti o prenotazioni. */
+export const inputRowsSchema = z.array(
+  z.object({
+    kind: z.enum(["work", "time_off", "closure", "busy"]),
+    barber_id: z.string().nullable(),
+    // timestamptz in jsonb: ISO 8601 con offset; una data non valida darebbe un Invalid Date nel motore.
+    starts_at: z.iso.datetime({ offset: true }),
+    ends_at: z.iso.datetime({ offset: true }),
+  }),
+);
+
 /**
  * input null: servizio inesistente o non visibile, nessun orario. `today` e `lastDay`: oggi e
  * ultimo giorno prenotabile (oggi + max_horizon_days), giorni locali del negozio.
@@ -25,7 +37,7 @@ type Loaded =
   | { ok: false };
 
 /**
- * Un solo caricamento per tutto il periodo: impostazioni (getShopInfo), servizio e availability_inputs.
+ * Un solo caricamento per tutto il periodo: impostazioni (getShopInfo), servizio e availability_inputs_json.
  * Da `fromDate` (null: da oggi) all'ultimo giorno prenotabile, per tutti i barbieri del servizio. Con
  * un periodo vuoto non si legge nulla e input è null.
  */
@@ -44,7 +56,7 @@ async function loadInput(serviceId: string, fromDate: string | null): Promise<Lo
 
   const [serviceResult, rowsResult] = await Promise.all([
     supabase.from("services").select("duration_min").eq("id", serviceId).maybeSingle(),
-    supabase.rpc("availability_inputs", {
+    supabase.rpc("availability_inputs_json", {
       p_service_id: serviceId,
       p_barber_id: null,
       p_from: startOfLocalDay(from, tz).toISOString(),
@@ -53,10 +65,12 @@ async function loadInput(serviceId: string, fromDate: string | null): Promise<Lo
   ]);
   if (serviceResult.error || rowsResult.error) return { ok: false };
   if (!serviceResult.data) return { ok: true, input: null, today, lastDay };
+  const rows = inputRowsSchema.safeParse(rowsResult.data);
+  if (!rows.success) return { ok: false };
 
   const barbers = new Map<string, BarberAvailabilityInput>();
   const closures: AvailabilityInput["closures"] = [];
-  for (const row of rowsResult.data ?? []) {
+  for (const row of rows.data) {
     const interval = { start: new Date(row.starts_at), end: new Date(row.ends_at) };
     if (row.kind === "closure") {
       closures.push(interval);

@@ -6,7 +6,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { ShopBrandLink } from "@/components/shop-brand-link";
 import { it } from "@/i18n/it";
 import { ADMIN_PATH, CUSTOMER_LOGIN_PATH, isStaffRole } from "@/lib/auth/access";
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { getCurrentUser, hasPasswordSession } from "@/lib/auth/current-user";
 import { MY_BOOKINGS_PATH } from "@/lib/booking/paths";
 import { getShopInfo } from "@/lib/booking/queries";
 import { AmbientBackground } from "@/themes/active";
@@ -16,6 +16,9 @@ const linkClass =
 
 export default async function CustomerLayout({ children }: { children: ReactNode }) {
   const [user, shop] = await Promise.all([getCurrentUser(), getShopInfo()]);
+  // Staff entrato senza password (ADR 015): /admin lo respingerebbe, quindi niente link.
+  const staff = user !== null && isStaffRole(user.role);
+  const showStaffArea = staff && (await hasPasswordSession());
 
   return (
     <>
@@ -30,10 +33,12 @@ export default async function CustomerLayout({ children }: { children: ReactNode
             </Link>
           ) : (
             <>
-              {isStaffRole(user.role) ? (
-                <Link href={ADMIN_PATH} className={linkClass}>
-                  {it.nav.staffArea}
-                </Link>
+              {staff ? (
+                showStaffArea && (
+                  <Link href={ADMIN_PATH} className={linkClass}>
+                    {it.nav.staffArea}
+                  </Link>
+                )
               ) : (
                 <>
                   <Link href={MY_BOOKINGS_PATH} className={linkClass}>

@@ -5,12 +5,15 @@ import {
   COMPLETE_PROFILE_PATH,
   CUSTOMER_LOGIN_PATH,
   DISABLED_REASON,
+  PASSWORD_REQUIRED_REASON,
   STAFF_LOGIN_PATH,
+  isPasswordSession,
   isStaffRole,
 } from "@/lib/auth/access";
 import { emailLinkFallback } from "@/lib/auth/email-fallback";
 import { ACCESS_PROFILE_COLUMNS, toCurrentUser } from "@/lib/auth/profile";
 import type { CurrentUser } from "@/lib/auth/profile";
+import { getClaimsCached } from "@/lib/auth/jwks";
 import { isAuthTokenCookie, resolveAccess, sessionIsGone } from "@/lib/auth/stale-session";
 import { supabaseEnv } from "@/lib/db/env";
 import type { Database } from "@/lib/db/database";
@@ -38,9 +41,9 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  // getClaims() verifica il token (e lo rinnova se scaduto); il ruolo si legge da profiles.
-  const { data } = await supabase.auth.getClaims();
-  const userId = data?.claims.sub;
+  // getClaims() verifica il token (e lo rinnova se scaduto) con le chiavi in cache; il ruolo si legge da profiles.
+  const claims = await getClaimsCached(supabase);
+  const userId = typeof claims?.sub === "string" ? claims.sub : undefined;
 
   let claimedUser: CurrentUser | null = null;
   if (userId) {
@@ -51,6 +54,13 @@ export async function proxy(request: NextRequest) {
       .maybeSingle();
     if (profile) claimedUser = toCurrentUser(userId, profile);
   }
+  // Staff entrato senza password (ADR 015): fuori da /admin come lo staff bloccato, motivo a parte.
+  const withoutPassword =
+    claimedUser !== null && isStaffRole(claimedUser.role) && !isPasswordSession(claims);
+  // Uno staff già bloccato resta "disabilitato" anche senza password.
+  const blockedReason =
+    withoutPassword && !claimedUser?.isBlocked ? PASSWORD_REQUIRED_REASON : DISABLED_REASON;
+  if (claimedUser && withoutPassword) claimedUser = { ...claimedUser, isBlocked: true };
 
   // getClaims() non vede una sessione revocata altrove (ADR 002): prima di un redirect dovuto
   // all'utente loggato la sessione si conferma con Supabase.
@@ -91,10 +101,10 @@ export async function proxy(request: NextRequest) {
     target.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
   }
 
-  // Staff bloccato a sessione aperta: resta fuori da /admin e la sessione del browser
+  // Staff bloccato (o senza password) a sessione aperta: resta fuori da /admin e la sessione del browser
   // viene chiusa togliendo i cookie di autenticazione.
   if (user && isStaffRole(user.role) && user.isBlocked && decision.to === STAFF_LOGIN_PATH) {
-    target.searchParams.set("motivo", DISABLED_REASON);
+    target.searchParams.set("motivo", blockedReason);
     const blockedResponse = NextResponse.redirect(target);
     for (const { name } of request.cookies.getAll()) {
       if (name.startsWith("sb-") && name.includes("-auth-token")) blockedResponse.cookies.delete(name);

@@ -20,7 +20,7 @@
 | 8e | completata | 2026-10-16 | Vedi "Fetta 8e" sotto; manca la prova su iPhone e una decisione su "oggi chiuso" |
 | 8f | completata | 2026-10-25 | Vedi "Fetta 8f" sotto; manca la prova su iPhone |
 | 8g | completata | 2026-10-30 | Vedi "Fetta 8g" sotto; scorrimento invariato (deciso su iPhone); punto 6 dell'audit chiuso il 2026-10-30 |
-| 8h | da fare | | Sicurezza dati prima del go-live: punti 2 e 3 dell'audit |
+| 8h | completata | 2026-11-09 | Vedi "Fetta 8h" sotto; da rilasciare (prima `db push`, poi deploy); un e2e della 8j instabile sul branch (punto 1 dei problemi aperti) |
 | 8i | da fare | | Correzioni admin: punti 5, 8 e 9 dell'audit |
 | 8j | completata | 2026-10-31 | Vedi "Fetta 8j" sotto; una decisione aperta sui test (punto 1 dei problemi aperti) |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
@@ -1468,3 +1468,40 @@ Critica sugli screenshot con `references/critique.md`: l'inspector non apre le p
 - `futureWinterWeek` e `pastDay` passano da `testDate()`, con `clearBookings` e `clearClosures` prima di creare i dati. `randomWinterDate` non esiste più.
 - Indagine su `admin-calendar.spec.ts:271`: non è un difetto dell'app né delle policy. Il POST `next-action` su `/admin/calendario/682ac758-…` (2014-01-29, Luca) ha avuto 200 con esito `forbidden` da `if (!existing)` in `changeBookingStatus`, perché la prenotazione non esisteva più: anche l'API dell'admin non la trovava. L'aveva cancellata `clearBookings` di `admin-customers-mobile.spec.ts`, che ha 2014-01-29 come data fissa e gira in parallelo, mentre `pastDay` casuale era caduta sullo stesso giorno e barbiere. Regola: `clearBookings` solo su date di `testDate()`, mai su quelle casuali.
 - Generatori casuali rimasti, fuori da questo intervento: `futureDay` (`admin-calendar`, `admin-calendar-move`), le date di `admin-calendar-cancelled-overlap`, `admin-calendar-move-autoscroll`, `admin-calendar-week-closed-days`, `admin-settings`, `admin-stats*`, `futureWorkday` di `admin-polish-8j` (solo per navigare).
+
+## Fetta 8h – Sicurezza dati prima del go-live
+
+**Stato**: completata il 2026-11-09 sul branch `fetta-8h` (da `origin/main` `68a2123`; test di accettazione in `9aef2ac`). Da rilasciare: prima `db push`, poi il deploy. Fonte: audit del 2026-10-30, punti 2 e 3. ADR 015.
+
+**Fatto**
+- Privilegi staff solo con sessione da password: `is_admin`, `is_staff` e `current_barber_id` richiedono `amr` password (migrazione `20261109090000_staff_privileges_require_password.sql`). Nell'app `isPasswordSession`, `requireRole` (con `getClaims`, una volta per richiesta) e il proxy, che tratta lo staff senza password come lo staff bloccato (cookie tolti) con `motivo=password`. Messaggio `auth.staffLogin.passwordRequired` su `/admin/login`.
+- `availability_inputs_json` (migrazione `20261109090100_availability_inputs_json.sql`): stesse righe in un solo jsonb, usata da `loadInput` con validazione Zod. La vecchia `availability_inputs` resta per il rilascio.
+- Limiti espliciti con avviso: assenze (`/admin/assenze` e `/admin/barbieri/[id]/assenze`) e chiusure 200; "Le mie prenotazioni" 200 (prima era un `.limit(200)` silenzioso); calendario 1000 con l'avviso "calendario incompleto".
+- Route degli orari: già allineata alla soglia di no-show (stessa regola di `create_online_booking`); aggiunto il test Vitest.
+- `testTimeout` e `hookTimeout` a 30 s solo per il progetto `db` di Vitest (commit a parte).
+- SPEC §8: due righe (privilegi staff con password, nessun taglio silenzioso).
+
+**Decisioni**
+- `amr` si conserva al refresh del token: verificato in locale il 2026-11-08 (password e codice, uno e due refresh, stesso timestamp). La documentazione Supabase non lo dice: da ricontrollare a mano dopo un aggiornamento importante di Supabase Auth.
+- Il flusso di reimpostazione della password nell'app non esiste. Un recupero chiesto direttamente a Supabase dà `amr` `recovery`, quindi nessun privilegio.
+- Se `getClaims` fallisce, lo staff è respinto (in caso di dubbio si nega).
+- Il corpo di `availability_inputs_json` è copiato e non richiama la vecchia funzione, così la rimozione è un semplice `drop`.
+- Test esistenti modificati con l'ok dell'utente: `amr` password nei claim dello staff (pgTAP e finto client di `auth.test.ts`), nome della RPC nei finti client, `availability_inputs_json` nelle allowlist delle funzioni per anon (09 e 10). Nessuna asserzione cambiata.
+
+**Verifiche**: lint e typecheck ok; Vitest 2211/2211; pgTAP 1320/1320; e2e completa 196/196 in 2 giri su 5 (vedi problema aperto 1). Falla riprodotta prima della correzione: con il token del codice email l'admin leggeva le prenotazioni via REST.
+
+**Da fare in una migrazione futura**
+- Togliere `availability_inputs` (`drop function public.availability_inputs(uuid, uuid, timestamptz, timestamptz)`), dopo che l'app con `availability_inputs_json` è in produzione. Nella stessa modifica: togliere la funzione dalle allowlist di `09_security_hardening` e `10_auth_profiles`, dagli override di `src/lib/db/database.ts`, da `17_availability_inputs.test.sql` e da `booking-db.test.ts` (servirà l'ok sui test).
+
+**Correzioni dopo la review e gate sulla build di produzione (2026-11-09)**
+- Cache delle chiavi JWKS per 10 minuti in `getClaimsCached` (proxy e `requireRole`), commit `295f901`.
+- Migliorie della review (`4163629`), ciascuna con il suo test: calendario con `count: "exact"` e `limit(1000)`, incompleto solo oltre 1000 righe o senza conteggio (`row-limits.test.ts` modificato con l'ok dell'utente); proxy: staff bloccato e senza password resta `motivo=disabilitato`; date di `inputRowsSchema` ISO con offset; avviso delle "mie prenotazioni" fuori dalla sezione delle passate; nessun link all'area staff nell'area cliente per lo staff senza password.
+- `npm run test:e2e` gira sulla build di produzione (`playwright.prod.config.ts`, niente riuso di un server avviato), come la CI; `npm run test:e2e:dev` sul dev server. L'hook Stop non cambia (lint, typecheck, Vitest): gli e2e completi si lanciano a mano prima di ogni push (CLAUDE.md).
+- `admin-fix-8j.spec.ts:228` non era HMR: falliva anche in produzione. Trace (`test-results/gate-prod-1/…/trace.zip`, non conservata nel repo): al clic su "Giorno successivo" con lo spostamento in corso parte una GET del documento completo, e Next scarta la server action in volo (la sua promise non si risolve mai). Dettagli dai sorgenti di Next 16.4.3 nell'ADR 008 (aggiornamento 8h). Correzione `59c58b4`: durante uno spostamento la barra del calendario è `aria-disabled` e non naviga; dopo 15 s senza risposta errore con "Chiudi". Il test è sostituito da due test (approvato) e c'è `admin-move-timeout.spec.ts`.
+- `futureDay` di `admin-calendar` e `admin-calendar-move` da `testDate()` con `clearBookings` prima dei dati (approvato): era la causa dei 23P01 di `admin-calendar-move.spec.ts:266`.
+- Verifiche: lint, typecheck, Vitest 2231/2231; e2e sulla build di produzione 5 giri su 5 verdi, 198/198 ciascuno (~170 s a giro; log in `.playwright-mcp/fetta-8h/gate-prod/`). Prima dei giri ho disattivato nel DB locale 4 barbieri "E2E …" lasciati da un giro interrotto: con le loro colonne Luca finiva fuori schermo.
+
+**Problemi aperti**
+1. Domanda per il titolare (SPEC §13.9): verifica in due passaggi per l'admin. Chi controlla l'email dello staff può ancora reimpostare la password via API e poi entrare con quella.
+2. Navigazioni fuori dalla barra del calendario durante uno spostamento (link delle schede, "Nuova prenotazione", "mostra cancellate", menu, indietro del browser) scartano ancora lo spostamento in corso (ADR 008).
+3. Migliorie non applicate: la CI fa due build (step "Build" e poi `test:e2e`); `count: "exact"` aggiunge un COUNT a ogni caricamento del calendario; `admin-move-timeout.spec.ts` aspetta 15 s veri.

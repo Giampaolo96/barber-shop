@@ -1,3 +1,4 @@
+// Fetta 8h: modifica approvata dall'utente il 2026-11-08 (amr password nei claim staff / nome della RPC), nessuna asserzione cambiata.
 // Test di accettazione – FETTA 8g ("Quando?": orari di tutti i giorni dal server; decisioni approvate
 // dall'utente il 2026-10-25). SPEC §5.2 ("una sola richiesta ... restituisce solo orari e id dei
 // barbieri"), §4, CLAUDE.md regola 6 (solo orari liberi) e Sicurezza (requireRole in ogni route
@@ -105,7 +106,7 @@ vi.mock('@/lib/db/server', () => ({
     from: (table: string) => builder(() => ({ data: fake.tables[table] ?? [], error: null })),
     rpc: (name: string, args: Record<string, unknown>) => {
       fake.rpcCalls.push({ name, args });
-      return builder(() => ({ data: name === 'availability_inputs' ? fake.rpcRows : [], error: null }));
+      return builder(() => ({ data: name === 'availability_inputs_json' ? fake.rpcRows : [], error: null }));
     },
     auth: {
       getUser: async () => ({
@@ -164,7 +165,7 @@ const callRoute = async (query: string): Promise<Response> => {
   expect(GET, 'export mancante: GET').toBeTypeOf('function');
   return GET(new NextRequest(`http://localhost/prenota/quando/orari?${query}`), { params: Promise.resolve({}) });
 };
-const availabilityCalls = () => fake.rpcCalls.filter((c) => c.name === 'availability_inputs');
+const availabilityCalls = () => fake.rpcCalls.filter((c) => c.name === 'availability_inputs_json');
 const byBarber = (day: WhenDay | undefined) => Object.fromEntries((day?.barbers ?? []).map((b) => [b.barberId, b]));
 
 beforeEach(() => {

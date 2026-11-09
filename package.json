@@ -12,7 +12,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --config playwright.prod.config.ts",
+    "test:e2e:dev": "playwright test",
     "test:db": "supabase test db",
     "db:types": "supabase gen types typescript --local > src/lib/db/types.ts && oxfmt src/lib/db/types.ts"
   },

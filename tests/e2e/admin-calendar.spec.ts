@@ -29,6 +29,7 @@
 // Barbiere demo: barber@demo.local → scheda "Luca". Orari del seed: martedì–sabato 09:00–13:00 e
 // 15:00–19:30.
 // Date da testDate() e pulizia prima di creare i dati: modificato con l'approvazione dell'utente.
+// Anche futureDay da testDate(), con pulizia prima di creare i dati: approvato dall'utente il 2026-11-09.
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
 
 import { expect, test, type Locator, type Page } from '@playwright/test';
@@ -56,16 +57,8 @@ import {
 // ---------------------------------------------------------------------------
 // Utilità locali
 // ---------------------------------------------------------------------------
-const pad = (value: number): string => String(value).padStart(2, '0');
-const randomInt = (min: number, max: number): number => min + Math.floor(Math.random() * (max - min + 1));
 
-/** Mercoledì di gennaio/febbraio (ora solare, giorno lavorativo per il seed) fra gli anni dati. */
-const randomWinterWednesday = (fromYear: number, toYear: number): string => {
-  const day = new Date(Date.UTC(randomInt(fromYear, toYear), randomInt(0, 1), randomInt(5, 25), 12));
-  day.setUTCDate(day.getUTCDate() + ((3 - day.getUTCDay() + 7) % 7));
-  return `${day.getUTCFullYear()}-${pad(day.getUTCMonth() + 1)}-${pad(day.getUTCDate())}`;
-};
-const futureDay = (): string => randomWinterWednesday(2032, 2049);
+const futureDay = (): string => testDate({ fromYear: 2032, toYear: 2049 });
 const pastDay = (): string => testDate({ fromYear: 2012, toYear: 2024 });
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -131,6 +124,7 @@ test.describe('Calendario dello staff (SPEC §6.1–6.3)', () => {
   }) => {
     const api = await adminApi(page.request);
     const date = futureDay();
+    await clearBookings(api, [SEED.luca, SEED.mario], date);
     const guestName = uniqueName('Ospite manuale');
 
     try {
@@ -208,6 +202,7 @@ test.describe('Calendario dello staff (SPEC §6.1–6.3)', () => {
   }) => {
     const api = await adminApi(page.request);
     const date = futureDay();
+    await clearBookings(api, [SEED.luca, SEED.mario], date);
     const first = uniqueName('Ospite fuori orario');
     const second = uniqueName('Ospite occupato');
     const blocker = uniqueName('Ospite già presente');
@@ -317,6 +312,7 @@ test.describe('Calendario dello staff (SPEC §6.1–6.3)', () => {
   test('il barbiere che apre la prenotazione di un altro barbiere riceve 404 e nessun modulo', async ({ page }) => {
     const api = await adminApi(page.request);
     const date = futureDay();
+    await clearBookings(api, [SEED.luca, SEED.mario], date);
     const others = uniqueName('Ospite riservato');
     const otherId = await createGuestBooking(api, { barberId: SEED.mario, guestName: others, startsAt: romeWinter(date, '10:00') });
 

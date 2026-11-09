@@ -6,7 +6,7 @@ import { formatDateTime, telHref } from "@/lib/booking/format";
 import { getVerifiedUserId } from "@/lib/auth/current-user";
 import { loadBookingPageContext } from "@/lib/booking/page-context";
 import { BOOK_PATH, MY_BOOKINGS_PATH } from "@/lib/booking/paths";
-import { getMyBookings, type MyBooking } from "@/lib/booking/queries";
+import { MY_BOOKINGS_LIMIT, getMyBookings, type MyBooking, type MyBookings } from "@/lib/booking/queries";
 import { canCancel, splitBookings } from "@/lib/booking/rules";
 import { formatCents } from "@/lib/domain/money";
 import { fillText } from "@/lib/admin/text";
@@ -21,7 +21,8 @@ export default async function MyBookingsPage({
 }) {
   // Le prenotazioni (RLS: solo le proprie) partono appena getUser() ha verificato l'utente, insieme
   // alla lettura del profilo; la pagina mostra qualcosa solo dopo requireRole (loadBookingPageContext).
-  const [{ shop }, bookings] = await Promise.all([loadBookingPageContext(), loadOwnBookings()]);
+  const [{ shop }, own] = await Promise.all([loadBookingPageContext(), loadOwnBookings()]);
+  const bookings = own?.bookings ?? null;
   const { esito } = await searchParams;
   const t = it.booking.list;
   const now = new Date();
@@ -117,13 +118,20 @@ export default async function MyBookingsPage({
               <ul className="flex flex-col gap-2">{past.map((booking) => item(booking, null))}</ul>
             )}
           </section>
+
+          {/* Avviso sull'intero elenco, fuori dalle passate: con 200 future le passate sarebbero "nessuna". */}
+          {own?.truncated && (
+            <p role="status" className="text-sm text-muted-foreground">
+              {fillText(t.myBookingsTruncated, { count: MY_BOOKINGS_LIMIT })}
+            </p>
+          )}
         </>
       )}
     </main>
   );
 }
 
-async function loadOwnBookings(): Promise<MyBooking[] | null> {
+async function loadOwnBookings(): Promise<MyBookings | null> {
   const userId = await getVerifiedUserId();
   return userId ? getMyBookings(userId) : null;
 }

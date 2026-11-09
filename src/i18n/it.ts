@@ -104,6 +104,7 @@ export const it = {
     },
     list: {
       title: "Le mie prenotazioni",
+      myBookingsTruncated: "Sono mostrate solo le ultime {count} prenotazioni.",
       upcoming: "In programma",
       past: "Passate e cancellate",
       none: "Nessuna prenotazione.",
@@ -205,6 +206,7 @@ export const it = {
       submit: "Entra",
       invalidCredentials: "Credenziali non valide",
       accountDisabled: "Account disabilitato",
+      passwordRequired: "Lo staff accede solo con email e password: inseriscile qui sotto.",
       customerLink: "Sei un cliente? Accedi qui",
     },
     completeProfile: {
@@ -419,6 +421,7 @@ export const it = {
       overlap: "Due fasce dello stesso giorno si sovrappongono: correggile prima di salvare.",
     },
     period: {
+      listTruncated: "Sono mostrati solo i {count} periodi più recenti.",
       newTitle: "Nuovo periodo",
       editTitle: "Modifica periodo",
       modeLabel: "Durata",
@@ -547,6 +550,7 @@ export const it = {
       },
     },
     calendar: {
+      incomplete: "Troppe prenotazioni in questo periodo: il calendario potrebbe non mostrarle tutte.",
       today: "Oggi",
       previousDay: "Giorno precedente",
       nextDay: "Giorno successivo",
@@ -678,6 +682,7 @@ export const it = {
         submit: "Sposta",
         pastTarget: "Non si può spostare una prenotazione su un orario già passato.",
         error: "Non è stato possibile spostare la prenotazione. Riprova.",
+        timeout: "Il server non risponde: lo spostamento potrebbe non essere stato salvato. Ricarica la pagina per controllare.",
       },
     },
   },

@@ -1,3 +1,4 @@
+-- Fetta 8h: modifica approvata dall'utente il 2026-11-08 (amr password nei claim staff / nome della RPC), nessuna asserzione cambiata.
 -- Test di accettazione – FETTA 1 (SPEC §11: "Schema DB + RLS + seed dati demo").
 -- 04 – RLS per il barbiere (profilo role barber collegato a una riga barbers) e search_customers.
 -- SPEC §2, §3.7, §6.2. I dati sono creati dal test (come postgres) e annullati dal rollback.
@@ -104,7 +105,8 @@ insert into public.bookings (id, customer_id, guest_name, guest_phone, barber_id
 -- ===========================================================================
 set local role authenticated;
 select set_config('request.jwt.claims',
-  json_build_object('sub', 'b0000000-0000-4000-8000-000000000401', 'role', 'authenticated')::text, true);
+  json_build_object('sub', 'b0000000-0000-4000-8000-000000000401', 'role', 'authenticated',
+    'amr', json_build_array(json_build_object('method', 'password')))::text, true);
 
 select is(public.current_user_role()::text, 'barber', 'barber – SPEC §2: current_user_role() = barber');
 select is(public.is_staff(), true, 'barber – SPEC §2: is_staff() = true');

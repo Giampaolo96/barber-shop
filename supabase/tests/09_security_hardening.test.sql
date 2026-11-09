@@ -1,3 +1,5 @@
+-- Fetta 8h: modifica approvata dall'utente il 2026-11-08 (amr password nei claim staff / nome della RPC), nessuna asserzione cambiata.
+-- Fetta 8h: availability_inputs_json aggiunta all'allowlist delle funzioni per anon, approvata dall'utente il 2026-11-09.
 -- Test del rafforzamento di sicurezza dopo la review della FETTA 1 (non fanno parte dei
 -- test di accettazione scritti prima dell'implementazione). Creano i propri dati, tranne
 -- la riga di shop_settings (seed): vanno eseguiti dopo `npx supabase db reset`.
@@ -8,8 +10,13 @@ select plan(87);
 
 create function pg_temp.act_as(uid uuid) returns void language plpgsql as $f$
 begin
+  -- Fetta 8h: lo staff accede con password, quindi il suo token ha amr password (ruolo letto come postgres)
+  reset role;
   perform set_config('request.jwt.claims',
-    json_build_object('sub', uid, 'role', 'authenticated')::text, true);
+    (json_build_object('sub', uid, 'role', 'authenticated')::jsonb
+       || case when exists (select 1 from public.profiles p where p.id = uid and p.role in ('barber', 'admin'))
+               then jsonb_build_object('amr', jsonb_build_array(jsonb_build_object('method', 'password')))
+               else '{}'::jsonb end)::text, true);
   set local role authenticated;
 end $f$;
 
@@ -23,8 +30,12 @@ end $f$;
 create function pg_temp.postgres_on_behalf_of(uid uuid) returns void language plpgsql as $f$
 begin
   reset role;
+  -- Fetta 8h: amr password nei claim dello staff
   perform set_config('request.jwt.claims',
-    json_build_object('sub', uid, 'role', 'authenticated')::text, true);
+    (json_build_object('sub', uid, 'role', 'authenticated')::jsonb
+       || case when exists (select 1 from public.profiles p where p.id = uid and p.role in ('barber', 'admin'))
+               then jsonb_build_object('amr', jsonb_build_array(jsonb_build_object('method', 'password')))
+               else '{}'::jsonb end)::text, true);
 end $f$;
 
 -- 'rows:N' se il comando riesce, altrimenti lo SQLSTATE
@@ -272,6 +283,9 @@ select is_empty(
            -- fetta 4: input del motore di disponibilità, leggibile senza login (solo orari)
            'availability_inputs(uuid,uuid,timestamp with time zone,timestamp with time zone)',
            'public.availability_inputs(uuid,uuid,timestamp with time zone,timestamp with time zone)',
+           -- fetta 8h: stessa funzione in un solo jsonb (ADR 015)
+           'availability_inputs_json(uuid,uuid,timestamp with time zone,timestamp with time zone)',
+           'public.availability_inputs_json(uuid,uuid,timestamp with time zone,timestamp with time zone)',
            -- fetta 8a: orari del negozio e chiusure di oggi per la home pubblica (nessun dato dei
            -- barbieri né motivo delle chiusure)
            'shop_opening_hours()', 'public.shop_opening_hours()',

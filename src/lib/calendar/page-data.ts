@@ -73,6 +73,8 @@ export type DayViewData = {
   grid: DayGrid;
   columns: DayColumn[];
   cancelledCount: number;
+  /** Più di CALENDAR_BOOKINGS_LIMIT prenotazioni nel periodo (o conteggio mancante): alcune non si vedono. */
+  incomplete: boolean;
 };
 
 /** Vista giorno: barbieri attivi più quelli disattivati che hanno prenotazioni nel giorno. */
@@ -87,7 +89,7 @@ export async function loadDayView(
   const to = startOfLocalDay(addDays(query.date, 1), timezone);
   const ids = barbers.map((barber) => barber.id);
 
-  const [bookings, bands, timeOff, closures] = await Promise.all([
+  const [{ bookings, incomplete }, bands, timeOff, closures] = await Promise.all([
     getBookingsInRange(supabase, ids, from, to),
     getWorkingBands(supabase, ids),
     getTimeOff(supabase, ids, from, to),
@@ -120,7 +122,12 @@ export async function loadDayView(
     bookings: shown.filter((booking) => visible.some((barber) => barber.id === booking.barberId)),
   });
 
-  return { grid, columns, cancelledCount: bookings.filter(isCancelled).length };
+  return {
+    grid,
+    columns,
+    cancelledCount: bookings.filter(isCancelled).length,
+    incomplete,
+  };
 }
 
 export type WeekViewData = {
@@ -129,6 +136,7 @@ export type WeekViewData = {
   /** Solo i giorni da disegnare (visibleWeekDays), da lunedì a domenica. */
   days: WeekDay[];
   cancelledCount: number;
+  incomplete: boolean;
 };
 
 /**
@@ -147,11 +155,11 @@ export async function loadWeekView(
   const chosen = barbers.find((barber) => barber.id === query.barberId)?.id;
   const barberId = chosen ?? defaultWeekBarber({ ownBarberId, barbers });
   const dates = weekDates(query.date);
-  if (!barberId) return { barberId: null, grid: null, days: [], cancelledCount: 0 };
+  if (!barberId) return { barberId: null, grid: null, days: [], cancelledCount: 0, incomplete: false };
 
   const from = startOfLocalDay(dates[0], timezone);
   const to = startOfLocalDay(addDays(dates[6], 1), timezone);
-  const [bookings, bands, timeOff, closures, openWeekdays] = await Promise.all([
+  const [{ bookings, incomplete }, bands, timeOff, closures, openWeekdays] = await Promise.all([
     getBookingsInRange(supabase, [barberId], from, to),
     getWorkingBands(supabase, [barberId]),
     getTimeOff(supabase, [barberId], from, to),
@@ -200,5 +208,11 @@ export async function loadWeekView(
     bookings: days.flatMap((day) => day.bookings),
   });
 
-  return { barberId, grid, days, cancelledCount: bookings.filter(isCancelled).length };
+  return {
+    barberId,
+    grid,
+    days,
+    cancelledCount: bookings.filter(isCancelled).length,
+    incomplete,
+  };
 }

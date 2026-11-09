@@ -1,3 +1,4 @@
+-- Fetta 8h: modifica approvata dall'utente il 2026-11-08 (amr password nei claim staff / nome della RPC), nessuna asserzione cambiata.
 -- Test di accettazione – FETTA 8a (identità visiva, tema "Mosca"): orari del negozio in home.
 -- 24 – Funzioni pubbliche shop_opening_hours() e shop_closures_today(); nome del negozio nel seed.
 -- SPEC §3.1 (nome e timezone in shop_settings), §3.3 (barbiere attivo/disattivo), §3.4 (fasce in ora
@@ -27,8 +28,13 @@ select plan(15);
 -- ---------------------------------------------------------------------------
 create function pg_temp.act_as(uid uuid) returns void language plpgsql as $f$
 begin
+  -- Fetta 8h: lo staff accede con password, quindi il suo token ha amr password (ruolo letto come postgres)
+  reset role;
   perform set_config('request.jwt.claims',
-    json_build_object('sub', uid, 'role', 'authenticated')::text, true);
+    (json_build_object('sub', uid, 'role', 'authenticated')::jsonb
+       || case when exists (select 1 from public.profiles p where p.id = uid and p.role in ('barber', 'admin'))
+               then jsonb_build_object('amr', jsonb_build_array(jsonb_build_object('method', 'password')))
+               else '{}'::jsonb end)::text, true);
   set local role authenticated;
 end $f$;
 

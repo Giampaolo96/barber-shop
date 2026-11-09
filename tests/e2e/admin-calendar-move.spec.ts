@@ -33,6 +33,7 @@
 // 09:00–13:00 e 15:00–19:30; la griglia del giorno va dalle 09:00 alle 19:30 (pausa 13:00–15:00
 // visibile, fuori fascia).
 // Date da testDate() e pulizia prima di creare i dati: modificato con l'approvazione dell'utente.
+// Anche futureDay da testDate(), con pulizia prima di creare i dati: approvato dall'utente il 2026-11-09.
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
 
 import { expect, test, type Locator, type Page } from '@playwright/test';
@@ -57,16 +58,8 @@ import {
 // ---------------------------------------------------------------------------
 // Utilità locali
 // ---------------------------------------------------------------------------
-const pad = (value: number): string => String(value).padStart(2, '0');
-const randomInt = (min: number, max: number): number => min + Math.floor(Math.random() * (max - min + 1));
 
-/** Mercoledì di gennaio/febbraio (ora solare, giorno lavorativo per il seed) fra gli anni dati. */
-const randomWinterWednesday = (fromYear: number, toYear: number): string => {
-  const day = new Date(Date.UTC(randomInt(fromYear, toYear), randomInt(0, 1), randomInt(5, 25), 12));
-  day.setUTCDate(day.getUTCDate() + ((3 - day.getUTCDay() + 7) % 7));
-  return `${day.getUTCFullYear()}-${pad(day.getUTCMonth() + 1)}-${pad(day.getUTCDate())}`;
-};
-const futureDay = (): string => randomWinterWednesday(2032, 2049);
+const futureDay = (): string => testDate({ fromYear: 2032, toYear: 2049 });
 const pastDay = (): string => testDate({ fromYear: 2012, toYear: 2024 });
 
 type BookingRow = {
@@ -169,6 +162,7 @@ test.describe('Spostamento con trascinamento sul calendario (SPEC §6.3, fetta 6
   test('l\'admin trascina una confermata futura di Luca nella colonna di Mario e poi annulla', async ({ page }) => {
     const api = await adminApi(page.request);
     const date = futureDay();
+    await clearBookings(api, [SEED.luca, SEED.mario], date);
     const guestName = uniqueName('Ospite da spostare');
     const id = await createGuestBooking(api, {
       barberId: SEED.luca,
@@ -216,6 +210,7 @@ test.describe('Spostamento con trascinamento sul calendario (SPEC §6.3, fetta 6
   test('fuori fascia compare il dialogo: Annulla lascia tutto com\'era, Conferma comunque salva', async ({ page }) => {
     const api = await adminApi(page.request);
     const date = futureDay();
+    await clearBookings(api, [SEED.luca, SEED.mario], date);
     const guestName = uniqueName('Ospite in pausa');
     const id = await createGuestBooking(api, {
       barberId: SEED.luca,
@@ -266,6 +261,7 @@ test.describe('Spostamento con trascinamento sul calendario (SPEC §6.3, fetta 6
   test('il barbiere sposta una propria confermata futura; cancellate e passate non sono trascinabili', async ({ page }) => {
     const api = await adminApi(page.request);
     const date = futureDay();
+    await clearBookings(api, [SEED.luca, SEED.mario], date);
     const past = pastDay();
     await clearBookings(api, [SEED.luca], past);
     const movable = uniqueName('Ospite di Luca mobile');

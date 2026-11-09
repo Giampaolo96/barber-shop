@@ -20,6 +20,20 @@ export const ADMIN_PATH = "/admin";
 export const STAFF_LOGIN_PATH = "/admin/login";
 /** Valore di `?motivo=` con cui il login dello staff mostra "Account disabilitato". */
 export const DISABLED_REASON = "disabilitato";
+/** Valore di `?motivo=` per lo staff entrato senza password (es. codice email chiesto a Supabase). */
+export const PASSWORD_REQUIRED_REASON = "password";
+
+/**
+ * Accesso con password secondo il claim `amr` del token (ADR 015): è l'unico che dà privilegi allo
+ * staff, come in is_admin/is_staff/current_barber_id nel database.
+ */
+export function isPasswordSession(claims: { amr?: unknown } | null | undefined): boolean {
+  const amr = claims?.amr;
+  return (
+    Array.isArray(amr) &&
+    amr.some((entry: unknown) => (entry as { method?: unknown } | null)?.method === "password")
+  );
+}
 
 /** Rotte aperte a tutto lo staff oltre a /admin; ogni altra rotta di /admin è solo per l'admin. */
 const STAFF_CALENDAR_PATH = "/admin/calendario";
