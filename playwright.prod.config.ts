@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 import base from "./playwright.config";
 
-// Gate (npm run test:e2e, CI e hook): e2e sulla build di produzione, come in rilascio. Niente riuso di
+// Gate (npm run test:e2e, a mano prima di ogni push, e CI): e2e sulla build di produzione, come in rilascio. Niente riuso di
 // un server già avviato: un dev server sulla 3000 farebbe passare per produzione un giro in sviluppo.
 export default defineConfig({
   ...base,
