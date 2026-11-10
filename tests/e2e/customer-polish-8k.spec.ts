@@ -258,7 +258,8 @@ test('8k anonimo: home con l\'indirizzo che apre le mappe, Accedi con margine da
   const where = main(page)
     .locator('section')
     .filter({ has: page.getByRole('heading', { name: s('home.whereTitle'), exact: true }) });
-  const mapsLink = where.getByRole('link', { name: address ?? '', exact: true });
+  // Nome accessibile: l'indirizzo e "(si apre in una nuova scheda)" (migliorie della review, approvate dall'utente).
+  const mapsLink = where.getByRole('link', { name: `${address ?? ''} ${s('home.opensInNewTab')}`, exact: true });
   await expect(mapsLink).toBeVisible();
   await expect(mapsLink).toHaveAttribute(
     'href',

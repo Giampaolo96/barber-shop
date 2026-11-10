@@ -9,6 +9,8 @@ export const it = {
   },
   home: {
     book: "Prenota",
+    /** Per gli screen reader, dopo l'indirizzo: il link alle mappe apre una nuova scheda (fetta 8k). */
+    opensInNewTab: "(si apre in una nuova scheda)",
     nextBooking: "Prossima prenotazione",
     noBooking: "Non hai prenotazioni in programma.",
     myBookings: "Le mie prenotazioni",

@@ -122,6 +122,7 @@ export default async function HomePage() {
                       className="inline-flex min-h-11 items-center underline underline-offset-4 hover:no-underline"
                     >
                       {shop.address}
+                      <span className="sr-only"> {t.opensInNewTab}</span>
                     </a>
                   ) : (
                     shop.address
