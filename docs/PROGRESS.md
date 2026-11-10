@@ -23,7 +23,7 @@
 | 8h | completata | 2026-11-09 | Vedi "Fetta 8h" sotto; da rilasciare (prima `db push`, poi deploy); un e2e della 8j instabile sul branch (punto 1 dei problemi aperti) |
 | 8i | da fare | | Correzioni admin: punti 5, 8 e 9 dell'audit |
 | 8j | completata | 2026-10-31 | Vedi "Fetta 8j" sotto; una decisione aperta sui test (punto 1 dei problemi aperti) |
-| 8k | completata | 2026-11-10 | Vedi "Fetta 8k" sotto; migliorie della review e decisione sull'hook Stop aperte |
+| 8k | completata | 2026-11-11 | Vedi "Fetta 8k" sotto; migliorie della review sul branch `fetta-8k-rifiniture` (da mergiare prima della 9b) |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
 | 9b | da fare | | Privacy e account prima del go-live (SPEC §11), con il punto 4 dell'audit |
 
@@ -1534,15 +1534,18 @@ Critica sugli screenshot con `references/critique.md`: l'inspector non apre le p
 **Verifiche**: lint e typecheck ok; Vitest 2242/2242; e2e sulla build di produzione 2 giri su 2 verdi, 201/201 ciascuno (~3 min). Screenshot prima/dopo a 390×844 e 1280×800 in `.playwright-mcp/fetta-8k/` (anche `mosca-*` per "Le mie prenotazioni"). Review: nessun bloccante.
 
 **Problemi aperti**
-1. Hook Stop: è già sequenziale (lint, typecheck, Vitest, stop al primo errore; 42 s). La riga 47 di CLAUDE.md dice "in parallelo" e va corretta. I timeout sotto carico vengono dai file di Vitest in parallelo con 5 s di timeout (`stats.test.ts` `formatRate`, `staff-without-password.test.ts`): decisione dell'utente aperta (solo CLAUDE.md, oppure anche `--maxWorkers` nell'hook).
-2. Nel tema neon `glass-ink` distingue poco la prossima prenotazione dalle altre (vetro scuro con bordo grigio). Con Mosca la differenza è netta.
-3. Con un nome di servizio lungo il prezzo del listino va a capo ("20,00" / "€"): preesistente, si vede con i dati e2e.
-4. Migliorie della review non applicate:
-   - nel blocco evidenziato (tema Mosca) passaggio e pressione di "Cancella" e "Chiama il negozio" non cambiano aspetto;
-   - contrasto del messaggio d'errore di cancellazione sul blocco nero da verificare;
-   - "(si apre in una nuova scheda)" per gli screen reader sul link alle mappe;
-   - un errore della pulizia e2e (non dell'host) ferma il giro invece di avvisare;
-   - controllo più stretto sull'età nei nomi "E2E" (lunghezza del tag e istante plausibile);
-   - `ITEM_CLASS` a livello di modulo e la classe del testo secondario in un punto solo;
-   - classi di "Esci" ricavate da `linkClass`.
-5. `cleanup` in `admin-helpers.ts`: la PATCH di ripiego sui barbieri non ha `&select=id` e fallirebbe con "permission denied" (grant di colonna). Trovato scrivendo la pulizia del global-setup.
+1. Due rilievi della review delle rifiniture toccano test di accettazione: servono l'ok dell'utente (vedi sotto).
+
+**Rifiniture dopo la review** (2026-11-11, branch `fetta-8k-rifiniture` da `origin/main` `02dfd43`, dopo la PR #18)
+- Hook Stop: chiuso con `c5171f6` (Vitest su 2 processi, CLAUDE.md corretto).
+- "Le mie prenotazioni": la prima in programma ha l'etichetta "La prossima", il bordo `--ink` e `glow` (visibili nel neon; in Mosca il blocco nero basta), con l'e2e. Chiude il punto sul neon che distingueva poco la prossima.
+- Sul blocco: "Cancella" e "Chiama il negozio" si sottolineano al passaggio, al focus e alla pressione; l'errore di cancellazione usa il colore del blocco (≥ 4,5:1 in ogni tema, `tests/acceptance/customer-polish-8k-contrast.test.ts`), perché `--danger` in Mosca sul nero non basta.
+- Link alle mappe con "(si apre in una nuova scheda)" per gli screen reader (l'e2e del link ora cerca il nome completo).
+- Listino: il prezzo non va mai a capo (`shrink-0 whitespace-nowrap`), con il caso e2e a 390 px.
+- Pulizie: `ITEM_CLASS` e classe del testo secondario a livello di modulo; "Esci" con `linkClass` più `px-3` (con `px-2` scende a 41 px di larghezza, sotto i 44); `&select=id` nella PATCH di ripiego di `cleanup`.
+- Pulizia e2e del global-setup: un errore dà un avviso e il giro continua, su un DB non locale resta bloccante; età dei nomi "E2E" solo dalla forma esatta di `randomTag` e da un istante plausibile.
+- DESIGN.md: riga di `glass-ink`.
+- Verifiche: lint e typecheck ok; Vitest 2246/2246; e2e sulla build di produzione 2 giri su 2 verdi, 201/201. Screenshot di "Le mie prenotazioni" rifatti in `.playwright-mcp/fetta-8k/dopo/` (`neon-*` e `mosca-*`). Review: nessun bloccante.
+- Rilievi della review in attesa dell'ok dell'utente (test di accettazione):
+  1. il caso e2e del listino non verifica che il nome vada davvero a capo: con un nome generato più corto passerebbe anche senza la correzione (servirebbe un controllo sulle righe del nome o un nome lungo fisso);
+  2. l'asserzione esistente sul nome del link alle mappe è cambiata (non solo aggiunta), per l'sr-only.
