@@ -13,6 +13,29 @@ import { fillText } from "@/lib/admin/text";
 import { cn } from "@/lib/utils";
 import { EmptyMark } from "@/themes/active";
 
+type ItemKind = "next" | "upcoming" | "past";
+
+// Fetta 8k: la prossima in programma come il biglietto della home (glass-ink) con l'etichetta, il bordo
+// --ink e il bagliore del tema; le altre in programma con il riquadro, le passate spente con il divisore.
+const ITEM_CLASS: Record<ItemKind, string> = {
+  next: "on-ink glass-ink glow border-ink! flex flex-col gap-2 p-4",
+  upcoming: "flex flex-col gap-2 border border-line p-4",
+  past: "flex flex-col gap-2 border-b border-line py-4 text-muted-foreground",
+};
+
+/** Testo secondario: sul blocco evidenziato (nero nel tema chiaro) il grigio non ha contrasto, resta pieno. */
+const secondaryTextClass = (kind: ItemKind): string => (kind === "next" ? "text-sm" : "text-sm text-muted-foreground");
+
+/**
+ * Controlli dentro il blocco evidenziato: bordo e testo seguono il colore del blocco (il bordo --ink
+ * sparirebbe sul nero del tema chiaro). Al passaggio, al focus e alla pressione si sottolineano (e nel
+ * neon si accendono) invece di riempirsi: nessun token dà il colore opposto al testo del blocco in ogni tema.
+ */
+const ON_INK_CONTROL =
+  "border-current bg-transparent text-current underline-offset-4 glow-hover hover:bg-transparent hover:text-current hover:underline focus-visible:underline active:bg-transparent active:text-current active:underline";
+/** Errore sul blocco evidenziato: testo e filetto nel colore del blocco (≥ 4,5:1, verificato nei test). */
+const ON_INK_ERROR = "border-current text-current";
+
 // "Le mie prenotazioni" (SPEC §5.3): future e passate; cancellazione fino a cancel_limit_min prima,
 // poi "Chiama il negozio". Senza future confermate c'è "Prenota" (anche con passate o cancellate).
 export default async function MyBookingsPage({
@@ -40,21 +63,14 @@ export default async function MyBookingsPage({
     </Link>
   );
 
-  // Fetta 8k: la prossima in programma come il biglietto della home (glass-ink), le altre in programma
-  // con il riquadro, le passate spente e solo con il divisore.
-  const ITEM_CLASS = {
-    next: "on-ink glass-ink flex flex-col gap-2 p-4",
-    upcoming: "flex flex-col gap-2 border border-line p-4",
-    past: "flex flex-col gap-2 border-b border-line py-4 text-muted-foreground",
-  } as const;
-  const item = (booking: MyBooking, actions: React.ReactNode, kind: keyof typeof ITEM_CLASS) => (
+  const item = (booking: MyBooking, actions: React.ReactNode, kind: ItemKind) => (
     <li key={booking.id} className={ITEM_CLASS[kind]}>
+      {kind === "next" && <p className="text-sm font-medium">{t.nextLabel}</p>}
       <p className="font-display text-2xl leading-tight first-letter:uppercase">
         {formatDateTime(booking.startsAt, shop.timezone)}
       </p>
       <p>{fillText(it.home.withBarber, { service: booking.serviceName, barber: booking.barberName })}</p>
-      {/* Sul vetro scuro (nero nel tema chiaro) il grigio secondario non ha contrasto: lì il testo resta pieno. */}
-      <p className={kind === "next" ? "text-sm" : "text-sm text-muted-foreground"}>
+      <p className={secondaryTextClass(kind)}>
         {formatCents(booking.priceCents)}, {t.status[booking.status as keyof typeof t.status] ?? booking.status}
       </p>
       {actions}
@@ -99,16 +115,19 @@ export default async function MyBookingsPage({
             ) : (
               <ul className="flex flex-col gap-2">
                 {upcoming.map((booking, index) => {
-                  const kind = index === 0 ? "next" : "upcoming";
-                  // Nel blocco evidenziato il bordo segue il testo: il bordo --ink sparirebbe sul nero del tema chiaro.
-                  const onInk = kind === "next" ? "border-current bg-transparent text-current" : undefined;
+                  const kind: ItemKind = index === 0 ? "next" : "upcoming";
+                  const onInk = kind === "next" ? ON_INK_CONTROL : undefined;
                   return item(
                     booking,
                     canCancel(new Date(booking.startsAt), now, shop.cancelLimitMin) ? (
-                      <CancelBookingButton bookingId={booking.id} buttonClassName={onInk} />
+                      <CancelBookingButton
+                        bookingId={booking.id}
+                        buttonClassName={onInk}
+                        errorClassName={kind === "next" ? ON_INK_ERROR : undefined}
+                      />
                     ) : (
                       <div className="flex flex-col gap-1">
-                        <p className={kind === "next" ? "text-sm" : "text-sm text-muted-foreground"}>{t.tooLateHint}</p>
+                        <p className={secondaryTextClass(kind)}>{t.tooLateHint}</p>
                         {tel && (
                           <a
                             href={tel}

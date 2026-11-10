@@ -105,6 +105,8 @@ export const it = {
     },
     list: {
       title: "Le mie prenotazioni",
+      /** Etichetta della prima prenotazione in programma, uguale in ogni tema (fetta 8k). */
+      nextLabel: "La prossima",
       myBookingsTruncated: "Sono mostrate solo le ultime {count} prenotazioni.",
       upcoming: "In programma",
       past: "Passate e cancellate",
