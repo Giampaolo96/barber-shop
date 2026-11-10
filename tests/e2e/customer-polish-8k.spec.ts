@@ -440,6 +440,26 @@ test('8k cliente: conferma con "Torna alla home" senza bordo; Le mie prenotazion
     await expect(upcoming.nth(0)).toHaveClass(/(^|\s)glass-ink(\s|$)/);
     await expect(upcoming.nth(1)).not.toHaveClass(/(^|\s)glass-ink(\s|$)/);
 
+    // Aggiunta dell'utente dopo l'approvazione della fetta: etichetta "La prossima" solo sulla prima voce
+    // in programma e, solo lì, il bordo --ink (le altre --line).
+    const nextLabel = (li: Locator): Locator => li.getByText(s('booking.list.nextLabel'), { exact: true });
+    await expect(nextLabel(upcoming.nth(0))).toBeVisible();
+    await expect(nextLabel(upcoming.nth(1))).toHaveCount(0);
+    await expect(main(page).getByText(s('booking.list.nextLabel'), { exact: true })).toHaveCount(1);
+    const borderColors = await upcoming.evaluateAll((items) => {
+      const probe = (cls: string): string => {
+        const span = document.createElement('span');
+        span.className = `border ${cls}`;
+        document.body.append(span);
+        const color = getComputedStyle(span).borderLeftColor;
+        span.remove();
+        return color;
+      };
+      return { ink: probe('border-ink'), line: probe('border-line'), items: items.map((li) => getComputedStyle(li).borderLeftColor) };
+    });
+    expect(borderColors.items[0], 'la prossima con il bordo --ink').toBe(borderColors.ink);
+    expect(borderColors.items[1], 'le altre in programma con il bordo --line').toBe(borderColors.line);
+
     // 8k.8: le passate senza riquadro (né bordo sinistro né superiore) e in text-muted-foreground
     const pastLook = await pastItems.first().evaluate((li) => {
       const probe = document.createElement('span');
