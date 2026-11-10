@@ -322,9 +322,19 @@ test('8k cliente: completa profilo, testata con "Esci" da link, listino, "Quando
     // --- Listino ---
     await page.goto('/prenota');
     desktopX['/prenota'] = await checkLayout(page, '/prenota');
-    await main(page)
-      .getByRole('link', { name: `${service.name}, ${sf('booking.duration', { count: 30 })}, 20,00 €`, exact: true })
-      .click();
+    const serviceRow = main(page).getByRole('link', {
+      name: `${service.name}, ${sf('booking.duration', { count: 30 })}, 20,00 €`,
+      exact: true,
+    });
+    // Aggiunta dell'utente dopo l'approvazione della fetta: con un nome lungo (questo, a 390 px) il nome va
+    // a capo ma il prezzo resta su una riga e dentro il margine.
+    const priceLayout = await serviceRow.getByText('20,00 €', { exact: true }).evaluate((el) => {
+      const rects = [...el.getClientRects()];
+      return { lines: new Set(rects.map((r) => Math.round(r.top))).size, right: Math.max(...rects.map((r) => r.right)) };
+    });
+    expect(priceLayout.lines, 'prezzo del listino su una riga').toBe(1);
+    expect(priceLayout.right, 'prezzo dentro il margine di 16 px').toBeLessThanOrEqual(PHONE.width - MARGIN + 0.5);
+    await serviceRow.click();
 
     // --- "Quando?" (più larga: niente confronto della x a 1280) ---
     await expectPath(page, '/prenota/quando');
