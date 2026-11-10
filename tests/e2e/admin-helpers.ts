@@ -384,7 +384,8 @@ export const cleanup = async (
     } catch (error) {
       // Un barbiere rimasto attivo allarga il calendario degli altri test (colonne in più): se non
       // si può eliminare, almeno si disattiva.
-      await api.patch(`/rest/v1/barbers?id=in.(${list(data.barbers)})`, { is_active: false });
+      // select=id: la rappresentazione intera di barbers richiederebbe tutte le colonne (grant di colonna).
+      await api.patch(`/rest/v1/barbers?id=in.(${list(data.barbers)})&select=id`, { is_active: false });
       console.warn('cleanup: barbieri disattivati invece che eliminati', error);
     }
   }
