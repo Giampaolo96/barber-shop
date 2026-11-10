@@ -14,7 +14,8 @@ export default async function CustomerLoginPage({
   const t = it.auth.customerLogin;
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-4 p-6">
+    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-4 px-4 py-6">
+      {/* Margine di 16 px come le altre pagine clienti; il modulo resta stretto, a sinistra (fetta 8k). */}
       <h1 className="font-display text-4xl leading-tight text-glow">{t.title}</h1>
       <p className="text-sm text-muted-foreground">{t.intro}</p>
       {errore === "link" && (
@@ -22,7 +23,10 @@ export default async function CustomerLoginPage({
           {t.invalidLink}
         </p>
       )}
-      <CustomerLoginForm next={safeNextPath(next)} />
+      <div className="w-full max-w-sm">
+        <CustomerLoginForm next={safeNextPath(next)} />
+      </div>
+      <p className="max-w-sm text-sm text-muted-foreground">{t.firstAccess}</p>
       <Link href={STAFF_LOGIN_PATH} className={`mt-auto pt-8 ${secondaryLinkClass}`}>
         {it.auth.customerLogin.staffLink}
       </Link>

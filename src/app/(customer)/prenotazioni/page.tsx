@@ -10,6 +10,7 @@ import { MY_BOOKINGS_LIMIT, getMyBookings, type MyBooking, type MyBookings } fro
 import { canCancel, splitBookings } from "@/lib/booking/rules";
 import { formatCents } from "@/lib/domain/money";
 import { fillText } from "@/lib/admin/text";
+import { cn } from "@/lib/utils";
 import { EmptyMark } from "@/themes/active";
 
 // "Le mie prenotazioni" (SPEC §5.3): future e passate; cancellazione fino a cancel_limit_min prima,
@@ -39,13 +40,21 @@ export default async function MyBookingsPage({
     </Link>
   );
 
-  const item = (booking: MyBooking, actions: React.ReactNode) => (
-    <li key={booking.id} className="flex flex-col gap-2 border border-line p-4">
+  // Fetta 8k: la prossima in programma come il biglietto della home (glass-ink), le altre in programma
+  // con il riquadro, le passate spente e solo con il divisore.
+  const ITEM_CLASS = {
+    next: "on-ink glass-ink flex flex-col gap-2 p-4",
+    upcoming: "flex flex-col gap-2 border border-line p-4",
+    past: "flex flex-col gap-2 border-b border-line py-4 text-muted-foreground",
+  } as const;
+  const item = (booking: MyBooking, actions: React.ReactNode, kind: keyof typeof ITEM_CLASS) => (
+    <li key={booking.id} className={ITEM_CLASS[kind]}>
       <p className="font-display text-2xl leading-tight first-letter:uppercase">
         {formatDateTime(booking.startsAt, shop.timezone)}
       </p>
       <p>{fillText(it.home.withBarber, { service: booking.serviceName, barber: booking.barberName })}</p>
-      <p className="text-sm text-muted-foreground">
+      {/* Sul vetro scuro (nero nel tema chiaro) il grigio secondario non ha contrasto: lì il testo resta pieno. */}
+      <p className={kind === "next" ? "text-sm" : "text-sm text-muted-foreground"}>
         {formatCents(booking.priceCents)}, {t.status[booking.status as keyof typeof t.status] ?? booking.status}
       </p>
       {actions}
@@ -54,7 +63,7 @@ export default async function MyBookingsPage({
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-6">
-      <h1 className="font-display text-4xl leading-tight text-glow">{t.title}</h1>
+      <h1 className="mb-4 font-display text-4xl leading-tight text-glow">{t.title}</h1>
       {esito === "cancellata" && <p role="status" className="border border-ink p-4">{t.cancelled}</p>}
 
       {bookings === null && (
@@ -89,23 +98,33 @@ export default async function MyBookingsPage({
               </div>
             ) : (
               <ul className="flex flex-col gap-2">
-                {upcoming.map((booking) =>
-                  item(
+                {upcoming.map((booking, index) => {
+                  const kind = index === 0 ? "next" : "upcoming";
+                  // Nel blocco evidenziato il bordo segue il testo: il bordo --ink sparirebbe sul nero del tema chiaro.
+                  const onInk = kind === "next" ? "border-current bg-transparent text-current" : undefined;
+                  return item(
                     booking,
                     canCancel(new Date(booking.startsAt), now, shop.cancelLimitMin) ? (
-                      <CancelBookingButton bookingId={booking.id} />
+                      <CancelBookingButton bookingId={booking.id} buttonClassName={onInk} />
                     ) : (
                       <div className="flex flex-col gap-1">
-                        <p className="text-sm text-muted-foreground">{t.tooLateHint}</p>
+                        <p className={kind === "next" ? "text-sm" : "text-sm text-muted-foreground"}>{t.tooLateHint}</p>
                         {tel && (
-                          <a href={tel} className="inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface">
+                          <a
+                            href={tel}
+                            className={cn(
+                              "inline-flex h-11 w-fit items-center border border-ink px-4 text-sm font-medium hover:bg-ink hover:text-surface",
+                              onInk,
+                            )}
+                          >
                             {t.callShop}
                           </a>
                         )}
                       </div>
                     ),
-                  ),
-                )}
+                    kind,
+                  );
+                })}
               </ul>
             )}
           </section>
@@ -115,7 +134,7 @@ export default async function MyBookingsPage({
             {past.length === 0 ? (
               <p className="text-muted-foreground">{t.none}</p>
             ) : (
-              <ul className="flex flex-col gap-2">{past.map((booking) => item(booking, null))}</ul>
+              <ul className="flex flex-col">{past.map((booking) => item(booking, null, "past"))}</ul>
             )}
           </section>
 

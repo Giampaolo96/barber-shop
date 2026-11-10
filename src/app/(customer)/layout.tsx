@@ -2,10 +2,11 @@ import Link from "next/link";
 import { LinkPending } from "@/components/link-pending";
 import type { ReactNode } from "react";
 import { EmailLinkError } from "@/components/auth/email-link-error";
+import { LoginNavLink } from "@/components/auth/login-nav-link";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ShopBrandLink } from "@/components/shop-brand-link";
 import { it } from "@/i18n/it";
-import { ADMIN_PATH, CUSTOMER_LOGIN_PATH, isStaffRole } from "@/lib/auth/access";
+import { ADMIN_PATH, isStaffRole } from "@/lib/auth/access";
 import { getCurrentUser, hasPasswordSession } from "@/lib/auth/current-user";
 import { MY_BOOKINGS_PATH } from "@/lib/booking/paths";
 import { getShopInfo } from "@/lib/booking/queries";
@@ -28,9 +29,7 @@ export default async function CustomerLayout({ children }: { children: ReactNode
         <ShopBrandLink name={shop?.name ?? it.shop.name} />
         <div className="flex shrink-0 items-center gap-1">
           {user === null ? (
-            <Link href={CUSTOMER_LOGIN_PATH} className={linkClass}>
-              {it.nav.login}
-            </Link>
+            <LoginNavLink className={linkClass}>{it.nav.login}</LoginNavLink>
           ) : (
             <>
               {staff ? (
@@ -50,7 +49,8 @@ export default async function CustomerLayout({ children }: { children: ReactNode
                   </Link>
                 </>
               )}
-              <LogoutButton />
+              {/* Azione rara: aspetto da link, dopo Prenotazioni e Profilo (fetta 8k). */}
+              <LogoutButton quiet buttonClassName="no-underline hover:underline" />
             </>
           )}
         </div>

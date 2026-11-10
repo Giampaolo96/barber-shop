@@ -22,7 +22,7 @@ export default async function ChooseServicePage() {
         step={1}
         title={t.service.title}
         subtitle={t.service.subtitle}
-        mark={<EmptyMark className="mb-1 size-8 shrink-0" />}
+        mark={<EmptyMark className="size-8 shrink-0" />}
         backHref="/"
       />
       {access !== "ok" ? (
@@ -51,14 +51,16 @@ function ServiceList({ services }: { services: BookableService[] }) {
               aria-label={`${service.name}, ${duration}, ${price}`}
               className="glow-hover relative flex min-h-16 flex-col justify-center gap-1 py-3 hover:bg-ink hover:text-surface active:bg-ink active:text-surface [&:active_.text-muted-foreground]:text-surface [&:hover_.text-muted-foreground]:text-surface"
             >
-              <span className="flex items-baseline gap-2 px-2 font-display text-2xl leading-tight">
+              {/* Righe a filo del titolo e dei doppi filetti, senza rientro (fetta 8k). */}
+              <span className="flex items-baseline gap-2 font-display text-2xl leading-tight">
                 <span>{service.name}</span>
                 <span aria-hidden="true" className="mb-1.5 flex-1 border-b-2 border-dotted border-current" />
                 <span className="tabular-nums">{price}</span>
               </span>
-              <span className="px-2 text-sm text-muted-foreground">
-                {duration}
-                {service.description && <span className="block">{service.description}</span>}
+              {/* Durata e descrizione su una sola riga grigia (fetta 8k). */}
+              <span className="text-sm text-muted-foreground">
+                <span className="tabular-nums">{duration}</span>
+                {service.description && <span className="ml-3">{service.description}</span>}
               </span>
               <LinkPending />
             </Link>

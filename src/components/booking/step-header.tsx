@@ -61,12 +61,13 @@ export function StepHeader({
           )}
         </div>
       ) : (
-        <div className="flex items-end justify-between gap-4">
-          <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1">
+          {/* Il segno sulla linea di base del titolo: un svg non ha linea di base, vale il suo bordo inferiore. */}
+          <div className="flex items-baseline justify-between gap-4">
             <h1 className="font-display text-5xl leading-none text-glow">{title}</h1>
-            {subtitle && <p className="font-display text-xl italic text-muted-foreground">{subtitle}</p>}
+            {mark}
           </div>
-          {mark}
+          {subtitle && <p className="font-display text-xl italic text-muted-foreground">{subtitle}</p>}
         </div>
       )}
     </div>

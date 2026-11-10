@@ -1,7 +1,8 @@
 # Quality gate (hook Stop) - Windows PowerShell 5.1+
 # Quando Claude sta per chiudere il turno e ci sono modifiche non committate
-# di implementazione (src, migrazioni, seed), esegue lint, typecheck e test. Se falliscono, esce con
-# codice 2: Claude non si ferma e riceve l'errore come feedback.
+# di implementazione (src, migrazioni, seed), esegue lint, typecheck e test uno dopo l'altro e si
+# ferma al primo che fallisce: esce con codice 2, Claude non si ferma e riceve l'errore come feedback.
+# Vitest gira su 2 processi: con tutti i core i test unitari andavano in timeout (5 s) sotto carico.
 
 $ErrorActionPreference = 'Continue'
 
@@ -37,7 +38,7 @@ if ($stopHookActive) { exit 0 }
 $checks = @(
     @{ Label = 'lint';      Args = @('run', 'lint', '--silent') },
     @{ Label = 'typecheck'; Args = @('run', 'typecheck', '--silent') },
-    @{ Label = 'test';      Args = @('test', '--silent') }
+    @{ Label = 'test';      Args = @('test', '--silent', '--', '--maxWorkers=2') }
 )
 
 foreach ($check in $checks) {

@@ -7,7 +7,7 @@ import { it } from "@/i18n/it";
 import { fillText } from "@/lib/admin/text";
 import { STAFF_LOGIN_PATH } from "@/lib/auth/access";
 import { getCurrentUser, getVerifiedUserId } from "@/lib/auth/current-user";
-import { formatTime, telHref } from "@/lib/booking/format";
+import { formatTime, mapsHref, telHref } from "@/lib/booking/format";
 import { BOOK_PATH, MY_BOOKINGS_PATH } from "@/lib/booking/paths";
 import { getNextBooking, getShopInfo } from "@/lib/booking/queries";
 import { isoWeekday } from "@/lib/calendar/grid";
@@ -38,12 +38,18 @@ export default async function HomePage() {
   const now = new Date();
   const status = opening && timezone ? openingStatus({ now, timezone, ...opening }) : null;
   const tel = telHref(shop?.phone ?? null);
+  const maps = mapsHref(shop?.address ?? null);
 
   return (
     <>
       <main className="flex flex-1 flex-col">
         <section className="on-ink relative overflow-hidden bg-marble text-on-marble">
           <HeroBackground />
+          {/* Il marmo sfuma nel fondo invece di finire con un taglio netto (fetta 8k, docs/DESIGN.md). */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-b from-transparent to-surface"
+          />
           <div className="relative mx-auto flex w-full max-w-xl flex-col px-4 pt-4 pb-10">
             <HeroMark />
             <h1 aria-label={fullName} className="-mt-10 font-display text-glow">
@@ -106,7 +112,22 @@ export default async function HomePage() {
           {(shop?.address || tel) && (
             <section className="flex flex-col gap-3">
               <h2 className="border-b-[3px] border-double border-ink pb-2 font-display text-2xl text-glow">{t.whereTitle}</h2>
-              {shop?.address && <address className="not-italic">{shop.address}</address>}
+              {shop?.address && (
+                <address className="not-italic">
+                  {maps ? (
+                    <a
+                      href={maps}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-11 items-center underline underline-offset-4 hover:no-underline"
+                    >
+                      {shop.address}
+                    </a>
+                  ) : (
+                    shop.address
+                  )}
+                </address>
+              )}
               {tel && shop?.phone && (
                 <a
                   href={tel}

@@ -96,6 +96,7 @@ export const it = {
       anyBarber: "Il primo barbiere libero",
       when: "Quando",
       price: "Prezzo",
+      duration: "Durata",
       notesLabel: "Note per il barbiere (facoltative)",
       confirm: "Conferma prenotazione",
       changeTime: "Cambia orario",
@@ -173,7 +174,10 @@ export const it = {
       title: "Accedi con la tua email",
       intro: "Ti mandiamo un codice e un link per entrare, senza password.",
       emailLabel: "Email",
+      emailPlaceholder: "nome@email.it",
       submit: "Invia il codice di accesso",
+      /** Deve descrivere /profilo/completa: nome, telefono e consenso privacy (il marketing è facoltativo). */
+      firstAccess: "Al primo accesso ti chiediamo nome, telefono e il consenso all'informativa privacy.",
       // Volutamente neutro: non deve dire se l'indirizzo è già registrato.
       linkSent: "Controlla la posta: se l'indirizzo è corretto riceverai a breve un codice e un link per entrare.",
       invalidEmail: "Inserisci un indirizzo email valido.",

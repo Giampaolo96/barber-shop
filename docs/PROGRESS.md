@@ -23,6 +23,7 @@
 | 8h | completata | 2026-11-09 | Vedi "Fetta 8h" sotto; da rilasciare (prima `db push`, poi deploy); un e2e della 8j instabile sul branch (punto 1 dei problemi aperti) |
 | 8i | da fare | | Correzioni admin: punti 5, 8 e 9 dell'audit |
 | 8j | completata | 2026-10-31 | Vedi "Fetta 8j" sotto; una decisione aperta sui test (punto 1 dei problemi aperti) |
+| 8k | completata | 2026-11-10 | Vedi "Fetta 8k" sotto; migliorie della review e decisione sull'hook Stop aperte |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
 | 9b | da fare | | Privacy e account prima del go-live (SPEC §11), con il punto 4 dell'audit |
 
@@ -1505,3 +1506,43 @@ Critica sugli screenshot con `references/critique.md`: l'inspector non apre le p
 1. Domanda per il titolare (SPEC §13.9): verifica in due passaggi per l'admin. Chi controlla l'email dello staff può ancora reimpostare la password via API e poi entrare con quella.
 2. Navigazioni fuori dalla barra del calendario durante uno spostamento (link delle schede, "Nuova prenotazione", "mostra cancellate", menu, indietro del browser) scartano ancora lo spostamento in corso (ADR 008).
 3. Migliorie non applicate: la CI fa due build (step "Build" e poi `test:e2e`); `count: "exact"` aggiunge un COUNT a ogni caricamento del calendario; `admin-move-timeout.spec.ts` aspetta 15 s veri.
+
+## Fetta 8k – Rifiniture di stile dell'area clienti
+
+**Stato**: completata il 2026-11-10 sul branch `fetta-8k` (da `origin/main` `d7929a2`; test di accettazione in `aa69fa5`). Nessuna migrazione, tema e token invariati. Fonte: `docs/audit/2026-10-31-taste.md`, sezione "Area clienti" (escluso Profilo, che va nella 9b).
+
+**Fatto**
+- Testata: "Esci" con l'aspetto dei link vicini (variante `quiet` di `LogoutButton`, sempre un button in un form POST), dopo Prenotazioni e Profilo; niente "Accedi" su `/accedi` (`LoginNavLink`, client, con `usePathname`).
+- Margine unico di 16 px: Accedi e `/profilo/completa` passano a `max-w-xl px-4`, con il modulo `max-w-sm` a sinistra.
+- Home: indirizzo con link a Google Maps (`mapsHref` in `src/lib/booking/format.ts`), dissolvenza in fondo al marmo, scia della mosca che parte sopra il titolo.
+- Accedi: esempio "nome@email.it" nel campo e la riga sul primo accesso (nome, telefono e consenso privacy, cioè quello che chiede oggi `/profilo/completa`).
+- Prenota: righe del listino a filo, mosca sulla riga del titolo, durata e descrizione su una riga.
+- "Quando?": monogramma con il bordo pieno `--line` (anche nella scheda barbiere dell'admin), striscia dei giorni che sfuma a destra quando ci sono altri giorni, "Nessun orario" e il giorno di "prossimo: …" più visibili.
+- Riepilogo: Prezzo e Durata su due righe (`it.booking.summary.duration`), note con il bordo `border-control-rest`, più respiro.
+- Conferma: "Aggiungi al calendario" alto e con il testo di "Conferma prenotazione", "Le mie prenotazioni" con bordo, "Torna alla home" come link; indirizzo in Hanken Grotesk.
+- Le mie prenotazioni: la prima in programma in `glass-ink` (controlli con `border-current`, niente grigio secondario), le passate senza riquadro e attenuate, più stacco sotto il titolo.
+- DESIGN.md: eccezioni per le due sfumature, `glass-ink` nell'elenco, monogramma, colonna `max-w-xl px-4`. SPEC §11: riga 8k.
+- Critica taste rilanciata con la stessa skill (v2.1.5): `docs/audit/2026-11-10-taste-8k.md`, punteggi accanto ai vecchi.
+- Commit a parte, chiesto dall'utente: pulizia degli avanzi e2e all'avvio nel global-setup (`35bfede`), solo su Supabase locale.
+
+**Decisioni**
+- Link alle mappe: `https://www.google.com/maps/search/?api=1&query=<indirizzo codificato>`, `target="_blank"`, `rel="noopener noreferrer"`.
+- Sotto il pulsante di Accedi una riga sul primo accesso, non la mosca piccola. Niente "una volta sola": il nuovo consenso al cambio d'informativa arriva con la 9b.
+- Listino senza rientro: al passaggio il pieno arriva a filo del testo.
+- Nessun test esistente modificato.
+
+**Verifiche**: lint e typecheck ok; Vitest 2242/2242; e2e sulla build di produzione 2 giri su 2 verdi, 201/201 ciascuno (~3 min). Screenshot prima/dopo a 390×844 e 1280×800 in `.playwright-mcp/fetta-8k/` (anche `mosca-*` per "Le mie prenotazioni"). Review: nessun bloccante.
+
+**Problemi aperti**
+1. Hook Stop: è già sequenziale (lint, typecheck, Vitest, stop al primo errore; 42 s). La riga 47 di CLAUDE.md dice "in parallelo" e va corretta. I timeout sotto carico vengono dai file di Vitest in parallelo con 5 s di timeout (`stats.test.ts` `formatRate`, `staff-without-password.test.ts`): decisione dell'utente aperta (solo CLAUDE.md, oppure anche `--maxWorkers` nell'hook).
+2. Nel tema neon `glass-ink` distingue poco la prossima prenotazione dalle altre (vetro scuro con bordo grigio). Con Mosca la differenza è netta.
+3. Con un nome di servizio lungo il prezzo del listino va a capo ("20,00" / "€"): preesistente, si vede con i dati e2e.
+4. Migliorie della review non applicate:
+   - nel blocco evidenziato (tema Mosca) passaggio e pressione di "Cancella" e "Chiama il negozio" non cambiano aspetto;
+   - contrasto del messaggio d'errore di cancellazione sul blocco nero da verificare;
+   - "(si apre in una nuova scheda)" per gli screen reader sul link alle mappe;
+   - un errore della pulizia e2e (non dell'host) ferma il giro invece di avvisare;
+   - controllo più stretto sull'età nei nomi "E2E" (lunghezza del tag e istante plausibile);
+   - `ITEM_CLASS` a livello di modulo e la classe del testo secondario in un punto solo;
+   - classi di "Esci" ricavate da `linkClass`.
+5. `cleanup` in `admin-helpers.ts`: la PATCH di ripiego sui barbieri non ha `&select=id` e fallirebbe con "permission denied" (grant di colonna). Trovato scrivendo la pulizia del global-setup.

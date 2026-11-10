@@ -12,11 +12,14 @@ import { ConfirmationBackground, ConfirmationMark } from "@/themes/active";
 
 const t = it.booking.confirmation;
 
-const actionBase = "flex h-12 items-center justify-center border border-on-marble px-4 text-sm font-medium";
-/** Azione principale: piena (e accesa nei temi con la luce), si svuota al passaggio e alla pressione. */
-const primaryActionClass = `${actionBase} glow bg-on-marble text-marble hover:bg-marble hover:text-on-marble active:bg-marble active:text-on-marble`;
-/** Azioni secondarie: bordo, si riempiono al passaggio e alla pressione. */
-const actionClass = `${actionBase} relative glow-hover hover:bg-on-marble hover:text-marble active:bg-on-marble active:text-marble`;
+const actionBase = "flex items-center justify-center border border-on-marble px-4 font-medium";
+/**
+ * Azione principale: piena (e accesa nei temi con la luce), si svuota al passaggio e alla pressione.
+ * Stesso peso di "Conferma prenotazione" (h-14, text-base), fetta 8k.
+ */
+const primaryActionClass = `${actionBase} h-14 text-base glow bg-on-marble text-marble hover:bg-marble hover:text-on-marble active:bg-marble active:text-on-marble`;
+/** Azione secondaria: bordo, si riempie al passaggio e alla pressione. */
+const actionClass = `${actionBase} h-12 text-sm relative glow-hover hover:bg-on-marble hover:text-marble active:bg-on-marble active:text-marble`;
 
 // Schermata dopo la conferma (fetta 8b, SPEC §5.2): solo il cliente proprietario (RLS), altrimenti
 // 404; una prenotazione propria cancellata o già iniziata rimanda a "Le mie prenotazioni".
@@ -67,7 +70,8 @@ export default async function BookingConfirmedPage({ params }: { params: Promise
           <Detail label={t.barber}>{booking.barberName}</Detail>
           <Detail label={t.shop}>
             {shop.name}
-            {shop.address && <address className="not-italic">{shop.address}</address>}
+            {/* Indirizzo nel testo corrente: il Bodoni resta per nome, data e ora (fetta 8k). */}
+            {shop.address && <address className="font-sans text-base not-italic">{shop.address}</address>}
           </Detail>
         </dl>
         <div className="flex flex-col gap-3">
@@ -78,7 +82,11 @@ export default async function BookingConfirmedPage({ params }: { params: Promise
             {t.myBookings}
             <LinkPending />
           </Link>
-          <Link href="/" className={actionClass}>
+          {/* Due soli pulsanti: il ritorno alla home è un link (fetta 8k). */}
+          <Link
+            href="/"
+            className="inline-flex h-11 w-fit items-center text-sm font-medium underline underline-offset-4 hover:no-underline"
+          >
             {t.backHome}
           </Link>
         </div>
