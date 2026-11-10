@@ -12,7 +12,7 @@ I principi qui sotto sono scritti per Mosca (nero su bianco); in Mosca neon i ru
 - **Numeri come tipografia**: date e orari grandi in Bodoni sono l'elemento visivo della scelta, non etichette.
 - **Un solo momento memorabile per schermata.** In home è la testata in marmo con la mosca (il biglietto della prossima prenotazione è il secondo elemento forte, mai un terzo); dopo la prenotazione è la schermata di conferma in marmo; tutto il resto è disciplinato.
 - **Doppio filetto** (`border-double`, 3 px, colore `--ink`) solo come separatore principale: sotto i titoli di sezione della home, sopra e sotto il listino, sul pulsante "Prenota". Altrove bastano i bordi da 1 px.
-- **Allineamento a sinistra**, griglia a 16 px su mobile, colonna di lettura `max-w-xl`. Eccezione: "Quando?" usa `max-w-3xl` (una fila continua di colonne, giorno × barbiere, ADR 013) e un'intestazione compatta (`StepHeader compact`, senza il segno del tema, su una riga sola con il sottotitolo troncato). Nelle colonne di "Quando?" la testata (data piccola, ritratto e nome) è centrata, l'unico testo non allineato a sinistra della schermata: con colonne strette fino a 5 rem il nome centrato sopra gli orari si legge meglio.
+- **Allineamento a sinistra**, griglia a 16 px su mobile, colonna di lettura `max-w-xl` con `px-4` su tutte le pagine clienti (anche Accedi e "Completa il tuo profilo", dove il modulo resta `max-w-sm` a sinistra, fetta 8k). Eccezione: "Quando?" usa `max-w-3xl` (una fila continua di colonne, giorno × barbiere, ADR 013) e un'intestazione compatta (`StepHeader compact`, senza il segno del tema, su una riga sola con il sottotitolo troncato). Nelle colonne di "Quando?" la testata (data piccola, ritratto e nome) è centrata, l'unico testo non allineato a sinistra della schermata: con colonne strette fino a 5 rem il nome centrato sopra gli orari si legge meglio.
 - Mobile first per il cliente (tap target ≥ 44 px), desktop first per lo staff.
 
 ## Token
@@ -49,7 +49,7 @@ Regole:
 - Il disabilitato usa i suoi colori, non l'opacità.
 - Focus unico per ogni elemento interattivo: contorno pieno di 2px staccato di 2px (`:focus-visible` in `globals.css`, colore `--ring`), più il bagliore `--glow-focus` del tema. Sui fondi scuri (blocco nero, marmo, vetro) si aggiunge la classe `on-ink`, che rende il contorno chiaro (`--ring-on-ink`).
 - Un'informazione data solo dall'aspetto (es. giorno tratteggiato = senza orari) ha anche un testo per gli screen reader.
-- Le foto dei barbieri sono quadrate e in scala di grigi, coerenti con il bianco e nero; cornice e filtro vengono dal tema (classe `portrait`). Le foto non si invertono mai.
+- Le foto dei barbieri sono quadrate e in scala di grigi, coerenti con il bianco e nero; cornice e filtro vengono dal tema (classe `portrait`). Le foto non si invertono mai. Senza foto c'è l'iniziale in un riquadro con il bordo pieno `--line`, mai tratteggiato: il tratteggio vuol dire "senza orari" (fetta 8k).
 - I campi nativi (`select`, `textarea`) usano `selectClass` e `textareaClass` di `src/components/ui/field.ts`, allineati a `<Input>`.
 - I font sono self-hosted con `next/font` (nessuna richiesta a Google a runtime) e si importano solo nel tema.
 
@@ -73,7 +73,7 @@ Il nero profondo richiama il negozio di sera: neon bianchi (al massimo con una l
 | `glow-hover` | pulsanti con bordo, orari, giorni, righe del listino: si illuminano al passaggio e al focus | `--glow-box-hover` |
 | `[aria-current]` | elemento selezionato (giorno, vista del calendario, barbiere della settimana): si accende senza classi. Eccezione: la voce attiva del menu admin non ha pieno né bagliore, il pieno resta per l'azione principale e per il segmentato; ha testo `--ink` (le altre voci `--ink-muted`) e un filetto di 2 px `--ink`, a sinistra su desktop e sotto su telefono | `--glow-box` |
 | `glass` | **solo** pannelli grandi: riepilogo e dettagli della conferma | `--glass-bg`, `--glass-border`, `--glass-filter`, `--glass-pad` |
-| `glass-ink` | biglietto della prossima prenotazione (blocco nero in Mosca, vetro nel neon) | `--glass-ink-*` |
+| `glass-ink` | biglietto della prossima prenotazione in home e, in "Le mie prenotazioni", la prima in programma (blocco nero in Mosca, vetro nel neon). Dentro il blocco niente testo `--ink-muted` e i controlli con bordo usano `border-current` (fetta 8k) | `--glass-ink-*` |
 | `sticky-bar` | striscia dei giorni, unico elemento fisso dell'area clienti (nell'admin sono fissi anche la barra "Salva" di Impostazioni e, su desktop, l'avviso di spostamento del calendario, con fondo `bg-surface`): fondo pieno in Mosca; nel neon velato e sfocato solo sugli schermi bassi (dove la pagina scorre), trasparente su quelli alti | `--sticky-bar-bg`, `--sticky-bar-filter` |
 | `portrait` | ritratti dei barbieri | `--portrait-*` |
 | `mark-glow` | la mosca in volo e posata | `--glow-mark` |
@@ -100,7 +100,7 @@ Il nero profondo richiama il negozio di sera: neon bianchi (al massimo con una l
 
 ## Cosa NON fare
 
-- Niente gradienti decorativi. L'unico motivo a righe è il tratteggio informativo di assenze e chiusure nel calendario (`bg-hatch`). L'unica sfumatura ammessa è funzionale: in fondo a una colonna di "Quando?" che ha altri orari sotto (`from-surface`). Eccezione del tema neon: i gradienti radiali delle luci d'ambiente, solo nel loro livello.
+- Niente gradienti decorativi. L'unico motivo a righe è il tratteggio informativo di assenze e chiusure nel calendario (`bg-hatch`). Le sfumature ammesse sono verso `--surface` (`from-surface`/`to-surface`) e solo queste: funzionali, in fondo a una colonna di "Quando?" che ha altri orari sotto e a destra della striscia dei giorni quando ci sono altri giorni (fetta 8k); di raccordo, pochi pixel sul bordo inferiore della testata in marmo della home, che così non finisce con un taglio netto (fetta 8k). Eccezione del tema neon: i gradienti radiali delle luci d'ambiente, solo nel loro livello.
 - Niente ombre morbide, né sulle card né sui pulsanti. Eccezione: i bagliori del tema, solo attraverso le classi e i token di "Luce e vetro" (mai un'ombra scritta in un componente).
 - Niente maiuscoletto né tutto maiuscolo sulle etichette.
 - Niente card tutte uguali con angoli arrotondati: angoli vivi, bordi da 1 px. Unica eccezione, solo nel tema neon: le caselle di orari e giorni di "Quando?" (`--radius-control`); pannelli, biglietto, "Primo libero" e pulsanti grandi restano ad angoli vivi.

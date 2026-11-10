@@ -63,7 +63,8 @@ export default async function BookingSummaryPage({
         <RestartNotice />
       ) : (
         <>
-          <dl className="glass grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 border border-(--glass-border) p-5">
+          {/* Etichette sulla prima riga del valore ("Quando" va su due righe), più respiro fra le voci (fetta 8k). */}
+          <dl className="glass grid grid-cols-[auto_1fr] items-baseline gap-x-6 gap-y-4 border border-(--glass-border) p-5">
             <dt className="text-muted-foreground">{t.service}</dt>
             <dd className="font-medium">{service.name}</dd>
             <dt className="text-muted-foreground">{t.barber}</dt>
@@ -73,10 +74,9 @@ export default async function BookingSummaryPage({
               {formatDateTime(params.data.inizio, shop.timezone)}
             </dd>
             <dt className="text-muted-foreground">{t.price}</dt>
-            <dd className="font-medium">
-              {formatCents(service.priceCents)},{" "}
-              {formatDuration(service.durationMin)}
-            </dd>
+            <dd className="font-medium tabular-nums">{formatCents(service.priceCents)}</dd>
+            <dt className="text-muted-foreground">{t.duration}</dt>
+            <dd className="font-medium tabular-nums">{formatDuration(service.durationMin)}</dd>
           </dl>
           {access !== "ok" ? (
             <BlockedNotice phone={shop.phone} />

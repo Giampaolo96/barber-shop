@@ -27,9 +27,12 @@ export function Fly({ className, style }: { className?: string; style?: React.CS
   );
 }
 
-/** Percorso del volo in home: un solo giro, nelle coordinate di un riquadro 320×120. */
+/**
+ * Percorso del volo in home: un solo giro, nelle coordinate di un riquadro 320×120. Il titolo sale
+ * fino a y 80 (-mt-10): la scia parte sopra, senza attraversare la prima lettera (fetta 8k).
+ */
 const FLIGHT_PATH =
-  "M 8 104 C 70 108 96 36 150 34 C 204 32 214 92 176 96 C 138 100 140 30 206 22 C 250 17 282 30 300 44";
+  "M 8 66 C 60 70 96 36 150 34 C 204 32 214 92 176 96 C 138 100 140 30 206 22 C 250 17 282 30 300 44";
 
 /**
  * Scia tratteggiata che si disegna una volta: il tratteggio resta quello della scia, una maschera a

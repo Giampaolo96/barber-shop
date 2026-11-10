@@ -85,6 +85,7 @@ export function CustomerLoginForm({ next = "/" }: { next?: string }) {
           type="email"
           inputMode="email"
           autoComplete="email"
+          placeholder={t.emailPlaceholder}
           required
           aria-invalid={state.status === "invalid"}
           className="h-11"

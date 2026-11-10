@@ -25,14 +25,17 @@ export default async function CompleteProfilePage({
   const next = safeNextPath((await searchParams).next);
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-4 p-6">
+    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-4 px-4 py-6">
+      {/* Margine di 16 px come le altre pagine clienti; il modulo resta stretto, a sinistra (fetta 8k). */}
       <h1 className="font-display text-4xl leading-tight">{t.title}</h1>
       <p className="text-sm text-muted-foreground">{t.intro}</p>
-      <CompleteProfileForm
-        fullName={profile?.full_name ?? ""}
-        phone={profile?.phone ?? ""}
-        next={next}
-      />
+      <div className="w-full max-w-sm">
+        <CompleteProfileForm
+          fullName={profile?.full_name ?? ""}
+          phone={profile?.phone ?? ""}
+          next={next}
+        />
+      </div>
     </main>
   );
 }

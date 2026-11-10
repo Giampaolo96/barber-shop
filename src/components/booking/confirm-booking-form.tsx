@@ -10,6 +10,7 @@ import { createBooking, type BookingActionState } from "@/lib/booking/actions";
 import { bookingErrorText } from "@/lib/booking/errors";
 import { NOTES_MAX_LENGTH } from "@/lib/booking/schemas";
 import { textareaClass } from "@/components/ui/field";
+import { cn } from "@/lib/utils";
 
 /** Errori per cui ha senso tornare alla scelta dell'orario. */
 const SLOT_ERRORS = new Set([
@@ -54,7 +55,8 @@ export function ConfirmBookingForm({
           name="notes"
           rows={3}
           maxLength={NOTES_MAX_LENGTH}
-          className={textareaClass}
+          // Campo facoltativo: a riposo il bordo grigio degli orari, non il più luminoso della schermata (fetta 8k).
+          className={cn(textareaClass, "border-control-rest")}
         />
       </div>
       {state.status === "error" && (

@@ -3,7 +3,8 @@ import { fillText } from "@/lib/admin/text";
 import { cn } from "@/lib/utils";
 
 // Ritratto quadrato in scala di grigi (fetta 8b; cornice e filtro del tema, classe portrait) o, senza
-// foto, l'iniziale in un riquadro tratteggiato. Il server salva già WebP 512×512: niente ottimizzazione di Next (fetta 8d).
+// foto, l'iniziale in un riquadro con il bordo pieno --line (il tratteggio vuol dire "senza orari",
+// fetta 8k). Il server salva già WebP 512×512: niente ottimizzazione di Next (fetta 8d).
 export function BarberPortrait({
   name,
   photoUrl,
@@ -20,7 +21,7 @@ export function BarberPortrait({
       <span
         aria-hidden
         className={cn(
-          "flex aspect-square w-full items-center justify-center border border-dashed border-ink font-display text-6xl",
+          "flex aspect-square w-full items-center justify-center border border-line font-display text-6xl",
           placeholderClassName,
         )}
       >

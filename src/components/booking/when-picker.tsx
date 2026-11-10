@@ -619,6 +619,22 @@ function DayStrip({
 }) {
   const t = it.booking;
   const listRef = useRef<HTMLUListElement>(null);
+  // Altri giorni a destra: la striscia sfuma come la lista degli orari, invece di essere tagliata
+  // (fetta 8k). Si aggiorna allo scorrimento (anche quello del giorno selezionato qui sotto) e al resize.
+  const [moreRight, setMoreRight] = useState(false);
+  const updateMoreRight = useCallback(() => {
+    const list = listRef.current;
+    if (list) setMoreRight(list.scrollLeft + list.clientWidth < list.scrollWidth - 1);
+  }, []);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    updateMoreRight();
+    const observer = new ResizeObserver(updateMoreRight);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [updateMoreRight, days]);
 
   // Il giorno selezionato entra nella striscia (inline nearest), senza muovere la pagina né il focus.
   useEffect(() => {
@@ -655,7 +671,7 @@ function DayStrip({
   return (
     <nav aria-label={t.time.daysLabel} className="sticky-bar sticky top-0 z-10 -mx-4 border-b border-line px-3 pt-1">
       {/* p-1: il contorno del focus (2 px staccato di 2 px) non viene tagliato dallo scorrimento. */}
-      <ul ref={listRef} onKeyDown={onKeyDown} className="flex gap-2 overflow-x-auto p-1 pb-2">
+      <ul ref={listRef} onKeyDown={onKeyDown} onScroll={updateMoreRight} className="flex gap-2 overflow-x-auto p-1 pb-2">
         {days.map((day, index) => {
           const parts = dayParts(day.date);
           // Il mese solo sul primo giorno e quando cambia, accanto al numero: la casella resta bassa.
@@ -704,6 +720,12 @@ function DayStrip({
           );
         })}
       </ul>
+      {moreRight && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute top-0 right-0 bottom-px w-10 bg-gradient-to-l from-surface to-transparent"
+        />
+      )}
     </nav>
   );
 }
@@ -890,13 +912,14 @@ function NoSlots({
 }) {
   const t = it.booking.when;
   const next = day?.next;
-  if (!next) return <p className="text-sm text-muted-foreground">{t.columnNoSlots}</p>;
+  // Unica informazione della colonna: testo pieno, non secondario (fetta 8k).
+  if (!next) return <p>{t.columnNoSlots}</p>;
   // Nome completo "mar 20, 9:30"; a vista nella colonna stretta l'ora si mostra solo se ci sta.
   const nextFull = formatNextFree(next, timezone);
   const nextDate = localDateOf(new Date(next), timezone);
   return (
-    <div className="flex flex-col gap-1 text-sm">
-      <p className="text-muted-foreground">{t.columnNoSlots}</p>
+    <div className="flex flex-col gap-1">
+      <p>{t.columnNoSlots}</p>
       <a
         href={dayUrl(nextDate)}
         aria-label={fillText(t.nextFree, { when: nextFull })}
@@ -908,8 +931,8 @@ function NoSlots({
       >
         {/* "prossimo:" sopra, giorno e ora sotto su una riga sola: mai una virgola a inizio riga. */}
         {/* Lo spazio non conta nel layout a colonna ma tiene il testo "prossimo: …" come in it.booking.when.nextFree. */}
-        <span>{t.nextFreeLead}</span>{" "}
-        <span className="whitespace-nowrap">
+        <span className="text-sm">{t.nextFreeLead}</span>{" "}
+        <span className="whitespace-nowrap font-display text-xl leading-tight">
           {formatNextFreeDay(next, timezone)}
           <span className="hidden @min-[6rem]:inline">, {formatSlotTime(next, timezone)}</span>
         </span>

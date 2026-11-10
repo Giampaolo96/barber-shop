@@ -30,6 +30,12 @@ export const dayParts = (date: string): { weekday: string; day: string; month: s
 export const telHref = (phone: string | null): string | null =>
   phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : null;
 
+/** Ricerca dell'indirizzo del negozio su Google Maps (apre l'app su telefono); null se manca. */
+export const mapsHref = (address: string | null): string | null => {
+  const query = address?.trim();
+  return query ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}` : null;
+};
+
 /**
  * Prima riga non vuota della bio del barbiere, usata come specialità; null se non c'è. Oggi nessuna
  * schermata la mostra ("Quando?" a colonne non ha la bio): resta perché la coprono i test di
