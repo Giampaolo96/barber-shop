@@ -30,6 +30,9 @@
 // Prerequisiti: Supabase locale con il seed, Mailpit. Dati creati per ogni test tramite l'admin demo
 // (RLS attiva) e rimossi alla fine; clienti nuovi con email univoche; date da testDate().
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
+// Modifiche approvate dall'utente il 2026-11-22 (rifiniture dopo la review): nome accessibile del link
+// alle mappe con "(si apre in una nuova scheda)"; nel listino un nome di servizio lungo fisso, che va su
+// più righe mentre il prezzo resta su una.
 
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 
@@ -197,8 +200,8 @@ const signUpCustomer = async (
 // ---------------------------------------------------------------------------
 type Created = { services: string[]; barbers: string[]; bookings: string[] };
 
-const newService = async (api: AdminApi, data: Created): Promise<{ id: string; name: string }> => {
-  const name = uniqueName('Rifinitura');
+const newService = async (api: AdminApi, data: Created, label = 'Rifinitura'): Promise<{ id: string; name: string }> => {
+  const name = uniqueName(label);
   const id = await createService(api, { name, durationMin: 30, priceCents: 2000 });
   data.services.push(id);
   return { id, name };
@@ -258,7 +261,7 @@ test('8k anonimo: home con l\'indirizzo che apre le mappe, Accedi con margine da
   const where = main(page)
     .locator('section')
     .filter({ has: page.getByRole('heading', { name: s('home.whereTitle'), exact: true }) });
-  // Nome accessibile: l'indirizzo e "(si apre in una nuova scheda)" (migliorie della review, approvate dall'utente).
+  // Nome accessibile: l'indirizzo e "(si apre in una nuova scheda)" (rilievo della review, approvato dall'utente).
   const mapsLink = where.getByRole('link', { name: `${address ?? ''} ${s('home.opensInNewTab')}`, exact: true });
   await expect(mapsLink).toBeVisible();
   await expect(mapsLink).toHaveAttribute(
@@ -298,7 +301,8 @@ test('8k cliente: completa profilo, testata con "Esci" da link, listino, "Quando
   const data: Created = { services: [], barbers: [], bookings: [] };
   const desktopX: Record<string, number> = {};
   try {
-    const service = await newService(api, data);
+    // Nome lungo fisso (più il tag univoco): a 390 px va per forza su più righe nel listino.
+    const service = await newService(api, data, 'Rifinitura del listino con un nome di servizio lungo apposta');
     const barber = await newBarber(api, data, service.id);
 
     // 8k.2: /profilo/completa con lo stesso margine, modulo allineato a sinistra
@@ -326,12 +330,18 @@ test('8k cliente: completa profilo, testata con "Esci" da link, listino, "Quando
       name: `${service.name}, ${sf('booking.duration', { count: 30 })}, 20,00 €`,
       exact: true,
     });
-    // Aggiunta dell'utente dopo l'approvazione della fetta: con un nome lungo (questo, a 390 px) il nome va
-    // a capo ma il prezzo resta su una riga e dentro il margine.
-    const priceLayout = await serviceRow.getByText('20,00 €', { exact: true }).evaluate((el) => {
-      const rects = [...el.getClientRects()];
+    // Aggiunta dell'utente dopo l'approvazione della fetta: con il nome lungo fisso, a 390 px, il nome va
+    // a capo ma il prezzo resta su una riga e dentro il margine. Righe contate sul testo (Range), perché
+    // gli span nella riga flex danno un solo rettangolo.
+    const textLayout = (el: Element) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const rects = [...range.getClientRects()].filter((r) => r.width > 0);
       return { lines: new Set(rects.map((r) => Math.round(r.top))).size, right: Math.max(...rects.map((r) => r.right)) };
-    });
+    };
+    const nameLayout = await serviceRow.getByText(service.name, { exact: true }).evaluate(textLayout);
+    expect(nameLayout.lines, 'nome lungo del listino su più righe').toBeGreaterThan(1);
+    const priceLayout = await serviceRow.getByText('20,00 €', { exact: true }).evaluate(textLayout);
     expect(priceLayout.lines, 'prezzo del listino su una riga').toBe(1);
     expect(priceLayout.right, 'prezzo dentro il margine di 16 px').toBeLessThanOrEqual(PHONE.width - MARGIN + 0.5);
     await serviceRow.click();

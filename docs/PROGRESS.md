@@ -1534,7 +1534,7 @@ Critica sugli screenshot con `references/critique.md`: l'inspector non apre le p
 **Verifiche**: lint e typecheck ok; Vitest 2242/2242; e2e sulla build di produzione 2 giri su 2 verdi, 201/201 ciascuno (~3 min). Screenshot prima/dopo a 390×844 e 1280×800 in `.playwright-mcp/fetta-8k/` (anche `mosca-*` per "Le mie prenotazioni"). Review: nessun bloccante.
 
 **Problemi aperti**
-1. Due rilievi della review delle rifiniture toccano test di accettazione: servono l'ok dell'utente (vedi sotto).
+1. ~~Due rilievi della review delle rifiniture toccano test di accettazione~~: approvati e chiusi il 2026-11-22 (vedi sotto).
 
 **Rifiniture dopo la review** (2026-11-11, branch `fetta-8k-rifiniture` da `origin/main` `02dfd43`, dopo la PR #18)
 - Hook Stop: chiuso con `c5171f6` (Vitest su 2 processi, CLAUDE.md corretto).
@@ -1546,6 +1546,6 @@ Critica sugli screenshot con `references/critique.md`: l'inspector non apre le p
 - Pulizia e2e del global-setup: un errore dà un avviso e il giro continua, su un DB non locale resta bloccante; età dei nomi "E2E" solo dalla forma esatta di `randomTag` e da un istante plausibile.
 - DESIGN.md: riga di `glass-ink`.
 - Verifiche: lint e typecheck ok; Vitest 2246/2246; e2e sulla build di produzione 2 giri su 2 verdi, 201/201. Screenshot di "Le mie prenotazioni" rifatti in `.playwright-mcp/fetta-8k/dopo/` (`neon-*` e `mosca-*`). Review: nessun bloccante.
-- Rilievi della review in attesa dell'ok dell'utente (test di accettazione):
-  1. il caso e2e del listino non verifica che il nome vada davvero a capo: con un nome generato più corto passerebbe anche senza la correzione (servirebbe un controllo sulle righe del nome o un nome lungo fisso);
-  2. l'asserzione esistente sul nome del link alle mappe è cambiata (non solo aggiunta), per l'sr-only.
+- Rilievi della review sui test di accettazione, approvati dall'utente il 2026-11-22 (nota in testa a `tests/e2e/customer-polish-8k.spec.ts`; e2e del file 3/3 sulla build di produzione):
+  1. il caso e2e del listino non verifica che il nome vada davvero a capo: con un nome generato più corto passerebbe anche senza la correzione: ora il servizio ha un nome lungo fisso e il test verifica che vada su più righe;
+  2. l'asserzione esistente sul nome del link alle mappe è cambiata (non solo aggiunta), per l'sr-only: tenuta così.
