@@ -30,6 +30,9 @@
 // Prerequisiti: Supabase locale con il seed, Mailpit. Dati creati per ogni test tramite l'admin demo
 // (RLS attiva) e rimossi alla fine; clienti nuovi con email univoche; date da testDate().
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
+// Modifiche approvate dall'utente il 2026-11-22 (rifiniture dopo la review): nome accessibile del link
+// alle mappe con "(si apre in una nuova scheda)"; nel listino un nome di servizio lungo fisso, che va su
+// più righe mentre il prezzo resta su una.
 
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 
@@ -197,8 +200,8 @@ const signUpCustomer = async (
 // ---------------------------------------------------------------------------
 type Created = { services: string[]; barbers: string[]; bookings: string[] };
 
-const newService = async (api: AdminApi, data: Created): Promise<{ id: string; name: string }> => {
-  const name = uniqueName('Rifinitura');
+const newService = async (api: AdminApi, data: Created, label = 'Rifinitura'): Promise<{ id: string; name: string }> => {
+  const name = uniqueName(label);
   const id = await createService(api, { name, durationMin: 30, priceCents: 2000 });
   data.services.push(id);
   return { id, name };
@@ -258,7 +261,8 @@ test('8k anonimo: home con l\'indirizzo che apre le mappe, Accedi con margine da
   const where = main(page)
     .locator('section')
     .filter({ has: page.getByRole('heading', { name: s('home.whereTitle'), exact: true }) });
-  const mapsLink = where.getByRole('link', { name: address ?? '', exact: true });
+  // Nome accessibile: l'indirizzo e "(si apre in una nuova scheda)" (rilievo della review, approvato dall'utente).
+  const mapsLink = where.getByRole('link', { name: `${address ?? ''} ${s('home.opensInNewTab')}`, exact: true });
   await expect(mapsLink).toBeVisible();
   await expect(mapsLink).toHaveAttribute(
     'href',
@@ -297,7 +301,8 @@ test('8k cliente: completa profilo, testata con "Esci" da link, listino, "Quando
   const data: Created = { services: [], barbers: [], bookings: [] };
   const desktopX: Record<string, number> = {};
   try {
-    const service = await newService(api, data);
+    // Nome lungo fisso (più il tag univoco): a 390 px va per forza su più righe nel listino.
+    const service = await newService(api, data, 'Rifinitura del listino con un nome di servizio lungo apposta');
     const barber = await newBarber(api, data, service.id);
 
     // 8k.2: /profilo/completa con lo stesso margine, modulo allineato a sinistra
@@ -321,9 +326,25 @@ test('8k cliente: completa profilo, testata con "Esci" da link, listino, "Quando
     // --- Listino ---
     await page.goto('/prenota');
     desktopX['/prenota'] = await checkLayout(page, '/prenota');
-    await main(page)
-      .getByRole('link', { name: `${service.name}, ${sf('booking.duration', { count: 30 })}, 20,00 €`, exact: true })
-      .click();
+    const serviceRow = main(page).getByRole('link', {
+      name: `${service.name}, ${sf('booking.duration', { count: 30 })}, 20,00 €`,
+      exact: true,
+    });
+    // Aggiunta dell'utente dopo l'approvazione della fetta: con il nome lungo fisso, a 390 px, il nome va
+    // a capo ma il prezzo resta su una riga e dentro il margine. Righe contate sul testo (Range), perché
+    // gli span nella riga flex danno un solo rettangolo.
+    const textLayout = (el: Element) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const rects = [...range.getClientRects()].filter((r) => r.width > 0);
+      return { lines: new Set(rects.map((r) => Math.round(r.top))).size, right: Math.max(...rects.map((r) => r.right)) };
+    };
+    const nameLayout = await serviceRow.getByText(service.name, { exact: true }).evaluate(textLayout);
+    expect(nameLayout.lines, 'nome lungo del listino su più righe').toBeGreaterThan(1);
+    const priceLayout = await serviceRow.getByText('20,00 €', { exact: true }).evaluate(textLayout);
+    expect(priceLayout.lines, 'prezzo del listino su una riga').toBe(1);
+    expect(priceLayout.right, 'prezzo dentro il margine di 16 px').toBeLessThanOrEqual(PHONE.width - MARGIN + 0.5);
+    await serviceRow.click();
 
     // --- "Quando?" (più larga: niente confronto della x a 1280) ---
     await expectPath(page, '/prenota/quando');
@@ -439,6 +460,26 @@ test('8k cliente: conferma con "Torna alla home" senza bordo; Le mie prenotazion
     // 8k.8: solo la prossima ha il trattamento glass-ink
     await expect(upcoming.nth(0)).toHaveClass(/(^|\s)glass-ink(\s|$)/);
     await expect(upcoming.nth(1)).not.toHaveClass(/(^|\s)glass-ink(\s|$)/);
+
+    // Aggiunta dell'utente dopo l'approvazione della fetta: etichetta "La prossima" solo sulla prima voce
+    // in programma e, solo lì, il bordo --ink (le altre --line).
+    const nextLabel = (li: Locator): Locator => li.getByText(s('booking.list.nextLabel'), { exact: true });
+    await expect(nextLabel(upcoming.nth(0))).toBeVisible();
+    await expect(nextLabel(upcoming.nth(1))).toHaveCount(0);
+    await expect(main(page).getByText(s('booking.list.nextLabel'), { exact: true })).toHaveCount(1);
+    const borderColors = await upcoming.evaluateAll((items) => {
+      const probe = (cls: string): string => {
+        const span = document.createElement('span');
+        span.className = `border ${cls}`;
+        document.body.append(span);
+        const color = getComputedStyle(span).borderLeftColor;
+        span.remove();
+        return color;
+      };
+      return { ink: probe('border-ink'), line: probe('border-line'), items: items.map((li) => getComputedStyle(li).borderLeftColor) };
+    });
+    expect(borderColors.items[0], 'la prossima con il bordo --ink').toBe(borderColors.ink);
+    expect(borderColors.items[1], 'le altre in programma con il bordo --line').toBe(borderColors.line);
 
     // 8k.8: le passate senza riquadro (né bordo sinistro né superiore) e in text-muted-foreground
     const pastLook = await pastItems.first().evaluate((li) => {

@@ -10,7 +10,17 @@ import { cn } from "@/lib/utils";
 const initialState: BookingActionState = { status: "idle" };
 
 /** Cancellazione di una propria prenotazione, con conferma (SPEC §5.3). */
-export function CancelBookingButton({ bookingId, buttonClassName }: { bookingId: string; buttonClassName?: string }) {
+export function CancelBookingButton({
+  bookingId,
+  buttonClassName,
+  errorClassName,
+}: {
+  bookingId: string;
+  /** Classi del pulsante (per esempio dentro il blocco evidenziato). */
+  buttonClassName?: string;
+  /** Classi del messaggio d'errore: sul blocco evidenziato --danger non ha contrasto (fetta 8k). */
+  errorClassName?: string;
+}) {
   const [state, formAction, pending] = useActionState(cancelBooking, initialState);
   const t = it.booking.list;
 
@@ -27,7 +37,7 @@ export function CancelBookingButton({ bookingId, buttonClassName }: { bookingId:
         {t.cancel}
       </Button>
       {state.status === "error" && (
-        <p role="alert" className="border-l-2 border-destructive pl-3 text-sm text-destructive">
+        <p role="alert" className={cn("border-l-2 border-destructive pl-3 text-sm text-destructive", errorClassName)}>
           {bookingErrorText(state.code)}
         </p>
       )}

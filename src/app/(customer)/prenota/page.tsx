@@ -55,7 +55,8 @@ function ServiceList({ services }: { services: BookableService[] }) {
               <span className="flex items-baseline gap-2 font-display text-2xl leading-tight">
                 <span>{service.name}</span>
                 <span aria-hidden="true" className="mb-1.5 flex-1 border-b-2 border-dotted border-current" />
-                <span className="tabular-nums">{price}</span>
+                {/* Con un nome lungo va a capo il nome, mai il prezzo (fetta 8k). */}
+                <span className="shrink-0 whitespace-nowrap tabular-nums">{price}</span>
               </span>
               {/* Durata e descrizione su una sola riga grigia (fetta 8k). */}
               <span className="text-sm text-muted-foreground">

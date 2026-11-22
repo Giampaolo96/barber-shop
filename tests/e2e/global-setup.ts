@@ -11,7 +11,7 @@
 // Con la build di produzione (CI) non serve e non fa nulla. Se il warm-up fallisce lo si segnala
 // soltanto: i test girano comunque.
 
-import { chromium, request, type BrowserContext, type FullConfig, type Page } from '@playwright/test';
+import { chromium, request, type APIRequestContext, type BrowserContext, type FullConfig, type Page } from '@playwright/test';
 
 import { ADMIN_EMAIL, adminApi, cleanup, CUSTOMER_EMAIL, DEMO_PASSWORD, SEED, s, supabaseUrl } from './admin-helpers';
 import { confirmHref, newestEmailId, waitForNewEmail } from './mailpit';
@@ -56,21 +56,30 @@ const CUSTOMER_PAGES = [
 const STALE_MS = 10 * 60_000;
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost']);
 
+/** Nessun giro e2e è più vecchio del progetto: un istante prima di questo non viene da randomTag. */
+const PROJECT_START = Date.UTC(2026, 0, 1);
+
 /**
- * Istante di creazione da un nome di uniqueName ("E2E <etichetta> <tag>"): il tag comincia con
- * Date.now() in base 36 (8 cifre). null se il nome non viene da uniqueName: quel dato resta.
+ * Istante di creazione da un nome di uniqueName ("E2E <etichetta> <tag>"). Il tag di randomTag è
+ * Date.now() in base 36 (8 caratteri), il contatore (cifre) e fino a 5 caratteri casuali. null se il
+ * nome non ha quella forma o l'istante non è plausibile (prima del progetto o nel futuro): quel dato resta.
  */
-const createdAtOf = (name: string): number | null => {
-  const head = name.split(' ').at(-1)?.match(/^[0-9a-z]{8}/)?.[0];
-  return head ? parseInt(head, 36) : null;
+const createdAtOf = (name: string, now: number): number | null => {
+  const tag = /^E2E .+ ([0-9a-z]{8})\d+[0-9a-z]{1,5}$/.exec(name)?.[1];
+  if (!tag) return null;
+  const createdAt = parseInt(tag, 36);
+  return createdAt >= PROJECT_START && createdAt <= now ? createdAt : null;
 };
 
 const isStale = (name: string, now: number): boolean => {
-  const createdAt = createdAtOf(name);
+  const createdAt = createdAtOf(name, now);
   return createdAt !== null && now - createdAt > STALE_MS;
 };
 
-/** Barbieri e servizi "E2E" più vecchi di 10 minuti, con le loro prenotazioni: prima disattivati, poi eliminati. */
+/**
+ * Barbieri e servizi "E2E" più vecchi di 10 minuti, con le loro prenotazioni: prima disattivati, poi
+ * eliminati. Su un DB non locale il giro si ferma; un errore della pulizia dà solo un avviso.
+ */
 const removeStaleE2EData = async (): Promise<void> => {
   const host = new URL(supabaseUrl()).hostname;
   if (!LOCAL_HOSTS.has(host)) {
@@ -78,24 +87,30 @@ const removeStaleE2EData = async (): Promise<void> => {
   }
   const context = await request.newContext();
   try {
-    const api = await adminApi(context);
-    const now = Date.now();
-    const like = `like.${encodeURIComponent('E2E *')}`;
-    const barbers = (await api.get<Array<{ id: string; display_name: string }>>(`/rest/v1/barbers?select=id,display_name&display_name=${like}`))
-      .filter((barber) => isStale(barber.display_name, now))
-      .map((barber) => barber.id);
-    const services = (await api.get<Array<{ id: string; name: string }>>(`/rest/v1/services?select=id,name&name=${like}`))
-      .filter((service) => isStale(service.name, now))
-      .map((service) => service.id);
-    if (barbers.length === 0 && services.length === 0) return;
-    // Prima fuori dal calendario e dalla prenotazione: se l'eliminazione si interrompe, non contano più.
-    if (barbers.length) await api.patch(`/rest/v1/barbers?id=in.(${barbers.join(',')})&select=id`, { is_active: false });
-    if (services.length) await api.patch(`/rest/v1/services?id=in.(${services.join(',')})&select=id`, { is_active: false });
-    await cleanup(api, { barbers, services });
-    console.log(`[pulizia e2e] rimossi avanzi di giri precedenti: ${barbers.length} barbieri, ${services.length} servizi`);
+    await removeStale(context);
+  } catch (error) {
+    console.warn('[pulizia e2e] non completata, il giro continua:', error instanceof Error ? error.message : error);
   } finally {
     await context.dispose();
   }
+};
+
+const removeStale = async (context: APIRequestContext): Promise<void> => {
+  const api = await adminApi(context);
+  const now = Date.now();
+  const like = `like.${encodeURIComponent('E2E *')}`;
+  const barbers = (await api.get<Array<{ id: string; display_name: string }>>(`/rest/v1/barbers?select=id,display_name&display_name=${like}`))
+    .filter((barber) => isStale(barber.display_name, now))
+    .map((barber) => barber.id);
+  const services = (await api.get<Array<{ id: string; name: string }>>(`/rest/v1/services?select=id,name&name=${like}`))
+    .filter((service) => isStale(service.name, now))
+    .map((service) => service.id);
+  if (barbers.length === 0 && services.length === 0) return;
+  // Prima fuori dal calendario e dalla prenotazione: se l'eliminazione si interrompe, non contano più.
+  if (barbers.length) await api.patch(`/rest/v1/barbers?id=in.(${barbers.join(',')})&select=id`, { is_active: false });
+  if (services.length) await api.patch(`/rest/v1/services?id=in.(${services.join(',')})&select=id`, { is_active: false });
+  await cleanup(api, { barbers, services });
+  console.log(`[pulizia e2e] rimossi avanzi di giri precedenti: ${barbers.length} barbieri, ${services.length} servizi`);
 };
 
 const visit = async (page: Page, path: string): Promise<void> => {

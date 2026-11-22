@@ -49,8 +49,8 @@ export default async function CustomerLayout({ children }: { children: ReactNode
                   </Link>
                 </>
               )}
-              {/* Azione rara: aspetto da link, dopo Prenotazioni e Profilo (fetta 8k). */}
-              <LogoutButton quiet buttonClassName="no-underline hover:underline" />
+              {/* Azione rara: aspetto da link, dopo Prenotazioni e Profilo (fetta 8k). px-3: con px-2 "Esci" è largo meno di 44 px. */}
+              <LogoutButton quiet buttonClassName={`${linkClass} px-3 no-underline`} />
             </>
           )}
         </div>

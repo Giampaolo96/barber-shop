@@ -9,6 +9,8 @@ export const it = {
   },
   home: {
     book: "Prenota",
+    /** Per gli screen reader, dopo l'indirizzo: il link alle mappe apre una nuova scheda (fetta 8k). */
+    opensInNewTab: "(si apre in una nuova scheda)",
     nextBooking: "Prossima prenotazione",
     noBooking: "Non hai prenotazioni in programma.",
     myBookings: "Le mie prenotazioni",
@@ -105,6 +107,8 @@ export const it = {
     },
     list: {
       title: "Le mie prenotazioni",
+      /** Etichetta della prima prenotazione in programma, uguale in ogni tema (fetta 8k). */
+      nextLabel: "La prossima",
       myBookingsTruncated: "Sono mostrate solo le ultime {count} prenotazioni.",
       upcoming: "In programma",
       past: "Passate e cancellate",

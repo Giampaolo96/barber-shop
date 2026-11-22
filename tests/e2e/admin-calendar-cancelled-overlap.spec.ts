@@ -2,20 +2,27 @@
 // (bookings_no_overlap vale solo per le confirmed) non deve restare coperta. Le due schede stanno
 // in corsie affiancate, senza intersecarsi, e ognuna apre il proprio dettaglio; a 390 px la corsia
 // stretta mostra solo l'ora e il nome (troncato), ma resta cliccabile.
+// Data da testDate() invece del mercoledì casuale, con pulizia della propria data prima di creare i
+// dati: approvato dall'utente il 2026-11-22 (23P01 su bookings_no_overlap fra giri paralleli).
 
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { DESKTOP, SEED, adminApi, cleanup, expectPath, loginAsAdmin, romeWinter, uniqueName, type AdminApi } from './admin-helpers';
+import {
+  DESKTOP,
+  SEED,
+  adminApi,
+  cleanup,
+  clearBookings,
+  expectPath,
+  loginAsAdmin,
+  romeWinter,
+  testDate,
+  uniqueName,
+  type AdminApi,
+} from './admin-helpers';
 
-const pad = (value: number): string => String(value).padStart(2, '0');
-const randomInt = (min: number, max: number): number => min + Math.floor(Math.random() * (max - min + 1));
-
-/** Mercoledì futuro di gennaio/febbraio (ora solare, giorno lavorativo per il seed). */
-const futureWednesday = (): string => {
-  const day = new Date(Date.UTC(randomInt(2032, 2049), randomInt(0, 1), randomInt(5, 25), 12));
-  day.setUTCDate(day.getUTCDate() + ((3 - day.getUTCDay() + 7) % 7));
-  return `${day.getUTCFullYear()}-${pad(day.getUTCMonth() + 1)}-${pad(day.getUTCDate())}`;
-};
+/** Mercoledì futuro di gennaio/febbraio (ora solare, giorno lavorativo per il seed), univoco per test. */
+const futureWednesday = (): string => testDate({ fromYear: 2032, toYear: 2049 });
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -61,6 +68,7 @@ for (const viewport of [DESKTOP, { width: 390, height: 844 }]) {
 
     test('con "mostra cancellate" entrambe visibili, affiancate e cliccabili', async ({ page }) => {
       const date = futureWednesday();
+      await clearBookings(api, [SEED.luca], date);
       // Orario poco usato dagli altri spec, che girano in parallelo sugli stessi barbieri del seed.
       const startsAt = romeWinter(date, '15:15');
       const cancelledName = uniqueName('Cancellata');
