@@ -26,13 +26,14 @@
 | 8k | completata | 2026-11-11 | Vedi "Fetta 8k" sotto; migliorie della review sul branch `fetta-8k-rifiniture` (da mergiare prima della 9b) |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
 | 9b | completata | 2026-11-23 | Vedi "Fetta 9b" sotto; branch `fetta-9b`, 3 migrazioni da applicare con `db push` prima del deploy |
-| 9c | da fare | | Account dello staff: invito, password, eliminazione, TOTP admin (dipende da SPEC §13.9 e dalla fetta 7) |
+| 9c | da fare | | Account dello staff: invito, password, eliminazione, TOTP admin (dipende da SPEC §13.9 e dalla fetta 7). Include: eliminazione fatta dall'admin che cancella anche `login_code_attempts` dell'email (oggi la pulizia c'è solo quando si elimina il cliente, ADR 016) |
 
 Audit del 30 ottobre: vedi "Audit del 30 ottobre: pianificazione" in fondo.
 
 ## Problemi aperti dei test
 1. Restano 7 generatori di date casuali negli e2e, da passare a `testDate()`: `admin-calendar-move-autoscroll`, `admin-calendar-week-closed-days`, `admin-polish-8j`, `admin-settings`, `admin-stats`, `admin-stats-axes`, `admin-stats-default-grouping`. Visto nella 9b (2026-11-23): `admin-calendar-move-autoscroll` è fallito una volta perché `admin-calendar-move` aveva prenotato Luca alle 10:00 nello stesso giorno casuale (2033-01-19).
 2. I giri e2e locali sono passati da circa 3 a circa 5 minuti, con timeout sotto carico. Da misurare dopo un `db reset`, con meno worker, confrontando Next 16.4.3 e 16.4.6.
+3. pgTAP `30_staff_password_session` (test 3) dipende dai clienti nel DB: dopo diversi giri e2e (252 clienti "E2E Cliente" rimasti dagli spec esistenti) i suoi due clienti escono dai primi 100 di `admin_customers(null, 100, 0)` e il test fallisce. Con un `db reset` torna verde. Da rendere indipendente (filtro per id invece del limite) oppure da pulire nel global-setup.
 
 Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli account): checklist in `docs/GO-LIVE.md`, da completare con il titolare del negozio.
 
@@ -1576,11 +1577,10 @@ Critica sugli screenshot con `references/critique.md`: l'inspector non apre le p
 
 **Verifiche**: lint e typecheck ok; Vitest 2342/2342; pgTAP 1403/1403; e2e sulla build di produzione 205/205 in due giri dopo l'ultima correzione (prima un giro con 1 errore da date casuali, vedi Problemi aperti dei test). Review: 1 bloccante (perdita di `next` dopo il login con il consenso scaduto), corretto in `f0ca64a` con un test unitario.
 
-**Migliorie della review, non applicate**
-1. `acceptPrivacyUpdate` senza schema Zod (la casella si controlla a mano, `next` passa da `safeNextPath`).
-2. `acceptPrivacyUpdate` non controlla `profileComplete`.
-3. `/profilo`: fuso di riserva `Europe/Rome` scritto a mano; senza impostazioni le date andrebbero nascoste.
-4. Nell'eliminazione diretta di `auth.users` (non dal cliente) la pulizia di `login_code_attempts` non trova l'email: da sistemare con la 9c.
-5. Doppia `getUser()` in `/profilo` per l'email.
-6. Percorsi `/profilo` e `/profilo/elimina` come costanti locali, non in `access.ts`.
-7. `/?account=eliminato` mostra il messaggio a chiunque apra il link (testo fisso, nessuna iniezione).
+**Migliorie della review** (decise dall'utente il 2026-11-23)
+- Applicate: `acceptPrivacyUpdate` con `reconsentSchema` (Zod) e il controllo del profilo completo, con `src/lib/auth/account-actions.test.ts`; messaggio di account eliminato da un cookie usa e getta (httpOnly, 60 s, cancellato da `DELETE /auth/account-eliminato` dopo la prima lettura) al posto di `?account=eliminato`, con l'e2e del link nudo e del ricaricamento; `/profilo` senza fuso di riserva scritto a mano (senza impostazioni niente date); `PROFILE_PATH` e `DELETE_ACCOUNT_PATH` in `access.ts`.
+- Modifiche approvate ai test di accettazione per il cookie (nota in testa): `privacy-account-9b.test.ts` (redirect a `/` e cookie impostato) e `account-deletion.spec.ts`.
+- Nella 9c: eliminazione fatta dall'admin e `login_code_attempts`.
+- Lasciata: doppia `getUser()` in `/profilo` per l'email. Per toglierla l'email andrebbe in `CurrentUser`, letto da proxy, layout e tutte le pagine: una chiamata ad Auth in più su una sola pagina non vale quel giro.
+- Review veloce delle correzioni: nessun bloccante; applicati i commenti (it.ts, JSDoc, eccezione a `requireRole` nel route handler e nell'ADR). Lasciati: messaggio che può riapparire tornando indietro alla home dalla cache del browser (solo estetico); cookie `secure` con `next start` su http://localhost, che Safari potrebbe rifiutare (solo prove manuali).
+- Verifiche: lint e typecheck ok; Vitest 2348/2348; pgTAP 1402/1403 (il test 3 di `30_staff_password_session` per i clienti rimasti dagli e2e, vedi Problemi aperti dei test); e2e della 9b con `--repeat-each=3` verdi (`privacy-version` con un worker: le ripetizioni in parallelo modificano insieme `shop_settings`); e2e completo sulla build di produzione 206/206.
