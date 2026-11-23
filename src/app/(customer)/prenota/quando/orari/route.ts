@@ -5,7 +5,7 @@
 import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { COMPLETE_PROFILE_PATH } from "@/lib/auth/access";
+import { COMPLETE_PROFILE_PATH, RECONSENT_PATH } from "@/lib/auth/access";
 import { getCurrentNoShowCount, requireRole } from "@/lib/auth/current-user";
 import { getWhenDays } from "@/lib/booking/availability";
 import { getShopInfo } from "@/lib/booking/queries";
@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
   // Stessi controlli delle pagine del flusso di prenotazione (loadBookingPageContext).
   const user = await requireRole(["customer"]);
   if (!user.profileComplete) redirect(COMPLETE_PROFILE_PATH);
+  // Informativa cambiata: senza il nuovo consenso niente nuove prenotazioni (fetta 9b).
+  if (user.privacyConsentOutdated) redirect(RECONSENT_PATH);
 
   const query = querySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams));
   if (!query.success) return json({ error: "invalid" }, 400);

@@ -22,6 +22,7 @@ const decide = (path: string, user: CurrentUser | null): AccessDecision =>
     role: user?.role ?? null,
     isBlocked: user?.isBlocked ?? false,
     profileComplete: user?.profileComplete ?? false,
+    privacyConsentOutdated: user?.privacyConsentOutdated ?? false,
   });
 
 /**

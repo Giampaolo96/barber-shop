@@ -4,7 +4,7 @@
 // (create_online_booking, cancel_own_booking) con l'utente della richiesta: mai la service role.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { COMPLETE_PROFILE_PATH } from "@/lib/auth/access";
+import { COMPLETE_PROFILE_PATH, RECONSENT_PATH } from "@/lib/auth/access";
 import { requireRole } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/db/server";
 import { rpcErrorCode as errorCode } from "./errors";
@@ -20,6 +20,8 @@ export async function createBooking(
 ): Promise<BookingActionState> {
   const user = await requireRole(["customer"]);
   if (!user.profileComplete) redirect(COMPLETE_PROFILE_PATH);
+  // Informativa cambiata: senza il nuovo consenso niente nuove prenotazioni (fetta 9b).
+  if (user.privacyConsentOutdated) redirect(RECONSENT_PATH);
 
   const parsed = createBookingSchema.safeParse({
     serviceId: formData.get("serviceId"),

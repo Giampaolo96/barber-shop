@@ -57,6 +57,8 @@ I passi tecnici di dettaglio sono in `docs/DEPLOY.md`; qui c'è cosa deve esiste
   - il negozio è **titolare** del trattamento;
   - chi sviluppa e gestisce l'app, se tratta dati per conto del negozio, è **responsabile** e va nominato con un accordo scritto (art. 28 GDPR);
   - i fornitori (Supabase, Vercel, Resend) sono sub-responsabili: accettare i rispettivi DPA dagli account del titolare.
+- [ ] Il segnaposto "testo in preparazione" della pagina `/privacy` (`src/content/privacy-policy.tsx`) sostituito con il testo del titolare **prima dell'apertura ai clienti**.
+- [ ] Prima di cambiare la versione in Impostazioni, aggiornare il testo della pagina `/privacy`: al salvataggio tutti i clienti devono riaccettare l'informativa, e devono leggere quella nuova.
 - [ ] `shop_settings.privacy_policy_version` aggiornata alla versione pubblicata dell'informativa.
 - [ ] Verifica con un consulente privacy, se il titolare lo ritiene necessario.
 

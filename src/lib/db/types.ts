@@ -216,6 +216,38 @@ export type Database = {
           },
         ];
       };
+      consent_events: {
+        Row: {
+          created_at: string;
+          id: string;
+          kind: Database["public"]["Enums"]["consent_kind"];
+          policy_version: string | null;
+          profile_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          kind: Database["public"]["Enums"]["consent_kind"];
+          policy_version?: string | null;
+          profile_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          kind?: Database["public"]["Enums"]["consent_kind"];
+          policy_version?: string | null;
+          profile_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "consent_events_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       login_code_attempts: {
         Row: {
           code_failures: number;
@@ -252,6 +284,7 @@ export type Database = {
           privacy_consent_at: string | null;
           privacy_policy_version: string | null;
           role: Database["public"]["Enums"]["user_role"];
+          privacy_consent_outdated: boolean | null;
         };
         Insert: {
           created_at?: string;
@@ -492,6 +525,7 @@ export type Database = {
           total_count: number;
         }[];
       };
+      anonymize_customer_bookings: { Args: { p_customer: string }; Returns: undefined };
       availability_inputs: {
         Args: { p_barber_id: string; p_from: string; p_service_id: string; p_to: string };
         Returns: {
@@ -523,6 +557,7 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: Database["public"]["Enums"]["user_role"];
       };
+      delete_own_account: { Args: Record<PropertyKey, never>; Returns: undefined };
       fnv1a_32: { Args: { p_text: string }; Returns: number };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_staff: { Args: Record<PropertyKey, never>; Returns: boolean };
@@ -561,6 +596,10 @@ export type Database = {
       online_slot_shop_error: {
         Args: { p_service_id: string; p_starts_at: string };
         Returns: string;
+      };
+      privacy_consent_outdated: {
+        Args: { p: Database["public"]["Tables"]["profiles"]["Row"] };
+        Returns: boolean;
       };
       reorder_services: { Args: { p_ids: string[] }; Returns: undefined };
       reset_no_show_count: { Args: { p_customer_id: string }; Returns: undefined };
@@ -607,6 +646,7 @@ export type Database = {
         | "cancelled_by_customer"
         | "cancelled_by_shop"
         | "no_show";
+      consent_kind: "privacy" | "marketing_on" | "marketing_off";
       user_role: "customer" | "barber" | "admin";
     };
     CompositeTypes: {
@@ -735,6 +775,7 @@ export const Constants = {
         "cancelled_by_shop",
         "no_show",
       ],
+      consent_kind: ["privacy", "marketing_on", "marketing_off"],
       user_role: ["customer", "barber", "admin"],
     },
   },

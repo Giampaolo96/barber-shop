@@ -4,9 +4,10 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/db/server";
-import { editableSettingsSchema } from "./schemas";
+import { editableSettingsSchema, privacyVersionChangeSchema } from "./schemas";
 
-export type SettingsState = { status: "idle" | "saved" | "invalid" | "error" };
+/** `versionError`: motivo per cui la nuova versione dell'informativa non è valida (fetta 9b). */
+export type SettingsState = { status: "idle" | "saved" | "invalid" | "error"; versionError?: string };
 
 const CHECK_VIOLATION = "23514";
 
@@ -16,7 +17,6 @@ export async function saveSettings(
 ): Promise<SettingsState> {
   await requireRole(["admin"]);
 
-  // privacy_policy_version non si salva da qui (sola lettura fino alla fetta 9).
   const parsed = editableSettingsSchema.safeParse({
     name: formData.get("name"),
     address: formData.get("address"),
@@ -34,6 +34,21 @@ export async function saveSettings(
   const settings = parsed.data;
 
   const supabase = await createClient();
+  const { data: current } = await supabase.from("shop_settings").select("privacy_policy_version").maybeSingle();
+  if (!current) return { status: "error" };
+
+  // Cambio di versione: tutti i clienti dovranno riaccettare l'informativa prima di prenotare,
+  // quindi si salva solo con la conferma esplicita dell'avviso (il modulo la chiede prima di inviare).
+  const versionInput = formData.get("privacyPolicyVersion");
+  const confirmed = formData.get("confirmPrivacyVersionChange") === "on";
+  let newVersion: string | undefined;
+  if (confirmed || (typeof versionInput === "string" && versionInput.trim() !== current.privacy_policy_version)) {
+    const version = privacyVersionChangeSchema(current.privacy_policy_version).safeParse(versionInput);
+    if (!version.success) return { status: "invalid", versionError: version.error.issues[0]?.message };
+    if (!confirmed) return { status: "invalid" };
+    newVersion = version.data;
+  }
+
   const { data: updated, error } = await supabase
     .from("shop_settings")
     .update({
@@ -48,6 +63,7 @@ export async function saveSettings(
       cancel_limit_min: settings.cancelLimitMin,
       buffer_min: settings.bufferMin,
       no_show_block_threshold: settings.noShowBlockThreshold,
+      ...(newVersion === undefined ? {} : { privacy_policy_version: newVersion }),
     })
     .eq("id", true)
     .select("id");

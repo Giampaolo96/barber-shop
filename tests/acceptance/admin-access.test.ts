@@ -1,4 +1,6 @@
 // Test di accettazione – FETTA 3 (SPEC §11: "Admin: servizi, barbieri, orari, assenze, chiusure").
+// Modifica approvata dall'utente il 2026-11-23 (fetta 9b): src/lib/auth/account-actions.ts si aggiunge
+// all'elenco dei file che importano il client service_role, per eliminare l'utente Auth del cliente.
 // Accesso alle nuove rotte di /admin, uso della service_role, controlli statici sul codice e
 // testi dell'interfaccia.
 // Sezioni: SPEC §2 (ruoli: il barbiere "gestisce le proprie assenze", l'admin "Tutto"), §6.4–6.6,
@@ -92,6 +94,8 @@ const STAFF_ACCOUNTS_FILE = 'src/lib/admin/staff-accounts.ts';
  * L'elenco dei file ammessi resta chiuso.
  */
 const LOGIN_CODE_FILE = 'src/lib/auth/login-code.ts';
+// Fetta 9b (eccezione approvata): eliminazione dell'utente Auth del cliente.
+const ACCOUNT_ACTIONS_FILE = 'src/lib/auth/account-actions.ts';
 
 const importsAdminClient = (file: string): boolean =>
   importSpecifiers(readSource(file)).some((specifier) => {
@@ -218,13 +222,14 @@ describe('Client service_role in src/lib/db/admin.ts (SPEC §8, CLAUDE.md – Si
 
   // Decisione fetta 3: il service role serve solo agli account staff.
   // Fetta 8 (eccezione approvata): anche al contatore dei tentativi del login con codice.
-  test(`solo ${STAFF_ACCOUNTS_FILE} e ${LOGIN_CODE_FILE} importano il client service_role`, () => {
+  // Fetta 9b (eccezione approvata): eliminazione dell'utente Auth del cliente.
+  test(`solo ${STAFF_ACCOUNTS_FILE}, ${LOGIN_CODE_FILE} e ${ACCOUNT_ACTIONS_FILE} importano il client service_role`, () => {
     expect(existsSync(fromRoot(ADMIN_CLIENT_FILE)), `file mancante: ${ADMIN_CLIENT_FILE}`).toBe(true);
     const importers = sourceFiles()
       .filter((file) => file !== ADMIN_CLIENT_FILE)
       .filter((file) => importsAdminClient(file))
       .sort();
-    expect(importers).toEqual([LOGIN_CODE_FILE, STAFF_ACCOUNTS_FILE].sort());
+    expect(importers).toEqual([ACCOUNT_ACTIONS_FILE, LOGIN_CODE_FILE, STAFF_ACCOUNTS_FILE].sort());
   });
 
   // Fetta 8: il modulo del contatore è solo lato server e non espone server action (le sue

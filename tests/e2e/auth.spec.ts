@@ -1,4 +1,6 @@
 // Test di accettazione e2e – FETTA 2 (SPEC §11: "Cliente e admin entrano e vedono aree diverse").
+// Modifica approvata dall'utente il 2026-11-23 (fetta 9b): il controllo del logout su /profilo
+// guarda solo la testata, perché il profilo ha un secondo "Esci" in fondo.
 // Sezioni: SPEC §2 (ruoli), §5.5 (login con magic link, telefono obbligatorio), §8 (privacy e
 // sicurezza), §3.7.4 + decisioni approvate per la fetta 2.
 //
@@ -326,7 +328,8 @@ test.describe('Cliente con magic link (SPEC §5.5, §8, §2)', () => {
     await expect(page.getByRole('heading', { name: s('profile.title') })).toBeVisible();
 
     // Aggiunta di sicurezza 6: il logout è un <button> dentro un <form>, mai un link
-    await expect(logoutButton(page)).toBeVisible();
+    // Fetta 9b (approvato dall'utente): /profilo ha un secondo "Esci" in fondo, qui si controlla la testata.
+    await expect(page.getByRole('banner').locator('form').getByRole('button', { name: s('auth.logout'), exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: s('auth.logout'), exact: true })).toHaveCount(0);
     await expect(page.getByRole('link', { name: s('nav.login'), exact: true })).toHaveCount(0);
 

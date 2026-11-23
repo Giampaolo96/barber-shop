@@ -2,6 +2,7 @@ import "server-only";
 
 // Letture del calendario dello staff (SPEC §6.1–6.3), sempre con il client della richiesta: la RLS
 // limita il barbiere alle proprie prenotazioni e assenze e ai profili dei propri clienti.
+import { it } from "@/i18n/it";
 import type { createClient } from "@/lib/db/server";
 import { localDateOf } from "@/lib/domain/local-time";
 import { type Interval, isoWeekday, type LocalBand, localBandsToIntervals } from "./grid";
@@ -119,7 +120,7 @@ export async function getBookingsInRange(
     blockedUntil: new Date(row.blocked_until),
     serviceName: row.service?.name ?? "",
     // Un cliente che ha eliminato l'account resta senza nome (anonimizzazione, SPEC §8).
-    customerName: row.guest_name ?? row.customer?.full_name ?? "",
+    customerName: row.guest_name ?? row.customer?.full_name ?? it.admin.common.deletedCustomer,
   }));
   return { bookings, incomplete: count === null || count > CALENDAR_BOOKINGS_LIMIT };
 }
@@ -243,7 +244,7 @@ export async function getBookingDetail(supabase: ServerClient, id: string): Prom
     durationMin: data.duration_min,
     priceCents: data.price_cents,
     customerNote: data.notes,
-    customerName: data.guest_name ?? data.customer?.full_name ?? "",
+    customerName: data.guest_name ?? data.customer?.full_name ?? it.admin.common.deletedCustomer,
     customerPhone: data.guest_phone ?? data.customer?.phone ?? null,
     isGuest: data.customer_id === null && data.guest_name !== null,
     staffNote: data.staff_note?.note ?? null,

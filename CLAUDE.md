@@ -59,6 +59,7 @@ L'hook `Stop` lancia lint, typecheck e Vitest in sequenza e si ferma al primo ch
 - La `service_role` key si usa solo lato server ed Edge Functions; mai in codice client o variabili `NEXT_PUBLIC_*`.
 - Ogni server action valida l'input con Zod e ricontrolla il ruolo dell'utente.
 - Ogni route handler e ogni pagina di `/admin` chiama `requireRole`: il matcher del proxy esclude alcune estensioni (es. `.json`, `.js`, `.txt`) e il layout non viene rieseguito durante la navigazione, quindi nessuno dei due basta da solo.
+  - Eccezione approvata: `src/app/auth/account-eliminato/route.ts` (fetta 9b, ADR 016) non chiama `requireRole`. Espone solo `DELETE`, cancella solo il cookie flash `account_deleted` e non legge né scrive dati; dopo l'eliminazione dell'account non c'è una sessione da controllare.
 - Nessun segreto nel repo: usare `.env.local` (ignorato) e documentare le variabili in `.env.example`.
 - Niente `select *` (né `.select('*')` o `.select()` senza colonne) sulle tabelle con grant di colonna, oggi `barbers`: le colonne si elencano sempre in modo esplicito, altrimenti la query fallisce con "permission denied". Ogni nuova colonna su queste tabelle richiede un grant esplicito nella stessa migrazione.
 - Ogni migrazione che crea una funzione fa `revoke all ... from public, anon, authenticated` e poi concede solo i grant voluti (lo verifica un test pgTAP).

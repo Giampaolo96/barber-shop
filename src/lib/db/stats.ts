@@ -4,6 +4,7 @@ import "server-only";
 // admin_booking_stats (solo admin, verificato nel database), nomi e stato di barbieri e servizi
 // dalla RLS, che all'admin mostra anche quelli disattivati.
 import { z } from "zod";
+import { it } from "@/i18n/it";
 import type { createClient } from "@/lib/db/server";
 import { addDays, startOfLocalDay } from "@/lib/domain/local-time";
 import { BOOKING_STATUSES, type StatsGroup } from "@/lib/stats/aggregate";
@@ -101,7 +102,7 @@ export async function getBookingsToUpdate(
       id: row.id,
       startsAt: new Date(row.starts_at),
       barberName: row.barber?.display_name ?? "",
-      customerName: row.guest_name ?? row.customer?.full_name ?? "",
+      customerName: row.guest_name ?? row.customer?.full_name ?? it.admin.common.deletedCustomer,
       serviceName: row.service?.name ?? "",
     })),
     truncated: data.length > TO_UPDATE_LIMIT,
