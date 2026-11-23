@@ -32,6 +32,8 @@
 //     requireRole(["customer"]); src/app/(customer)/privacy/page.tsx pubblica, testo da
 //     src/content/privacy-policy.tsx (non da it.ts).
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
+// Aggiunta chiesta dall'utente il 2026-11-23: deleteAccount elimina solo l'utente della sessione, anche
+// con un id diverso nel FormData, e il modulo importa "server-only".
 
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -447,6 +449,18 @@ describe('deleteAccount – server action (SPEC §8, decisione D)', () => {
     const retried = await runDelete();
     expect(retried.redirect).toBe('/?account=eliminato');
     expect(fake.log).toContain(`admin.deleteUser:${CUSTOMER_ID}`);
+  });
+
+  test("un id diverso nel FormData è ignorato: si elimina solo l'utente della sessione", async () => {
+    const { deleteAccount } = await load<AccountActionsModule>(ACCOUNT_ACTIONS);
+    const formData = new FormData();
+    for (const name of ['id', 'userId', 'user_id', 'customerId']) formData.set(name, 'c9b00000-0000-4000-8000-0000000000ff');
+    await deleteAccount({ status: 'idle' }, formData).catch(() => undefined);
+    expect(fake.log.filter((entry) => entry.startsWith('admin.deleteUser:'))).toEqual([`admin.deleteUser:${CUSTOMER_ID}`]);
+  });
+
+  test('il modulo è solo lato server', () => {
+    expect(source('src/lib/auth/account-actions.ts')).toMatch(/^import\s+["']server-only["'];?\s*$/m);
   });
 
   test('il modulo è una server action e non usa la service role per la rpc', () => {

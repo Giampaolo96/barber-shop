@@ -2,6 +2,9 @@
 -- decisioni approvate dall'utente per la fetta 9b, punti A e D).
 -- 31 – Nuovo consenso quando cambia la versione dell'informativa, storico dei consensi, eliminazione
 -- dell'account del cliente con anonimizzazione delle prenotazioni.
+-- Modifica approvata dall'utente il 2026-11-23: nel rinnovo del consenso il cliente invia solo la
+-- versione (authenticated non ha il grant di update su privacy_consent_at); inviare anche la data
+-- è rifiutato (42501) o sovrascritto, come in 10_auth_profiles.
 --
 -- Interfaccia attesa:
 --   public.privacy_consent_outdated(public.profiles) returns boolean
@@ -30,7 +33,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(81);
+select plan(83);
 
 -- ---------------------------------------------------------------------------
 -- Helper
@@ -396,8 +399,16 @@ select is(
 
 -- C dà il nuovo consenso: la data la mette il database, il marketing non cambia
 select pg_temp.act_as('f3100000-0000-4000-8000-000000000005');
-select is(
+select matches(
   pg_temp.outcome($q$ update public.profiles set privacy_policy_version = 'qa31-v2', privacy_consent_at = '2001-01-01 00:00:00+00'
+                       where id = 'f3100000-0000-4000-8000-000000000005' $q$),
+  '^(rows:1|42501)$', 'SPEC §8: versione + privacy_consent_at inviati insieme: rifiutato (42501) o data sovrascritta');
+select isnt(
+  pg_temp.val($q$ select (privacy_consent_at = '2001-01-01 00:00:00+00')::text
+                    from public.profiles where id = 'f3100000-0000-4000-8000-000000000005' $q$),
+  'true', 'SPEC §8: la data del consenso scelta dal client non viene mai salvata');
+select is(
+  pg_temp.outcome($q$ update public.profiles set privacy_policy_version = 'qa31-v2'
                        where id = 'f3100000-0000-4000-8000-000000000005' $q$),
   'rows:1', 'SPEC §8: con il consenso scaduto il cliente accetta la versione corrente');
 select is(
