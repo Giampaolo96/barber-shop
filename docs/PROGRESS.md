@@ -25,9 +25,14 @@
 | 8j | completata | 2026-10-31 | Vedi "Fetta 8j" sotto; una decisione aperta sui test (punto 1 dei problemi aperti) |
 | 8k | completata | 2026-11-11 | Vedi "Fetta 8k" sotto; migliorie della review sul branch `fetta-8k-rifiniture` (da mergiare prima della 9b) |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
-| 9b | da fare | | Privacy e account prima del go-live (SPEC §11), con il punto 4 dell'audit |
+| 9b | in corso | | Privacy e account del cliente (SPEC §11), con il punto 4 dell'audit; branch `fetta-9b` |
+| 9c | da fare | | Account dello staff: invito, password, eliminazione, TOTP admin (dipende da SPEC §13.9 e dalla fetta 7) |
 
 Audit del 30 ottobre: vedi "Audit del 30 ottobre: pianificazione" in fondo.
+
+## Problemi aperti dei test
+1. Restano 7 generatori di date casuali negli e2e, da passare a `testDate()`: `admin-calendar-move-autoscroll`, `admin-calendar-week-closed-days`, `admin-polish-8j`, `admin-settings`, `admin-stats`, `admin-stats-axes`, `admin-stats-default-grouping`.
+2. I giri e2e locali sono passati da circa 3 a circa 5 minuti, con timeout sotto carico. Da misurare dopo un `db reset`, con meno worker, confrontando Next 16.4.3 e 16.4.6.
 
 Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli account): checklist in `docs/GO-LIVE.md`, da completare con il titolare del negozio.
 
