@@ -25,13 +25,13 @@
 | 8j | completata | 2026-10-31 | Vedi "Fetta 8j" sotto; una decisione aperta sui test (punto 1 dei problemi aperti) |
 | 8k | completata | 2026-11-11 | Vedi "Fetta 8k" sotto; migliorie della review sul branch `fetta-8k-rifiniture` (da mergiare prima della 9b) |
 | 9a | completata | 2026-10-11 | Vedi "Fetta 9a" sotto |
-| 9b | in corso | | Privacy e account del cliente (SPEC §11), con il punto 4 dell'audit; branch `fetta-9b` |
+| 9b | completata | 2026-11-23 | Vedi "Fetta 9b" sotto; branch `fetta-9b`, 3 migrazioni da applicare con `db push` prima del deploy |
 | 9c | da fare | | Account dello staff: invito, password, eliminazione, TOTP admin (dipende da SPEC §13.9 e dalla fetta 7) |
 
 Audit del 30 ottobre: vedi "Audit del 30 ottobre: pianificazione" in fondo.
 
 ## Problemi aperti dei test
-1. Restano 7 generatori di date casuali negli e2e, da passare a `testDate()`: `admin-calendar-move-autoscroll`, `admin-calendar-week-closed-days`, `admin-polish-8j`, `admin-settings`, `admin-stats`, `admin-stats-axes`, `admin-stats-default-grouping`.
+1. Restano 7 generatori di date casuali negli e2e, da passare a `testDate()`: `admin-calendar-move-autoscroll`, `admin-calendar-week-closed-days`, `admin-polish-8j`, `admin-settings`, `admin-stats`, `admin-stats-axes`, `admin-stats-default-grouping`. Visto nella 9b (2026-11-23): `admin-calendar-move-autoscroll` è fallito una volta perché `admin-calendar-move` aveva prenotato Luca alle 10:00 nello stesso giorno casuale (2033-01-19).
 2. I giri e2e locali sono passati da circa 3 a circa 5 minuti, con timeout sotto carico. Da misurare dopo un `db reset`, con meno worker, confrontando Next 16.4.3 e 16.4.6.
 
 Prerequisiti per l'uso reale (dominio, email, piani, privacy, proprietà degli account): checklist in `docs/GO-LIVE.md`, da completare con il titolare del negozio.
@@ -1554,3 +1554,33 @@ Critica sugli screenshot con `references/critique.md`: l'inspector non apre le p
 - Rilievi della review sui test di accettazione, approvati dall'utente il 2026-11-22 (nota in testa a `tests/e2e/customer-polish-8k.spec.ts`; e2e del file 3/3 sulla build di produzione):
   1. il caso e2e del listino non verifica che il nome vada davvero a capo: con un nome generato più corto passerebbe anche senza la correzione: ora il servizio ha un nome lungo fisso e il test verifica che vada su più righe;
   2. l'asserzione esistente sul nome del link alle mappe è cambiata (non solo aggiunta), per l'sr-only: tenuta così.
+
+## Fetta 9b – Privacy e account del cliente
+
+**Stato**: completata il 2026-11-23 sul branch `fetta-9b` (da `origin/main` `dd8b47e`, dopo la PR #19; test di accettazione in `d29fcfe`). Non pushata, migrazioni non applicate a Supabase cloud. Decisioni in ADR 016.
+
+**Fatto**
+- SPEC: §11 divisa in 9b (clienti) e 9c (staff); §3.1, §5.4, §8 aggiornate; domanda §13.10 sul cliente bloccato che si elimina.
+- Migrazioni: `20261123090000_privacy_reconsent` (guardia dei consensi che ammette solo il passaggio alla versione corrente, campo calcolato `privacy_consent_outdated`), `20261123090100_consent_events` (storico dei consensi scritto dal trigger, leggibile solo dall'interessato, cancellato con l'account), `20261123090200_delete_own_account` (anonimizzazione e cancellazione delle future, `delete_own_account` solo su `auth.uid()` e ruolo customer).
+- Nuovo consenso: con la versione scaduta `/prenota*` porta a `/profilo/consenso?next=…`; prenotazioni, profilo ed eliminazione restano aperti. Il `next` si conserva anche dopo il login (correzione della review).
+- Impostazioni: versione dell'informativa modificabile con l'avviso di conferma, non vuota e diversa dall'attuale (Zod).
+- `/profilo`: email, consenso privacy (versione e data), nome, telefono e marketing modificabili; Installa l'app, Esci, Elimina account.
+- `/profilo/elimina`: conferma in due passi; rpc con la sessione del cliente, poi `auth.admin.deleteUser` con la service role (solo `account-actions.ts`, `server-only`, id dalla sessione); logout e home con il messaggio.
+- `/privacy` pubblica con la versione corrente; testo segnaposto in `src/content/privacy-policy.tsx` (GO-LIVE §5). Link da completa, consenso, profilo e piè di pagina della home.
+- Admin: "Cliente eliminato" in calendario, dettaglio e statistiche, senza link.
+
+**Decisioni** (approvate dall'utente)
+- Storico dei consensi sì, eliminato con l'account; note dello staff eliminate; un cliente bloccato può eliminarsi e registrarsi di nuovo (SPEC §13.10); la prenotazione in corso resta, anonima; si accetta di perdere la nota demo.
+- `consent_events.id` uuid, come le altre tabelle.
+- Modifiche approvate a test esistenti, con nota in testa: `admin-settings.spec.ts`, `auth.spec.ts`, `booking-review-fixes.test.ts`, `31_privacy_account.test.sql` (rinnovo senza data dal client), `admin-access.test.ts` (service role in `account-actions.ts`), `privacy-account-9b.test.ts` (id nel FormData ignorato, `server-only`).
+
+**Verifiche**: lint e typecheck ok; Vitest 2342/2342; pgTAP 1403/1403; e2e sulla build di produzione 205/205 in due giri dopo l'ultima correzione (prima un giro con 1 errore da date casuali, vedi Problemi aperti dei test). Review: 1 bloccante (perdita di `next` dopo il login con il consenso scaduto), corretto in `f0ca64a` con un test unitario.
+
+**Migliorie della review, non applicate**
+1. `acceptPrivacyUpdate` senza schema Zod (la casella si controlla a mano, `next` passa da `safeNextPath`).
+2. `acceptPrivacyUpdate` non controlla `profileComplete`.
+3. `/profilo`: fuso di riserva `Europe/Rome` scritto a mano; senza impostazioni le date andrebbero nascoste.
+4. Nell'eliminazione diretta di `auth.users` (non dal cliente) la pulizia di `login_code_attempts` non trova l'email: da sistemare con la 9c.
+5. Doppia `getUser()` in `/profilo` per l'email.
+6. Percorsi `/profilo` e `/profilo/elimina` come costanti locali, non in `access.ts`.
+7. `/?account=eliminato` mostra il messaggio a chiunque apra il link (testo fisso, nessuna iniezione).
