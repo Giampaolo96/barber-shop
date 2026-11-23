@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
   COMPLETE_PROFILE_PATH,
+  RECONSENT_PATH,
   CUSTOMER_LOGIN_PATH,
   DISABLED_REASON,
   PASSWORD_REQUIRED_REASON,
@@ -96,7 +97,7 @@ export async function proxy(request: NextRequest) {
   // completare (dopo il salvataggio): poi torna lì, parametri compresi.
   if (
     (!user && decision.to === CUSTOMER_LOGIN_PATH) ||
-    (user?.role === "customer" && decision.to === COMPLETE_PROFILE_PATH)
+    (user?.role === "customer" && (decision.to === COMPLETE_PROFILE_PATH || decision.to === RECONSENT_PATH))
   ) {
     target.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
   }

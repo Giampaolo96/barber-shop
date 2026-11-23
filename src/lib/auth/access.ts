@@ -9,6 +9,8 @@ export type AccessInput = {
   role: Role | null;
   isBlocked: boolean;
   profileComplete: boolean;
+  /** Consenso privacy dato a una versione non più corrente (fetta 9b); assente = false. */
+  privacyConsentOutdated?: boolean;
 };
 
 export type AccessDecision = { type: "allow" } | { type: "redirect"; to: string };
@@ -16,6 +18,11 @@ export type AccessDecision = { type: "allow" } | { type: "redirect"; to: string 
 export const HOME_PATH = "/";
 export const CUSTOMER_LOGIN_PATH = "/accedi";
 export const COMPLETE_PROFILE_PATH = "/profilo/completa";
+/** Nuovo consenso all'informativa cambiata (fetta 9b): blocca solo le nuove prenotazioni. */
+export const RECONSENT_PATH = "/profilo/consenso";
+/** Informativa privacy, pagina pubblica (fetta 9b). */
+export const PRIVACY_PATH = "/privacy";
+const BOOKING_FLOW_PATH = "/prenota";
 export const ADMIN_PATH = "/admin";
 export const STAFF_LOGIN_PATH = "/admin/login";
 /** Valore di `?motivo=` con cui il login dello staff mostra "Account disabilitato". */
@@ -59,7 +66,7 @@ export const isStaffRole = (role: Role | null): role is "barber" | "admin" =>
 
 export function decideAccess(input: AccessInput): AccessDecision {
   const path = normalize(input.path);
-  const { role, isBlocked, profileComplete } = input;
+  const { role, isBlocked, profileComplete, privacyConsentOutdated = false } = input;
 
   const isStaffLogin = path === STAFF_LOGIN_PATH;
   const isAdminArea = isUnder(path, ADMIN_PATH) && !isStaffLogin;
@@ -93,5 +100,7 @@ export function decideAccess(input: AccessInput): AccessDecision {
   }
   if (isCompleteProfile) return profileComplete ? redirectTo(HOME_PATH) : ALLOW;
   if (isCustomerPrivate && !profileComplete) return redirectTo(COMPLETE_PROFILE_PATH);
+  if (path === RECONSENT_PATH) return privacyConsentOutdated ? ALLOW : redirectTo(HOME_PATH);
+  if (privacyConsentOutdated && isUnder(path, BOOKING_FLOW_PATH)) return redirectTo(RECONSENT_PATH);
   return ALLOW;
 }
