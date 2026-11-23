@@ -230,3 +230,4 @@ Pulizia a bassa priorità, senza una fetta dedicata (audit del 30 ottobre, punti
 7. Chi riceve le notifiche lato negozio e su quale canale?
 8. Nome e dominio dell'app, logo e colori del negozio.
 9. Verifica in due passaggi per l'account admin? Senza, chi controlla l'email del negozio può reimpostare la password.
+10. Un cliente bloccato per no-show può eliminarsi e registrarsi di nuovo con la stessa email, ripartendo senza blocco (scelta MVP della fetta 9b). Serve conservare un'impronta dell'email (con una riga nell'informativa) per mantenere il blocco?
