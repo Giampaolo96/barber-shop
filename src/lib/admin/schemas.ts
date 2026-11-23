@@ -2,6 +2,7 @@
 // FormData: numeri come stringhe, checkbox già convertite in booleani dalla server action.
 // Le chiavi non previste vengono scartate (id, profile_id, prezzi già in centesimi, ruoli).
 import { z } from "zod";
+import { it } from "@/i18n/it";
 import { isValidLocalDate, isValidLocalTime } from "@/lib/domain/local-time";
 import { SETTINGS_LIMITS, SLOT_GRANULARITY_OPTIONS } from "@/lib/domain/settings";
 import { parseEuroToCents } from "./money";
@@ -158,11 +159,16 @@ export const settingsSchema = z.object({
 });
 
 /**
- * Impostazioni salvabili dal modulo: la versione dell'informativa è in sola lettura finché non c'è
- * il flusso di nuovo consenso (fetta 9). Cambiarla oggi impedirebbe a tutti i clienti di prenotare
- * (create_online_booking richiede il consenso alla versione corrente) senza poterlo rinnovare.
+ * Impostazioni salvate dal modulo senza la versione dell'informativa: il cambio di versione è
+ * un'azione a parte, confermata dall'admin (fetta 9b), validata con privacyVersionChangeSchema.
  */
 export const editableSettingsSchema = settingsSchema.omit({ privacyPolicyVersion: true });
+
+/** Nuova versione dell'informativa: non vuota e diversa da quella attuale (fetta 9b). */
+export const privacyVersionChangeSchema = (current: string) =>
+  settingsSchema.shape.privacyPolicyVersion.refine((value) => value !== current.trim(), {
+    message: it.admin.settings.privacyVersionUnchanged,
+  });
 
 // Account staff -------------------------------------------------------------------
 

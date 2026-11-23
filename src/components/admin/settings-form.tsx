@@ -1,7 +1,14 @@
 "use client";
 
-import { type ReactNode, useActionState, useState } from "react";
+import { type ReactNode, useActionState, useRef, useState } from "react";
 import { FormStatus } from "@/components/admin/form-status";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,6 +61,26 @@ export function SettingsForm({
     buffer: String(values.bufferMin),
   });
   const t = it.admin.settings;
+  // Cambio della versione dell'informativa: si invia solo dopo la conferma dell'avviso (fetta 9b).
+  const [confirmingVersion, setConfirmingVersion] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const confirmField = useRef<HTMLInputElement>(null);
+
+  const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    const version = new FormData(event.currentTarget).get("privacyPolicyVersion");
+    const changed = typeof version === "string" && version.trim() !== values.privacyPolicyVersion;
+    if (changed && confirmField.current?.value !== "on") {
+      event.preventDefault();
+      setConfirmingVersion(true);
+    }
+  };
+  const confirmVersion = () => {
+    if (!confirmField.current) return;
+    setConfirmingVersion(false);
+    confirmField.current.value = "on";
+    formRef.current?.requestSubmit();
+    confirmField.current.value = "";
+  };
 
   const text = (name: keyof SettingsValues, label: string, props: React.ComponentProps<"input"> = {}) => (
     <div className="flex flex-col gap-2">
@@ -88,7 +115,8 @@ export function SettingsForm({
   );
 
   return (
-    <form action={formAction} noValidate className="flex flex-col gap-6">
+    <form ref={formRef} action={formAction} onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
+      <input ref={confirmField} type="hidden" name="confirmPrivacyVersionChange" defaultValue="" />
       <div className="grid max-w-5xl gap-x-12 gap-y-8 lg:grid-cols-2 lg:items-start">
         <Group title={t.groups.shop}>
           {text("name", t.nameLabel, { required: true, maxLength: 100 })}
@@ -120,19 +148,25 @@ export function SettingsForm({
         </Group>
         <Group title={t.groups.rules}>
           {number("noShowBlockThreshold", t.noShowThresholdLabel, 0)}
-          {/* Sola lettura, senza name: non viene inviata (fetta 9, flusso di nuovo consenso). */}
           <div className="flex flex-col gap-2">
             <Label htmlFor="privacyPolicyVersion">{t.privacyPolicyVersionLabel}</Label>
             <Input
               id="privacyPolicyVersion"
+              name="privacyPolicyVersion"
               defaultValue={values.privacyPolicyVersion}
-              readOnly
+              required
+              maxLength={50}
               aria-describedby="privacyPolicyVersionNote"
-              className="bg-muted"
+              aria-invalid={state.versionError ? true : undefined}
             />
             <p id="privacyPolicyVersionNote" className="text-sm text-muted-foreground">
               {t.privacyPolicyVersionNote}
             </p>
+            {state.versionError && (
+              <p role="alert" className="border-l-2 border-destructive pl-3 text-sm text-destructive">
+                {state.versionError}
+              </p>
+            )}
           </div>
         </Group>
       </div>
@@ -143,6 +177,22 @@ export function SettingsForm({
         </Button>
         <FormStatus status={state.status} />
       </div>
+      <AlertDialog open={confirmingVersion} onOpenChange={setConfirmingVersion}>
+        <AlertDialogContent area="admin">
+          <AlertDialogTitle className="text-lg font-semibold">{t.privacyVersionChangeTitle}</AlertDialogTitle>
+          <AlertDialogDescription>{t.privacyVersionChangeWarning}</AlertDialogDescription>
+          <div className="flex flex-wrap justify-end gap-2">
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline">
+                {t.privacyVersionChangeCancel}
+              </Button>
+            </AlertDialogCancel>
+            <Button type="button" onClick={confirmVersion}>
+              {t.privacyVersionChangeConfirm}
+            </Button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </form>
   );
 }
