@@ -219,21 +219,21 @@ export type Database = {
       consent_events: {
         Row: {
           created_at: string;
-          id: number;
+          id: string;
           kind: Database["public"]["Enums"]["consent_kind"];
           policy_version: string | null;
           profile_id: string;
         };
         Insert: {
           created_at?: string;
-          id?: never;
+          id?: string;
           kind: Database["public"]["Enums"]["consent_kind"];
           policy_version?: string | null;
           profile_id: string;
         };
         Update: {
           created_at?: string;
-          id?: never;
+          id?: string;
           kind?: Database["public"]["Enums"]["consent_kind"];
           policy_version?: string | null;
           profile_id?: string;
