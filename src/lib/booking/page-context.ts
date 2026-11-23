@@ -16,11 +16,12 @@ export type BookingPageContext = {
   access: "ok" | "blocked";
 };
 
-export async function loadBookingPageContext(): Promise<BookingPageContext> {
+/** `allowOutdatedConsent`: "Le mie prenotazioni" resta aperta anche senza il nuovo consenso (fetta 9b). */
+export async function loadBookingPageContext({ allowOutdatedConsent = false } = {}): Promise<BookingPageContext> {
   const user = await requireRole(["customer"]);
   if (!user.profileComplete) redirect(COMPLETE_PROFILE_PATH);
   // Informativa cambiata: senza il nuovo consenso niente nuove prenotazioni (fetta 9b).
-  if (user.privacyConsentOutdated) redirect(RECONSENT_PATH);
+  if (user.privacyConsentOutdated && !allowOutdatedConsent) redirect(RECONSENT_PATH);
 
   // Blocco e no-show arrivano dalla stessa lettura del profilo di requireRole (nessuna query in più).
   const [shop, noShowCount] = await Promise.all([getShopInfo(), getCurrentNoShowCount()]);

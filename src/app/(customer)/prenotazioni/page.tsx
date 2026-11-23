@@ -45,7 +45,7 @@ export default async function MyBookingsPage({
 }) {
   // Le prenotazioni (RLS: solo le proprie) partono appena getUser() ha verificato l'utente, insieme
   // alla lettura del profilo; la pagina mostra qualcosa solo dopo requireRole (loadBookingPageContext).
-  const [{ shop }, own] = await Promise.all([loadBookingPageContext(), loadOwnBookings()]);
+  const [{ shop }, own] = await Promise.all([loadBookingPageContext({ allowOutdatedConsent: true }), loadOwnBookings()]);
   const bookings = own?.bookings ?? null;
   const { esito } = await searchParams;
   const t = it.booking.list;
