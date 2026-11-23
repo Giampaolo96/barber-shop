@@ -1,4 +1,4 @@
-import { decideAccess, type AccessInput } from "./access";
+import { RECONSENT_PATH, decideAccess, type AccessInput } from "./access";
 
 // Destinazione dopo il login: solo percorsi relativi interni, per non fare da open redirect.
 
@@ -60,5 +60,7 @@ export function completeProfileUrl(path: string, next: string): string {
 export function destinationAfterLogin(next: string, user: Omit<AccessInput, "path">): string {
   const path = new URL(next, BASE).pathname;
   const decision = decideAccess({ path, ...user });
-  return decision.type === "redirect" ? decision.to : next;
+  if (decision.type !== "redirect") return next;
+  // Consenso scaduto: dopo il nuovo consenso si torna alla destinazione (fetta 9b).
+  return decision.to === RECONSENT_PATH ? completeProfileUrl(RECONSENT_PATH, next) : decision.to;
 }
