@@ -7,14 +7,13 @@ import { secondaryLinkClass } from "@/components/auth/secondary-link";
 import { InstallAppEntry } from "@/components/pwa/install-banner";
 import { it } from "@/i18n/it";
 import { fillText } from "@/lib/admin/text";
-import { COMPLETE_PROFILE_PATH, PRIVACY_PATH } from "@/lib/auth/access";
+import { COMPLETE_PROFILE_PATH, DELETE_ACCOUNT_PATH, PRIVACY_PATH } from "@/lib/auth/access";
 import { requireRole } from "@/lib/auth/current-user";
 import { getShopInfo } from "@/lib/booking/queries";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/db/server";
 
 const t = it.profile;
-const DELETE_ACCOUNT_PATH = "/profilo/elimina";
 
 // Profilo del cliente (SPEC §5.4, fetta 9b): email e consenso privacy in sola lettura; nome, telefono
 // e marketing modificabili; in fondo installazione, uscita ed eliminazione dell'account.
@@ -34,14 +33,16 @@ export default async function ProfilePage() {
   ]);
   if (!profile) redirect(COMPLETE_PROFILE_PATH);
 
-  // Date dei consensi nell'ora del negozio (SPEC §9), registrate dal database.
-  const timezone = shop?.timezone ?? "Europe/Rome";
-  const when = (instant: string): string => formatInTimeZone(new Date(instant), timezone, "dd/MM/yyyy HH:mm");
-  const marketingNote = profile.marketing_consent_at
-    ? fillText(profile.marketing_consent ? t.marketingGiven : t.marketingRevoked, {
-        date: when(profile.marketing_consent_at),
-      })
-    : null;
+  // Date dei consensi nell'ora del negozio (SPEC §9), registrate dal database. Fuso orario sempre
+  // dalle impostazioni: senza impostazioni le date non si mostrano (come nella home).
+  const timezone = shop?.timezone ?? null;
+  const when = (instant: string, zone: string): string => formatInTimeZone(new Date(instant), zone, "dd/MM/yyyy HH:mm");
+  const marketingNote =
+    profile.marketing_consent_at && timezone
+      ? fillText(profile.marketing_consent ? t.marketingGiven : t.marketingRevoked, {
+          date: when(profile.marketing_consent_at, timezone),
+        })
+      : null;
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-6">
@@ -63,11 +64,11 @@ export default async function ProfilePage() {
 
       <section className="flex flex-col gap-1">
         <h2 className="font-display text-2xl">{t.privacyTitle}</h2>
-        {profile.privacy_consent_at && profile.privacy_policy_version && (
+        {profile.privacy_consent_at && profile.privacy_policy_version && timezone && (
           <p className="text-sm">
             {fillText(t.privacyAccepted, {
               version: profile.privacy_policy_version,
-              date: when(profile.privacy_consent_at),
+              date: when(profile.privacy_consent_at, timezone),
             })}
           </p>
         )}

@@ -22,6 +22,8 @@ export const COMPLETE_PROFILE_PATH = "/profilo/completa";
 export const RECONSENT_PATH = "/profilo/consenso";
 /** Informativa privacy, pagina pubblica (fetta 9b). */
 export const PRIVACY_PATH = "/privacy";
+export const PROFILE_PATH = "/profilo";
+export const DELETE_ACCOUNT_PATH = "/profilo/elimina";
 const BOOKING_FLOW_PATH = "/prenota";
 export const ADMIN_PATH = "/admin";
 export const STAFF_LOGIN_PATH = "/admin/login";

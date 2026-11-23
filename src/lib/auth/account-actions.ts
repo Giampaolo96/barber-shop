@@ -5,13 +5,15 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/db/admin";
 import { createClient } from "@/lib/db/server";
-import { HOME_PATH } from "./access";
+import { COMPLETE_PROFILE_PATH, HOME_PATH } from "./access";
+import { ACCOUNT_DELETED_COOKIE, ACCOUNT_DELETED_COOKIE_OPTIONS } from "./account-deleted-flash";
 import { requireRole } from "./current-user";
 import { safeNextPath } from "./safe-next-path";
-import { profileUpdateSchema } from "./schemas";
+import { profileUpdateSchema, reconsentSchema } from "./schemas";
 
 export type ProfileFormState = { status: "idle" | "saved" | "invalid" | "error" };
 export type ReconsentState = { status: "idle" | "invalid" | "error" };
@@ -57,7 +59,13 @@ export async function acceptPrivacyUpdate(
   formData: FormData,
 ): Promise<ReconsentState> {
   const user = await requireRole(["customer"]);
-  if (formData.get("privacyConsent") !== "on") return { status: "invalid" };
+  // Il primo consenso si dà su /profilo/completa, insieme a nome e telefono.
+  if (!user.profileComplete) redirect(COMPLETE_PROFILE_PATH);
+  const parsed = reconsentSchema.safeParse({
+    privacyConsent: formData.get("privacyConsent"),
+    next: formData.get("next") ?? undefined,
+  });
+  if (!parsed.success) return { status: "invalid" };
 
   const supabase = await createClient();
   const { data: settings } = await supabase.from("shop_settings").select("privacy_policy_version").maybeSingle();
@@ -75,14 +83,15 @@ export async function acceptPrivacyUpdate(
   }
 
   revalidatePath("/", "layout");
-  redirect(safeNextPath(formData.get("next")?.toString()));
+  redirect(safeNextPath(parsed.data.next));
 }
 
 /**
  * Eliminazione dell'account: 1) delete_own_account con la sessione del cliente (future cancellate,
  * storico anonimizzato); 2) utente Auth eliminato con la service role, che a cascata elimina il
- * profilo; 3) logout e home con il messaggio. Se il passo 2 fallisce l'account resta intero e il
- * cliente può riprovare: i passi sono ripetibili e non resta mai un utente Auth senza profilo.
+ * profilo; 3) logout e home con il messaggio (cookie usa e getta, niente parametro nell'URL).
+ * Se il passo 2 fallisce l'account resta intero e il cliente può riprovare: i passi sono
+ * ripetibili e non resta mai un utente Auth senza profilo.
  */
 // Senza parametri: lo stato precedente e il modulo (solo il pulsante) non servono.
 export async function deleteAccount(): Promise<DeleteAccountState> {
@@ -104,6 +113,7 @@ export async function deleteAccount(): Promise<DeleteAccountState> {
   }
 
   await supabase.auth.signOut({ scope: "local" });
+  (await cookies()).set(ACCOUNT_DELETED_COOKIE, "1", ACCOUNT_DELETED_COOKIE_OPTIONS);
   revalidatePath("/", "layout");
-  redirect(`${HOME_PATH}?account=eliminato`);
+  redirect(HOME_PATH);
 }

@@ -34,7 +34,7 @@ export const it = {
     },
     /** Impostazioni del negozio non leggibili: senza timezone la prenotazione non si può mostrare. */
     nextBookingUnavailable: "Non è stato possibile mostrare la tua prossima prenotazione. Riprova tra poco.",
-    /** Dopo l'eliminazione dell'account (fetta 9b, `/?account=eliminato`). */
+    /** Dopo l'eliminazione dell'account (fetta 9b, cookie usa e getta `account_deleted`, ADR 016). */
     accountDeleted: "Il tuo account è stato eliminato. Grazie di essere stato nostro cliente.",
     privacyLink: "Informativa privacy",
   },

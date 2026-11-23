@@ -55,6 +55,12 @@ export const profileUpdateSchema = completeProfileSchema.pick({
   marketingConsent: true,
 });
 
+// /profilo/consenso (fetta 9b): la casella è obbligatoria; `next` si valida poi con safeNextPath.
+export const reconsentSchema = z.object({
+  privacyConsent: z.literal("on"),
+  next: z.string().max(2048).optional().catch(undefined),
+});
+
 /** Tipi di link email ammessi: magic link e conferma del primo accesso. */
 export const EMAIL_LINK_TYPES = ["email", "magiclink", "signup"] as const;
 

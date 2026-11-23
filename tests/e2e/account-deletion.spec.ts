@@ -7,13 +7,15 @@
 //   /profilo/elimina  titolo it.profile.deletion.title; riepilogo it.profile.deletion.futureBookings,
 //                     .pastBookings, .account, .irreversible; primo passo: pulsante
 //                     it.profile.deletion.proceed; solo dopo compare il pulsante it.profile.deletion.confirm.
-//   dopo la conferma  redirect a /?account=eliminato con il messaggio it.home.accountDeleted, sessione chiusa.
+//   dopo la conferma  redirect a / con il messaggio it.home.accountDeleted, sessione chiusa.
 //   admin             calendario (/admin?data=…&vista=giorno), dettaglio (/admin/calendario/<id>) e
 //                     "Da aggiornare" (/admin/statistiche/da-aggiornare?dal=…&al=…) mostrano
 //                     it.admin.common.deletedCustomer, senza link a /admin/clienti/<id>.
 //
 // Prerequisiti: vedi customer-account-helpers.ts. Date da testDate(); cliente nuovo per il test.
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
+// Modifica chiesta dall'utente il 2026-11-23: il messaggio arriva da un cookie usa e getta, non da
+// ?account=eliminato; dopo un ricaricamento non c'è più e il link nudo non lo mostra.
 
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
@@ -108,8 +110,13 @@ test('il cliente elimina l\'account in due passi: futura cancellata, passata ano
 
     // Ritorno alla home con il messaggio, sessione chiusa
     await expectPath(page, '/');
-    expect(new URL(page.url()).searchParams.get('account')).toBe('eliminato');
+    expect(new URL(page.url()).search).toBe('');
     await expect(page.getByText(s('home.accountDeleted'))).toBeVisible();
+    // Usa e getta: cancellato dopo la prima lettura
+    await expect.poll(async () => (await page.context().cookies()).some((c) => c.name === 'account_deleted')).toBe(false);
+    await page.reload();
+    await expect(page.getByText(s('home.accountDeleted'))).toHaveCount(0);
+    await page.goto('/');
     await expect(page.getByRole('link', { name: s('nav.login'), exact: true })).toBeVisible();
     await expect(page.locator('form').getByRole('button', { name: s('auth.logout'), exact: true })).toHaveCount(0);
     await page.goto('/profilo');
@@ -170,4 +177,10 @@ test('il cliente elimina l\'account in due passi: futura cancellata, passata ano
     await deleteAuthUser(page.request, reRegistered);
     await deleteAuthUser(page.request, customer?.id);
   }
+});
+
+test('il link nudo /?account=eliminato non mostra il messaggio di account eliminato', async ({ page }) => {
+  await page.goto('/?account=eliminato');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.getByText(s('home.accountDeleted'))).toHaveCount(0);
 });

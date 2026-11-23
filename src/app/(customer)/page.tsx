@@ -1,11 +1,14 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { LinkPending } from "@/components/link-pending";
+import { AccountDeletedNotice } from "@/components/auth/account-deleted-notice";
 import { secondaryLinkClass } from "@/components/auth/secondary-link";
 import { NextBookingTicket } from "@/components/booking/next-booking-ticket";
 import { InstallBanner } from "@/components/pwa/install-banner";
 import { it } from "@/i18n/it";
 import { fillText } from "@/lib/admin/text";
 import { PRIVACY_PATH, STAFF_LOGIN_PATH } from "@/lib/auth/access";
+import { ACCOUNT_DELETED_COOKIE } from "@/lib/auth/account-deleted-flash";
 import { getCurrentUser, getVerifiedUserId } from "@/lib/auth/current-user";
 import { formatTime, mapsHref, telHref } from "@/lib/booking/format";
 import { BOOK_PATH, MY_BOOKINGS_PATH } from "@/lib/booking/paths";
@@ -21,7 +24,7 @@ const t = it.home;
 
 // Home (SPEC §5.1): testata del negozio con lo stato di apertura, prossima prenotazione del
 // cliente, "Prenota", orari della settimana, indirizzo e telefono (docs/DESIGN.md).
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ account?: string }> }) {
+export default async function HomePage() {
   // La prossima prenotazione (RLS: solo le proprie) parte appena getUser() ha verificato l'utente,
   // insieme alla lettura del profilo; si mostra solo se il profilo dice che è un cliente.
   const [user, shop, opening, nextBooking] = await Promise.all([
@@ -30,8 +33,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     getOpeningData(),
     loadNextBooking(),
   ]);
-  // Dopo l'eliminazione dell'account (fetta 9b): sessione già chiusa, solo il messaggio.
-  const accountDeleted = (await searchParams).account === "eliminato";
+  // Dopo l'eliminazione dell'account (fetta 9b): cookie usa e getta della action, mai dall'URL.
+  const accountDeleted = (await cookies()).get(ACCOUNT_DELETED_COOKIE)?.value === "1";
   const next = user?.role === "customer" ? nextBooking : null;
   // Fuso orario sempre dalle impostazioni: senza impostazioni niente stato, orari né data.
   const timezone = shop?.timezone ?? null;
@@ -45,11 +48,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   return (
     <>
       <main className="flex flex-1 flex-col">
-        {accountDeleted && (
-          <p role="status" className="mx-auto w-full max-w-xl border-b border-line px-4 py-3 text-sm">
-            {t.accountDeleted}
-          </p>
-        )}
+        {accountDeleted && <AccountDeletedNotice />}
         <section className="on-ink relative overflow-hidden bg-marble text-on-marble">
           <HeroBackground />
           {/* Il marmo sfuma nel fondo invece di finire con un taglio netto (fetta 8k, docs/DESIGN.md). */}

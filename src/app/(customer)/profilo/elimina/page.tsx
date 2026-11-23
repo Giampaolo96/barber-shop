@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DeleteAccountForm } from "@/components/auth/delete-account-form";
 import { secondaryLinkClass } from "@/components/auth/secondary-link";
 import { it } from "@/i18n/it";
+import { PROFILE_PATH } from "@/lib/auth/access";
 import { requireRole } from "@/lib/auth/current-user";
 
 const t = it.profile.deletion;
@@ -22,7 +23,7 @@ export default async function DeleteAccountPage() {
       </ul>
       <p className="font-medium">{t.irreversible}</p>
       <DeleteAccountForm />
-      <Link href="/profilo" className={secondaryLinkClass}>
+      <Link href={PROFILE_PATH} className={secondaryLinkClass}>
         {t.cancel}
       </Link>
     </main>

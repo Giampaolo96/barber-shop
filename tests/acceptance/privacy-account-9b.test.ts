@@ -25,7 +25,8 @@
 //   src/lib/auth/account-actions.ts ("use server")
 //     deleteAccount(previous: { status: "idle" | "error" }, formData: FormData)
 //       requireRole(["customer"]) → rpc("delete_own_account") con il client della richiesta →
-//       createAdminClient().auth.admin.deleteUser(user.id) → auth.signOut() → redirect("/?account=eliminato").
+//       createAdminClient().auth.admin.deleteUser(user.id) → auth.signOut() → cookie usa e getta
+//       account_deleted (httpOnly, breve) → redirect("/").
 //       Errore della rpc o di deleteUser: { status: "error" }, nessun redirect, nessun signOut,
 //       console.error senza email; si può ripetere.
 //   Pagine: src/app/(customer)/profilo/consenso/page.tsx e profilo/elimina/page.tsx con
@@ -34,6 +35,8 @@
 // Non modificare durante l'implementazione (CLAUDE.md – Flusso di lavoro).
 // Aggiunta chiesta dall'utente il 2026-11-23: deleteAccount elimina solo l'utente della sessione, anche
 // con un id diverso nel FormData, e il modulo importa "server-only".
+// Modifica chiesta dall'utente il 2026-11-23: niente ?account=eliminato, il messaggio viaggia in un
+// cookie usa e getta impostato dopo l'eliminazione riuscita (redirect a "/").
 
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -108,12 +111,21 @@ const fake = vi.hoisted(() => ({
   denyRole: false,
   rpcError: null as null | { code: string; message: string },
   deleteUserError: null as null | { message: string; status?: number },
+  cookieOptions: null as null | { httpOnly?: boolean; maxAge?: number },
 }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/cache', () => ({ revalidatePath: () => undefined, revalidateTag: () => undefined }));
 vi.mock('next/headers', () => ({
-  cookies: async () => ({ getAll: () => [], get: () => undefined, set: () => undefined, delete: () => undefined }),
+  cookies: async () => ({
+    getAll: () => [],
+    get: () => undefined,
+    set: (name: string, _value: string, options?: { httpOnly?: boolean; maxAge?: number }) => {
+      fake.log.push(`cookie.set:${name}`);
+      fake.cookieOptions = options ?? null;
+    },
+    delete: () => undefined,
+  }),
   headers: async () => new Headers(),
 }));
 vi.mock('next/navigation', () => ({
@@ -404,13 +416,17 @@ describe('deleteAccount – server action (SPEC §8, decisione D)', () => {
   test('cliente: anonimizzazione con la sua sessione, poi utente auth eliminato, logout e home con il messaggio', async () => {
     const result = await runDelete();
     expect(fake.requireRoleArgs).toEqual([['customer']]);
-    expect(result.redirect).toBe('/?account=eliminato');
+    expect(result.redirect).toBe('/');
     expect(fake.log).toEqual([
       'server.rpc:delete_own_account',
       `admin.deleteUser:${CUSTOMER_ID}`,
       'server.signOut',
-      'redirect:/?account=eliminato',
+      'cookie.set:account_deleted',
+      'redirect:/',
     ]);
+    expect(fake.cookieOptions?.httpOnly).toBe(true);
+    expect(fake.cookieOptions?.maxAge).toBeGreaterThan(0);
+    expect(fake.cookieOptions?.maxAge).toBeLessThanOrEqual(300);
   });
 
   test('ruolo non ammesso (requireRole): nessuna chiamata al database', async () => {
@@ -436,6 +452,7 @@ describe('deleteAccount – server action (SPEC §8, decisione D)', () => {
     expect(failed.redirect).toBeUndefined();
     expect(failed.state?.status).toBe('error');
     expect(fake.log).not.toContain('server.signOut');
+    expect(fake.log).not.toContain('cookie.set:account_deleted');
     expect(errors).toHaveBeenCalled();
     const logged = JSON.stringify(errors.mock.calls, (_key, value: unknown) =>
       value instanceof Error ? `${value.name}: ${value.message}` : value,
@@ -447,7 +464,7 @@ describe('deleteAccount – server action (SPEC §8, decisione D)', () => {
     fake.deleteUserError = null;
     fake.log = [];
     const retried = await runDelete();
-    expect(retried.redirect).toBe('/?account=eliminato');
+    expect(retried.redirect).toBe('/');
     expect(fake.log).toContain(`admin.deleteUser:${CUSTOMER_ID}`);
   });
 
