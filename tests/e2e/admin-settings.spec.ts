@@ -1,4 +1,6 @@
 // Test di accettazione e2e – FETTA 3 (SPEC §11) + Impostazioni (SPEC §6.8).
+// Modifiche approvate dall'utente il 2026-11-23 (fetta 9b): la versione dell'informativa è
+// modificabile (toBeEditable) e titolo e commento del primo test lo dicono.
 // Sezioni: SPEC §3.1 (parametri), §6.8, §8 (versione dell'informativa privacy) + decisioni
 // approvate per la fetta 3 (punti A ed E).
 // Contratto dell'interfaccia (decisione fetta 3): /admin/impostazioni è un modulo con le
@@ -64,8 +66,8 @@ test.describe.configure({ mode: 'default' });
 test.describe('Admin – impostazioni (SPEC §3.1, §6.8)', () => {
   test.use({ viewport: DESKTOP });
 
-  // Review fetta 5: la versione dell'informativa è in sola lettura fino al flusso di nuovo consenso (fetta 9).
-  test('modifica i parametri e li ritrova ricaricando; la versione dell\'informativa è in sola lettura', async ({ page }) => {
+  // Fetta 9b: la versione dell'informativa è modificabile (cambio con avviso in privacy-version.spec.ts).
+  test('modifica i parametri e li ritrova ricaricando; la versione dell\'informativa è modificabile', async ({ page }) => {
     const api = await adminApi(page.request);
     const original = await readSettings(api);
 
@@ -79,7 +81,7 @@ test.describe('Admin – impostazioni (SPEC §3.1, §6.8)', () => {
       await expect(field(page, 'admin.settings.timezoneLabel')).toHaveValue(original.timezone);
       await expect(field(page, 'admin.settings.slotGranularityLabel')).toHaveValue(String(original.slot_granularity_min));
       await expect(field(page, 'admin.settings.privacyPolicyVersionLabel')).toHaveValue(original.privacy_policy_version);
-      await expect(field(page, 'admin.settings.privacyPolicyVersionLabel')).not.toBeEditable();
+      await expect(field(page, 'admin.settings.privacyPolicyVersionLabel')).toBeEditable();
 
       await field(page, 'admin.settings.addressLabel').fill('Via del Test 3, Roma');
       await field(page, 'admin.settings.phoneLabel').fill('+39 06 7654321');

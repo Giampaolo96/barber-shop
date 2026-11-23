@@ -1,14 +1,14 @@
 // Regressioni della review della fetta 5 (scritte durante l'implementazione, non da spec-qa).
 // - ritorno dopo il login: codifica e decodifica di `next`, lunghezza massima, /profilo/completa;
 // - testi d'errore con i limiti come segnaposto; codice `unavailable`;
-// - versione dell'informativa in sola lettura nelle impostazioni (fino alla fetta 9).
+// - versione dell'informativa nelle impostazioni: modificabile dalla fetta 9b (blocco sostituito con
+//   l'approvazione dell'utente il 2026-11-23).
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 
 import { it as texts } from '@/i18n/it';
-import { editableSettingsSchema, settingsSchema } from '@/lib/admin/schemas';
 import {
   NEXT_MAX_LENGTH,
   completeProfileUrl,
@@ -102,28 +102,27 @@ describe('testi d\'errore (migliorie 2, 3, 11)', () => {
   });
 });
 
-describe('impostazioni: versione dell\'informativa in sola lettura fino alla fetta 9', () => {
+describe('impostazioni: versione dell\'informativa modificabile dalla fetta 9b', () => {
+  // Sostituisce il blocco "in sola lettura fino alla fetta 9" (approvato dall'utente il 2026-11-23).
   const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
   const source = (file: string): string => readFileSync(resolve(ROOT, file), 'utf8');
 
-  test('lo schema salvabile non contiene la versione; quello completo resta invariato', () => {
-    expect(Object.keys(editableSettingsSchema.shape)).not.toContain('privacyPolicyVersion');
-    expect(Object.keys(settingsSchema.shape)).toContain('privacyPolicyVersion');
-  });
-
-  test('la server action non scrive privacy_policy_version', () => {
+  test('la server action scrive privacy_policy_version solo dopo la conferma esplicita', () => {
     const code = source('src/lib/admin/settings-actions.ts');
-    expect(code).toMatch(/editableSettingsSchema\.safeParse/);
-    expect(code).not.toMatch(/privacy_policy_version\s*:/);
+    expect(code).toMatch(/privacy_policy_version\s*:/);
+    expect(code).toMatch(/confirmPrivacyVersionChange/);
   });
 
-  test('il campo del modulo è in sola lettura, senza name, con la nota sulla fetta 9', () => {
+  test('la server action valida la nuova versione con privacyVersionChangeSchema (non vuota, diversa dall\'attuale)', () => {
+    const code = source('src/lib/admin/settings-actions.ts');
+    expect(code).toMatch(/privacyVersionChangeSchema\(/);
+  });
+
+  test('il campo del modulo è modificabile e viene inviato', () => {
     const code = source('src/components/admin/settings-form.tsx');
     const field = code.slice(code.indexOf('id="privacyPolicyVersion"'), code.indexOf('/>', code.indexOf('id="privacyPolicyVersion"')));
-    expect(field).toMatch(/\breadOnly\b/);
-    expect(field).not.toMatch(/\bname=/);
-    expect(code).toMatch(/privacyPolicyVersionNote/);
-    expect(texts.admin.settings.privacyPolicyVersionNote.trim()).not.toBe('');
+    expect(field).not.toMatch(/\breadOnly\b/);
+    expect(field).toMatch(/\bname="privacyPolicyVersion"/);
   });
 });
 

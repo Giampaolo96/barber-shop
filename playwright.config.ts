@@ -29,8 +29,8 @@ export default defineConfig({
     {
       name: "mobile-chromium",
       use: { ...devices["Pixel 7"] },
-      // Le impostazioni del negozio sono condivise: il loro test gira a parte, dopo gli altri.
-      testIgnore: /admin-settings\.spec\.ts$/,
+      // Le impostazioni del negozio sono condivise: i loro test girano a parte, dopo gli altri.
+      testIgnore: /(?:admin-settings|privacy-version)\.spec\.ts$/,
     },
     // Rotazione di "Quando?" anche su WebKit (fetta 8g): solo quel file; mobile-chromium lo esegue comunque.
     {
@@ -44,6 +44,13 @@ export default defineConfig({
       testMatch: /admin-settings\.spec\.ts$/,
       // Dopo tutti gli altri: modifica shop_settings, che anche la rotazione legge.
       dependencies: ["mobile-chromium", "mobile-webkit"],
+    },
+    // Fetta 9b: cambia la versione dell'informativa (shop_settings), quindi gira per ultimo.
+    {
+      name: "privacy-version",
+      use: { ...devices["Pixel 7"] },
+      testMatch: /privacy-version\.spec\.ts$/,
+      dependencies: ["admin-settings"],
     },
   ],
   webServer: {
