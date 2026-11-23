@@ -6,8 +6,10 @@ import type { Database } from "./database";
 
 /**
  * Client service_role: aggira la RLS. Lo usano solo le server action degli account staff
- * (`src/lib/admin/staff-accounts.ts`), sempre dopo `requireRole(["admin"])`, e il limite dei
- * tentativi del login con codice (`src/lib/auth/login-code.ts`, solo le rpc `login_code_*`).
+ * (`src/lib/admin/staff-accounts.ts`), sempre dopo `requireRole(["admin"])`, il limite dei
+ * tentativi del login con codice (`src/lib/auth/login-code.ts`, solo le rpc `login_code_*`) e
+ * l'eliminazione dell'account del cliente (`src/lib/auth/account-actions.ts`, solo
+ * `auth.admin.deleteUser` con l'id della sessione, dopo `requireRole(["customer"])`).
  * Nessuna sessione salvata: non tocca mai i cookie dell'utente.
  */
 export function createAdminClient() {

@@ -34,6 +34,13 @@ export const it = {
     },
     /** Impostazioni del negozio non leggibili: senza timezone la prenotazione non si può mostrare. */
     nextBookingUnavailable: "Non è stato possibile mostrare la tua prossima prenotazione. Riprova tra poco.",
+    /** Dopo l'eliminazione dell'account (fetta 9b, `/?account=eliminato`). */
+    accountDeleted: "Il tuo account è stato eliminato. Grazie di essere stato nostro cliente.",
+    privacyLink: "Informativa privacy",
+  },
+  privacy: {
+    title: "Informativa privacy",
+    version: "Versione {version}",
   },
   nav: {
     login: "Accedi",
@@ -227,6 +234,17 @@ export const it = {
       submit: "Salva e continua",
       invalid: "Controlla i dati: nome, telefono valido e consenso privacy sono obbligatori.",
       error: "Non è stato possibile salvare. Riprova tra poco.",
+      privacyLink: "Leggi l'informativa privacy",
+    },
+    /** Nuovo consenso dopo un cambio dell'informativa (fetta 9b). */
+    reconsent: {
+      title: "Informativa aggiornata",
+      intro: "Abbiamo aggiornato l'informativa privacy. Per prenotare di nuovo leggila e accettala.",
+      privacyLink: "Leggi l'informativa privacy",
+      checkboxLabel: "Ho letto la nuova informativa privacy e acconsento al trattamento dei miei dati",
+      submit: "Accetta e continua",
+      invalid: "Per continuare devi accettare la nuova informativa.",
+      error: "Non è stato possibile salvare. Riprova tra poco.",
     },
   },
   pwa: {
@@ -249,7 +267,32 @@ export const it = {
   },
   profile: {
     title: "Il tuo profilo",
-    comingSoon: "La gestione del profilo è in arrivo.",
+    emailLabel: "Email",
+    fullNameLabel: "Nome e cognome",
+    phoneLabel: "Telefono",
+    marketingLabel: "Voglio ricevere offerte e novità",
+    save: "Salva modifiche",
+    saved: "Modifiche salvate.",
+    invalid: "Controlla i dati: nome e telefono valido sono obbligatori.",
+    error: "Non è stato possibile salvare. Riprova tra poco.",
+    privacyTitle: "Consensi",
+    privacyAccepted: "Informativa privacy versione {version}, accettata il {date}",
+    marketingGiven: "Consenso dato il {date}",
+    marketingRevoked: "Consenso revocato il {date}",
+    privacyLink: "Leggi l'informativa privacy",
+    deleteAccount: "Elimina account",
+    deletion: {
+      title: "Elimina account",
+      intro: "Prima di confermare, ecco cosa succede:",
+      futureBookings: "Le prenotazioni in programma vengono cancellate e gli orari tornano liberi.",
+      pastBookings: "Le prenotazioni passate restano al negozio per le statistiche, senza il tuo nome, la tua email, il tuo telefono né le note.",
+      account: "Il profilo e l'accesso con la tua email vengono eliminati, e la sessione si chiude.",
+      irreversible: "L'operazione non si può annullare.",
+      proceed: "Continua",
+      confirm: "Elimina definitivamente",
+      cancel: "Torna al profilo",
+      error: "Non è stato possibile eliminare l'account. Riprova tra poco.",
+    },
   },
   admin: {
     stats: {
@@ -338,6 +381,8 @@ export const it = {
       stats: "Statistiche",
     },
     common: {
+      // Prenotazione di un cliente che ha eliminato l'account (anonimizzata, SPEC §8).
+      deletedCustomer: "Cliente eliminato",
       save: "Salva",
       saved: "Modifiche salvate.",
       invalid: "Controlla i dati inseriti: alcuni valori non sono validi.",
@@ -510,7 +555,13 @@ export const it = {
       noShowThresholdLabel: "Blocco dopo N mancate presentazioni (0 = disattivato)",
       privacyPolicyVersionLabel: "Versione dell'informativa privacy",
       privacyPolicyVersionNote:
-        "Non modificabile per ora: il cambio di versione arriverà con il flusso di nuovo consenso dei clienti. Oggi cambiarla impedirebbe a tutti i clienti di prenotare, senza modo di rinnovare il consenso.",
+        "Cambiala solo quando pubblichi una nuova informativa: prima aggiorna il testo della pagina Informativa privacy.",
+      privacyVersionChangeTitle: "Nuova versione dell'informativa",
+      privacyVersionChangeWarning:
+        "Tutti i clienti dovranno accettare di nuovo l'informativa prima di prenotare.",
+      privacyVersionChangeConfirm: "Cambia versione",
+      privacyVersionChangeCancel: "Annulla",
+      privacyVersionUnchanged: "La nuova versione deve essere diversa da quella attuale.",
     },
     customers: {
       searchLabel: "Cerca cliente (nome, telefono o email)",

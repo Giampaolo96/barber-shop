@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { secondaryLinkClass } from "@/components/auth/secondary-link";
 import { CompleteProfileForm } from "@/components/auth/complete-profile-form";
 import { it } from "@/i18n/it";
-import { HOME_PATH } from "@/lib/auth/access";
+import { HOME_PATH, PRIVACY_PATH } from "@/lib/auth/access";
 import { requireRole } from "@/lib/auth/current-user";
 import { safeNextPath } from "@/lib/auth/safe-next-path";
 import { createClient } from "@/lib/db/server";
@@ -29,6 +31,9 @@ export default async function CompleteProfilePage({
       {/* Margine di 16 px come le altre pagine clienti; il modulo resta stretto, a sinistra (fetta 8k). */}
       <h1 className="font-display text-4xl leading-tight">{t.title}</h1>
       <p className="text-sm text-muted-foreground">{t.intro}</p>
+      <Link href={PRIVACY_PATH} className={secondaryLinkClass}>
+        {t.privacyLink}
+      </Link>
       <div className="w-full max-w-sm">
         <CompleteProfileForm
           fullName={profile?.full_name ?? ""}

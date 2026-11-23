@@ -5,7 +5,7 @@ import { NextBookingTicket } from "@/components/booking/next-booking-ticket";
 import { InstallBanner } from "@/components/pwa/install-banner";
 import { it } from "@/i18n/it";
 import { fillText } from "@/lib/admin/text";
-import { STAFF_LOGIN_PATH } from "@/lib/auth/access";
+import { PRIVACY_PATH, STAFF_LOGIN_PATH } from "@/lib/auth/access";
 import { getCurrentUser, getVerifiedUserId } from "@/lib/auth/current-user";
 import { formatTime, mapsHref, telHref } from "@/lib/booking/format";
 import { BOOK_PATH, MY_BOOKINGS_PATH } from "@/lib/booking/paths";
@@ -21,7 +21,7 @@ const t = it.home;
 
 // Home (SPEC §5.1): testata del negozio con lo stato di apertura, prossima prenotazione del
 // cliente, "Prenota", orari della settimana, indirizzo e telefono (docs/DESIGN.md).
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ account?: string }> }) {
   // La prossima prenotazione (RLS: solo le proprie) parte appena getUser() ha verificato l'utente,
   // insieme alla lettura del profilo; si mostra solo se il profilo dice che è un cliente.
   const [user, shop, opening, nextBooking] = await Promise.all([
@@ -30,6 +30,8 @@ export default async function HomePage() {
     getOpeningData(),
     loadNextBooking(),
   ]);
+  // Dopo l'eliminazione dell'account (fetta 9b): sessione già chiusa, solo il messaggio.
+  const accountDeleted = (await searchParams).account === "eliminato";
   const next = user?.role === "customer" ? nextBooking : null;
   // Fuso orario sempre dalle impostazioni: senza impostazioni niente stato, orari né data.
   const timezone = shop?.timezone ?? null;
@@ -43,6 +45,11 @@ export default async function HomePage() {
   return (
     <>
       <main className="flex flex-1 flex-col">
+        {accountDeleted && (
+          <p role="status" className="mx-auto w-full max-w-xl border-b border-line px-4 py-3 text-sm">
+            {t.accountDeleted}
+          </p>
+        )}
         <section className="on-ink relative overflow-hidden bg-marble text-on-marble">
           <HeroBackground />
           {/* Il marmo sfuma nel fondo invece di finire con un taglio netto (fetta 8k, docs/DESIGN.md). */}
@@ -143,7 +150,10 @@ export default async function HomePage() {
         </div>
       </main>
 
-      <footer className="mx-auto w-full max-w-xl border-t border-line px-4 py-2">
+      <footer className="mx-auto flex w-full max-w-xl flex-wrap gap-x-6 border-t border-line px-4 py-2">
+        <Link href={PRIVACY_PATH} className={secondaryLinkClass}>
+          {t.privacyLink}
+        </Link>
         <Link href={STAFF_LOGIN_PATH} className={secondaryLinkClass}>
           {it.auth.customerLogin.staffLink}
         </Link>

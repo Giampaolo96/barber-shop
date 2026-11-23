@@ -47,6 +47,14 @@ export const completeProfileSchema = z.object({
   marketingConsent: z.boolean().default(false),
 });
 
+// /profilo (fetta 9b): nome e telefono con le stesse regole, marketing revocabile. Il consenso
+// privacy non passa di qui: si dà su /profilo/completa o /profilo/consenso.
+export const profileUpdateSchema = completeProfileSchema.pick({
+  fullName: true,
+  phone: true,
+  marketingConsent: true,
+});
+
 /** Tipi di link email ammessi: magic link e conferma del primo accesso. */
 export const EMAIL_LINK_TYPES = ["email", "magiclink", "signup"] as const;
 
